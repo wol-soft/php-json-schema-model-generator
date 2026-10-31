@@ -156,7 +156,7 @@ The ``items`` keyword also accepts the boolean literals ``true`` and ``false``.
 
 .. hint::
 
-    The items may be transformed by a filter (eg. ``dateTime``), also if they are declared inside a branch of a composition, as tuple items or ``unevaluatedItems`` or inside nested arrays (arrays which are items of an array). The array then contains the transformed items. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+    The items may be transformed by a filter (eg. ``dateTime``), also if they are declared inside a branch of a composition, as tuple items or ``unevaluatedItems`` or inside nested arrays (arrays which are items of an array). The ``unevaluatedItems`` of a nested array can't be filtered if serialization is enabled. The array then contains the transformed items. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
 
 Tuples
 ------
@@ -482,6 +482,61 @@ warning, and skips ``unevaluatedItems`` entirely:
 Unlike ``additionalProperties`` on objects, the
 `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no
 effect on arrays: an index past a tuple stays subject to ``unevaluatedItems``.
+
+Nested arrays
+^^^^^^^^^^^^^
+
+``unevaluatedItems`` may be declared for any array, also for an array which is an item of another
+array (``items``, a tuple index, ``additionalItems``, ``contains`` or ``unevaluatedItems`` of the outer
+array) or the value of an additional, pattern or unevaluated property of an object. Each of these
+arrays is evaluated on its own: the indices which are evaluated in one inner array (by its tuple,
+its ``contains``, its composition branches or by ``unevaluatedItems`` itself) are never evaluated in
+another inner array or in the outer array.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "items": [
+                        {
+                            "type": "integer"
+                        }
+                    ],
+                    "unevaluatedItems": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+
+Valid is ``[[1, "a"], [2]]`` and ``[[1, "a", "b"], [2, "c"]]``, whereas ``[[1, "a", "b"], [2, 3]]`` is
+invalid: the integer ``3`` at the index 1 of the second inner array is not evaluated by the tuple of
+that array, the strings evaluated in the first inner array don't count. The errors of the inner arrays are
+reported by the exception of the outer array:
+
+.. code-block:: none
+
+    Invalid items in array 'example':
+      - invalid item #1
+        * Invalid unevaluated items in array 'example':
+          - invalid unevaluated item #1
+            * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+
+The elements of an array which are objects are validated by a class of their own which evaluates
+the keyword inside the object.
+
+.. warning::
+
+    A transforming filter inside the ``unevaluatedItems`` of a nested array can't be serialized and
+    is rejected at generation time if serialization is enabled, see
+    `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
 
 .. note::
 

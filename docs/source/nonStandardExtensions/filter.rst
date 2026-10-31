@@ -293,7 +293,7 @@ The branches may also use the same transforming filter with different options (e
 Filters on array items
 ^^^^^^^^^^^^^^^^^^^^^^
 
-A transforming filter may be applied to the items of an array: to the schema of ``items``, to a single index of a tuple-form ``items`` or to ``unevaluatedItems``. The transformed items are stored in the property, so the getter returns the transformed values. Like for any other property an already transformed item is accepted as input (the setter of the array and the constructor accept a ``DateTime`` object as well as a date string) and the serialization applies the serializer of the filter to each transformed item (also if the items are arrays themselves, see `Nested arrays`_):
+A transforming filter may be applied to the items of an array: to the schema of ``items``, to a single index of a tuple-form ``items`` or to ``unevaluatedItems`` (for the limit of ``unevaluatedItems`` in nested arrays see the end of this section). The transformed items are stored in the property, so the getter returns the transformed values. Like for any other property an already transformed item is accepted as input (the setter of the array and the constructor accept a ``DateTime`` object as well as a date string) and the serialization applies the serializer of the filter to each transformed item (also if the items are arrays themselves, see `Nested arrays`_):
 
 .. code-block:: json
 
@@ -406,9 +406,13 @@ A ``not`` branch and the ``if`` condition of an ``if``/``then``/``else`` only de
     A filter keyword inside the array items of a 'not' composition branch is not supported for property 'dates' in file <file>
     A filter keyword inside the array items of the 'if' condition of an 'if/then/else' composition is not supported for property 'dates' in file <file>
 
-.. warning::
+``unevaluatedItems`` declared for an array which is itself an item of another array (or the value of an additional or pattern property) is evaluated for each of these arrays on its own, see `Unevaluated Items <../complexTypes/array.html#nested-arrays>`__. The filter of such an ``unevaluatedItems`` transforms the items of the array it is declared for, but it can't be serialized: the serialization applies the serializer of the filter to the indices ``unevaluatedItems`` evaluated, and the model only keeps these indices for the arrays which are properties of the model. If serialization is enabled, a transforming filter inside the ``unevaluatedItems`` of an array which is not a property of the model is rejected with a ``SchemaException`` at generation time instead of serializing the transformed items as empty arrays:
 
-    ``unevaluatedItems`` declared for an array which is itself an item of another array is not supported yet. The generated model fails with an error when such a value is validated, as the evaluation of ``unevaluatedItems`` is only generated for the arrays which are properties of a model. This is independent of filters, a filter inside such an ``unevaluatedItems`` isn't serialized either.
+.. code-block:: text
+
+    Transforming filter 'dateTime' in the unevaluatedItems of the nested array 'dates' can't be serialized in file <file>: the evaluated indices are only kept for the array properties of the model
+
+Without serialization the filter works for the nested array like for any other array. A filter inside the ``items`` of such a nested array is serialized as described above.
 
 Exceptions from filter
 ----------------------
