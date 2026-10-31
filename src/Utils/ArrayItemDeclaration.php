@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
@@ -21,12 +22,17 @@ final readonly class ArrayItemDeclaration
      *                          branches of an allOf are always active.
      */
     public function __construct(
-        public ArrayItemValidator|ArrayTupleValidator|UnevaluatedItemsValidator $validator,
+        public ArrayItemValidator|ArrayTupleValidator|AbstractUnevaluatedItemsValidator $validator,
         public bool $conditional,
     ) {}
 
     /**
      * The properties which validate the items, in index order for tuple-form items.
+     *
+     * `unevaluatedItems: false` contributes none: the `false` form rejects the indices left over
+     * instead of validating them against a subschema, so it owns no item property to filter,
+     * serialize or type-check. It is still a declaration — it reads the same evaluated-index slot
+     * as the schema form, which is what the slot's per-pass reset keys off.
      *
      * @return PropertyInterface[]
      */
@@ -35,7 +41,8 @@ final readonly class ArrayItemDeclaration
         return match (true) {
             $this->validator instanceof ArrayItemValidator => [$this->validator->getNestedProperty()],
             $this->validator instanceof ArrayTupleValidator => $this->validator->getTupleProperties(),
-            default => [$this->validator->getValidationProperty()],
+            $this->validator instanceof UnevaluatedItemsValidator => [$this->validator->getValidationProperty()],
+            default => [],
         };
     }
 }

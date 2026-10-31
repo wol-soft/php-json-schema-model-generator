@@ -14,7 +14,7 @@ use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedItemsValidator;
 
 /**
  * Finds the validators which validate the items of an array property and decides which of them filter the items.
@@ -233,7 +233,7 @@ class ArrayItemFilterScope
             if (
                 $validator instanceof ArrayItemValidator
                 || $validator instanceof ArrayTupleValidator
-                || $validator instanceof UnevaluatedItemsValidator
+                || $validator instanceof AbstractUnevaluatedItemsValidator
             ) {
                 $declarations[] = new ArrayItemDeclaration($validator, $conditional);
 
@@ -297,7 +297,10 @@ class ArrayItemFilterScope
         $path[$identity] = true;
 
         foreach (self::declarationsOf($arrayProperty) as $declaration) {
-            if (!$includeUnevaluatedItems && $declaration->validator instanceof UnevaluatedItemsValidator) {
+            if (
+                !$includeUnevaluatedItems
+                && $declaration->validator instanceof AbstractUnevaluatedItemsValidator
+            ) {
                 continue;
             }
 
@@ -344,6 +347,9 @@ class ArrayItemFilterScope
         $slotProperties = match (true) {
             $declaration->validator instanceof ArrayItemValidator => [self::SCHEMA_FORM_SLOT => $itemProperties[0]],
             $declaration->validator instanceof ArrayTupleValidator => $itemProperties,
+            // `unevaluatedItems: false` owns no item property: it rejects the leftover indices
+            // rather than validating them against a subschema, so there is no slot to filter.
+            $itemProperties === [] => [],
             default => [self::UNEVALUATED_SLOT => $itemProperties[0]],
         };
 
