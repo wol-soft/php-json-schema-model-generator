@@ -42,11 +42,12 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
                 // `items: false` means the array must be empty. MaxItemsException's constructor
                 // requires both the maxItems limit and the actual count of the offending array
                 // — define $count via the expression so the validator can pass it as the fifth
-                // constructor argument alongside the literal 0 maxItems.
+                // constructor argument alongside the literal 0 maxItems. The type guard skips a
+                // property which isn't provided (null with implicit null), like the maxItems check.
                 $property->addValidator(
                     (new PropertyValidator(
                         $property,
-                        '($count = count($value)) > 0',
+                        'is_array($value) && ($count = count($value)) > 0',
                         MaxItemsException::class,
                         [0, '&$count'],
                     ))->withJsonPointer($itemsPointer),
@@ -132,7 +133,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         $property->addValidator(
             (new PropertyValidator(
                 $property,
-                '($amount = count($value)) > ' . $expectedAmount,
+                'is_array($value) && ($amount = count($value)) > ' . $expectedAmount,
                 AdditionalTupleItemsException::class,
                 [$expectedAmount, '&$amount'],
             ))->withJsonPointer($additionalItemsPointer),

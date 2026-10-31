@@ -107,6 +107,21 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
+    /**
+     * With implicit null the validators run for a property which isn't provided: the amount of the items must only be
+     * checked for an array.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testDisabledAdditionalItemsAcceptAMissingProperty(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'TupleArrayNoAdditionalItems.json',
+            implicitNull: $implicitNull,
+        );
+
+        $this->assertNull((new $className([]))->getProperty());
+    }
+
     #[DataProvider('invalidTupleArrayDataProvider')]
     public function testInvalidValuesForTupleArrayThrowsAnException(
         GeneratorConfiguration $configuration,
@@ -465,7 +480,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => [1, ['b']]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #1
@@ -477,7 +492,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', 'b']],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -489,7 +504,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b', [1]]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -505,7 +520,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => [1, [2, [3]]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #1
@@ -574,7 +589,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['x', 'a', []]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #1
@@ -585,7 +600,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => [[[], 1, []], 'a', []]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #1
@@ -598,7 +613,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => [[], 'a', [[], 'c', 5]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #3
@@ -626,7 +641,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['chain' => [1, [1]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'chain':
               - invalid tuple #1
@@ -638,7 +653,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['chain' => ['a', ['x']]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'chain':
               - invalid tuple #2
@@ -652,7 +667,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['chain' => ['a', [1, ['b', ['x']]]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'chain':
               - invalid tuple #2
@@ -691,7 +706,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b', ['c'], 'extra']]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -729,7 +744,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b', ['c'], 'x']]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -765,7 +780,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b', [1]], 5]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -786,7 +801,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b'], ['c', [2]]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #3
@@ -832,7 +847,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['tree' => ['a', ['b', ['c'], 'extra']]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'tree':
               - invalid tuple #2
@@ -859,7 +874,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['first' => [1, 1]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'first':
               - invalid tuple #1
@@ -870,20 +885,13 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['second' => [1, 1]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'second':
               - invalid tuple #1
                 * Invalid type for 'tuple item #0 of array first': requires 'string', got 'integer'
             MSG,
         );
-    }
-
-    private function getExpectedExceptionClass(
-        GeneratorConfiguration $configuration,
-        string $exceptionClass = InvalidTupleException::class,
-    ): string {
-        return $configuration->collectErrors() ? ErrorRegistryException::class : $exceptionClass;
     }
 
     /**
@@ -896,7 +904,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
     ): void {
         $className = $this->generateClassFromFile('NestedTupleArray.json', $configuration);
-        $expectedException = $this->getExpectedExceptionClass($configuration);
+        $expectedException = $this->getExpectedExceptionClass($configuration, InvalidTupleException::class);
 
         $object = new $className(['pair' => [['a', 1], 'b']]);
         $this->assertSame([['a', 1], 'b'], $object->getPair());
@@ -1076,7 +1084,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['pair' => ['not an integer', [1]]],
-            $this->getExpectedExceptionClass($configuration),
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
             <<<'MSG'
             Invalid tuple item in array 'pair':
               - invalid tuple #1
