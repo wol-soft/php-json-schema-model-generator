@@ -496,4 +496,71 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->generateClassFromFile('TupleWithBooleanSchema.json');
     }
+
+    /**
+     * Known gap: a tuple array with a schema as additionalItems crashes when the property is not provided and
+     * implicit null is enabled. The additional items validator runs on the null value of the missing property
+     * (array_keys() rejects null) instead of being skipped like the other validators of the property.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
+     * then has to assert that the model is created.
+     */
+    public function testKnownGapSchemaAdditionalItemsCrashForAMissingPropertyWithImplicitNull(): void
+    {
+        $className = $this->generateClassFromFile('TupleArraySchemaAdditionalItems.json');
+
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessage('array_keys(): Argument #1 ($array) must be of type array, null given');
+
+        new $className([]);
+    }
+
+    /**
+     * Known gap: an array with tuple items at a tuple index of another tuple array resets the errors the outer tuple
+     * collected so far. The set up of the inner tuple validator assigns the variable which the closure of the outer
+     * tuple validator captured by reference. An invalid tuple item before the inner array is accepted.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
+     * then has to assert that the invalid item is rejected.
+     */
+    public function testKnownGapTupleArrayAtATupleIndexResetsTheErrorsOfTheOuterTuple(): void
+    {
+        $className = $this->generateClassFromFile('TupleAtATupleIndex.json');
+
+        // Index 0 has to be an integer
+        $object = new $className(['pair' => ['not an integer', [1]]]);
+
+        $this->assertSame(['not an integer', [1]], $object->getPair());
+    }
+
+    /**
+     * Known gap: a tuple array as the schema of contains raises a warning. The closure of the contains validator
+     * doesn't capture $modelData, which the closure of the inner tuple validator captures.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
+     * then has to assert that no warning is raised.
+     */
+    public function testKnownGapTupleArrayAsContainsSchemaRaisesAWarning(): void
+    {
+        $className = $this->generateClassFromFile('TupleAsContainsSchema.json');
+
+        $warnings = [];
+        set_error_handler(
+            static function (int $severity, string $message) use (&$warnings): bool {
+                $warnings[] = $message;
+
+                return true;
+            },
+            E_WARNING,
+        );
+
+        try {
+            $object = new $className(['containsSlot' => [['a']]]);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([['a']], $object->getContainsSlot());
+        $this->assertSame(['Undefined variable $modelData'], $warnings);
+    }
 }

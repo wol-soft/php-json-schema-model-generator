@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "containsSlot": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ]
+      }
+    }
+  }
+}
