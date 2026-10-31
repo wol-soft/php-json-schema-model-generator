@@ -15,18 +15,25 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class ArrayTupleValidator
+ * Validates the positions of a tuple-form `items` list, each by the property of the same index.
  *
- * @package PHPModelGenerator\Model\Validator
+ * Extracted into a method of its own, like ArrayItemValidator: a tuple property may reference the array which owns the
+ * tuple (`items: [{"type": "string"}, {"$ref": "#/definitions/node"}]` inside the definition `node`). Rendered inline,
+ * the validators of such a tuple property would contain the very validator being rendered and the rendering would never
+ * terminate. As an extracted method the self reference is a method call.
+ *
+ * Extracting only the tuples which are actually recursive was rejected: the cycle may run over any number of
+ * definitions and compositions and is only known once every reference is resolved, whereas the validator has to be
+ * either an extracted one or an inline one when it is created.
  */
-class ArrayTupleValidator extends PropertyTemplateValidator
+class ArrayTupleValidator extends ExtractedMethodValidator
 {
     /** @var PropertyInterface[] */
     private array $tupleProperties;
+    private string $ownerName;
+    private string $ownerMethodName;
 
     /**
-     * ArrayTupleValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -55,8 +62,10 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         }
 
         $this->resolve();
+        $this->ownerName = $propertyName;
 
         parent::__construct(
+            $schemaProcessor->getGeneratorConfiguration(),
             new Property($propertyName, null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
@@ -67,7 +76,30 @@ class ArrayTupleValidator extends PropertyTemplateValidator
             ],
             InvalidTupleException::class,
             ['&$invalidTuples'],
+            $schema,
         );
+
+        $this->ownerMethodName = $this->extractedMethodName;
+    }
+
+    /**
+     * A definition referenced by several properties shares this validator, every reference site validates with a
+     * clone bound to the property of the site. The exception rendered into the extracted method names the bound
+     * property, so each property needs a method of its own: a method shared by all sites would report the property
+     * which was rendered first for all of them. The name derives from the name of the property only, so it is stable
+     * between generation runs and repeated clones for the same site share one method.
+     *
+     * @inheritDoc
+     */
+    public function withProperty(PropertyInterface $property): PropertyValidatorInterface
+    {
+        /** @var self $clone */
+        $clone = parent::withProperty($property);
+        $clone->extractedMethodName = $property->getName() === $this->ownerName
+            ? $this->ownerMethodName
+            : $this->ownerMethodName . '_' . substr(md5($property->getName()), 0, 8);
+
+        return $clone;
     }
 
     /**

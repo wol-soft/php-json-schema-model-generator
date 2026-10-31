@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use DateTime;
+use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -14,6 +18,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -435,6 +440,549 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             'one level nested - invalid nested first tuple' => [['abc', [1, 'def']]],
             'one level nested - invalid nested second tuple' => [['abc', ['abc', 1]]],
         ];
+    }
+
+    /**
+     * A tuple item which references the array owning the tuple: the validation of the tuple calls itself for the
+     * nested array. The generator must terminate and every level of the nesting is validated.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayDirectReference.json', $configuration);
+
+        foreach (
+            [
+                [],
+                ['a'],
+                ['a', []],
+                ['a', ['b', ['c']]],
+                ['a', ['b', ['c', ['d', ['e', ['f']]]]]],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+            $this->assertSame(['tree' => $tree], $object->meta()->rawInput());
+        }
+
+        // the wrong type at index 0 of the outer array
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [1, ['b']]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array tree': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // the nested array is no array
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', 'b']],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid type for 'tuple item #1 of array tree': requires 'array', got 'string'
+            MSG,
+        );
+
+        // an invalid value three levels deep: the error is nested into the errors of each level above
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', [1]]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // invalid values on several levels are all reported
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [1, [2, [3]]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array tree': requires 'string', got 'integer'
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    public function testSetterOfAPropertyWithATupleArrayWhichReferencesItselfRejectsInvalidValues(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleArrayDirectReference.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['tree' => ['a', ['b']]]);
+
+        $object->setTree(['c', ['d', ['e']]]);
+        $this->assertSame(['c', ['d', ['e']]], $object->getTree());
+
+        $exception = $this->catchException(static fn() => $object->setTree(['c', ['d', [1]]]));
+
+        $this->assertInstanceOf(ErrorRegistryException::class, $exception);
+        $this->assertSame(
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+            MSG,
+            $exception->getMessage(),
+        );
+        $this->assertSame(['c', ['d', ['e']]], $object->getTree());
+    }
+
+    /**
+     * The tuple references the array at the first and at the last index (a binary tree: left, value, right).
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfAtMultipleIndices(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayAtFirstAndLastIndex.json', $configuration);
+
+        foreach (
+            [
+                [],
+                [[], 'a', []],
+                [[[], 'b', []], 'a', [[], 'c', [[], 'd', []]]],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['x', 'a', []]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array tree': requires 'array', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [[[], 1, []], 'a', []]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #1
+                * Invalid tuple item in array 'tuple item #0 of array tree':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tuple item #0 of array tree': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [[], 'a', [[], 'c', 5]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #3
+                * Invalid tuple item in array 'tuple item #2 of array tree':
+                  - invalid tuple #3
+                    * Invalid type for 'tuple item #2 of array tuple item #0 of array tree': requires 'array', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * Two definitions reference each other: the cycle runs over two tuples.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMutuallyRecursiveTupleArrays(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('MutuallyRecursiveTupleArrays.json', $configuration);
+
+        foreach ([[], ['a'], ['a', [1]], ['a', [1, ['b', [2, ['c']]]]]] as $chain) {
+            $object = new $className(['chain' => $chain]);
+            $this->assertSame($chain, $object->getChain());
+        }
+
+        // the first level of the chain requires a string at index 0
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => [1, [1]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'chain':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array chain': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // the second level of the chain requires an integer at index 0
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a', ['x']]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'chain':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array chain':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tuple item #1 of array chain': requires 'int', got 'string'
+            MSG,
+        );
+
+        // the third level requires a string again, the fourth level an integer
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a', [1, ['b', ['x']]]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'chain':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array chain':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array chain':
+                      - invalid tuple #2
+                        * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tuple item #1 of array chain':
+                          - invalid tuple #1
+                            * Invalid type for 'tuple item #0 of array tuple item #1 of array chain': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    /**
+     * The recursive tuple forbids additional items: the limit applies on every level.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfWithDisabledAdditionalItems(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayNoAdditionalItems.json', $configuration);
+
+        foreach ([[], ['a'], ['a', ['b', ['c']]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b'], 'extra']],
+            $this->getExpectedExceptionClass($configuration, AdditionalTupleItemsException::class),
+            "Tuple array 'tree' contains not allowed additional items: expected 2 items, got 3",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c'], 'extra']]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Tuple array 'tuple item #1 of array tree' contains not allowed additional items: expected 2 items, got 3
+            MSG,
+        );
+    }
+
+    /**
+     * The recursive tuple validates additional items by a schema (which doesn't reference the array): the schema applies
+     * on every level.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfWithAdditionalItemsSchema(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayAdditionalItemsSchema.json', $configuration);
+
+        foreach ([[], ['a'], ['a', ['b', ['c'], 1, 2], 3]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b'], 'x']],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'tree' contains invalid additional items
+              - invalid additional item '2'
+                * Invalid type for 'additional item': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c'], 'x']]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Tuple array 'tuple item #1 of array tree' contains invalid additional items
+                  - invalid additional item '2'
+                    * Invalid type for 'additional item': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    /**
+     * The recursion runs over the branches of compositions at tuple indices (allOf at index 1, anyOf at index 2).
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfThroughCompositionBranches(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayThroughComposition.json', $configuration);
+
+        foreach (
+            [
+                [],
+                ['a'],
+                ['a', ['b']],
+                ['a', ['b'], 5],
+                ['a', ['b', ['c'], 1], ['d', ['e'], ['f']]],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', [1]], 5]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #1 of array tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tuple item #1 of array tree' declined by composition constraint
+                          Requires to match all composition elements but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b'], ['c', [2]]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #3
+                * Invalid value for 'tuple item #2 of array tree' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #2 of array tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tuple item #1 of array tree' declined by composition constraint
+                          Requires to match all composition elements but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Invalid type for 'tuple item #2 of array tree': requires 'int', got 'array'
+            MSG,
+        );
+    }
+
+    /**
+     * The items not covered by the tuple are unevaluated and rejected on every level of the recursion.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayWhichReferencesItselfWithDisabledUnevaluatedItems(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RecursiveTupleArrayUnevaluatedItems.json', $configuration);
+
+        foreach ([[], ['a'], ['a', ['b', ['c']]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b'], 'extra']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#2]",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c'], 'extra']]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Provided JSON for 'tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+    }
+
+    /**
+     * Properties which reference the same tuple array definition share its validation. The error of each property
+     * names the property which was validated, not the property which happened to be generated first. The items of the
+     * tuple are shared between the properties and keep the name of the first property.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testPropertiesReferencingTheSameTupleArrayDefinitionReportTheirOwnName(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('SharedTupleArrayDefinition.json', $configuration);
+
+        $object = new $className(['first' => ['a', 1], 'second' => ['b', 2]]);
+        $this->assertSame(['a', 1], $object->getFirst());
+        $this->assertSame(['b', 2], $object->getSecond());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['first' => [1, 1]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'first':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array first': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['second' => [1, 1]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'second':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array first': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    private function getExpectedExceptionClass(
+        GeneratorConfiguration $configuration,
+        string $exceptionClass = InvalidTupleException::class,
+    ): string {
+        return $configuration->collectErrors() ? ErrorRegistryException::class : $exceptionClass;
+    }
+
+    /**
+     * The errors of a tuple which is nested directly in a tuple are reported once, at the position of the nested
+     * tuple. The validation of the nested tuple must not share its list of invalid tuples with the outer tuple: errors
+     * of the nested tuple would otherwise show up a second time as errors of an index of the outer tuple.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testErrorsOfATupleNestedInATupleAreReportedOnceAtTheirOwnLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('NestedTupleArray.json', $configuration);
+        $expectedException = $this->getExpectedExceptionClass($configuration);
+
+        $object = new $className(['pair' => [['a', 1], 'b']]);
+        $this->assertSame([['a', 1], 'b'], $object->getPair());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['pair' => [['a', 'x'], 'b']],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid tuple item in array 'tuple item #0 of array pair':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tuple item #0 of array pair': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['pair' => [[1, 'x'], 5]],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid tuple item in array 'tuple item #0 of array pair':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tuple item #0 of array pair': requires 'string', got 'integer'
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tuple item #0 of array pair': requires 'int', got 'string'
+              - invalid tuple #2
+                * Invalid type for 'tuple item #1 of array pair': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * An array which is shorter than its tuple ends the validation of the tuple early. Collecting the errors of the
+     * indices must not leave the model with the registry of the last validated index: errors collected before (by a
+     * property processed earlier) would be lost, errors of the tuple itself would be reported twice.
+     */
+    public function testErrorsAroundAShorterThanTupleArrayAreNeitherLostNorDuplicatedWhenCollectingErrors(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ShortTupleArrayWithSiblingProperty.json',
+            new GeneratorConfiguration(),
+        );
+
+        foreach ([[], ['a'], ['a', 'b']] as $pair) {
+            $object = new $className(['number' => 1, 'pair' => $pair]);
+            $this->assertSame($pair, $object->getPair());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['number' => 'x', 'pair' => ['a']],
+            ErrorRegistryException::class,
+            "Invalid type for 'number': requires 'int', got 'string'",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['number' => 1, 'pair' => [2]],
+            ErrorRegistryException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array pair': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['number' => 'x', 'pair' => [2]],
+            ErrorRegistryException::class,
+            <<<'MSG'
+            Invalid type for 'number': requires 'int', got 'string'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array pair': requires 'string', got 'integer'
+            MSG,
+        );
     }
 
     /**

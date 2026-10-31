@@ -8,6 +8,10 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
         // ---------------- validate a single tuple of the array ------------------
         try {
             if ($index === count($items)) {
+                {% if generatorConfiguration.collectErrors() %}
+                    $this->_errorRegistry = $originalErrorRegistry;
+                {% endif %}
+
                 return !empty($invalidTuples);
             }
 
