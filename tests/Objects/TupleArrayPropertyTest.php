@@ -21,11 +21,6 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class TupleArrayPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {

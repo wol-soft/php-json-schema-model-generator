@@ -127,7 +127,7 @@ class ArrayTupleValidator extends ExtractedMethodValidator
     }
 
     /**
-     * Initialize all variables which are required to execute a property names validator
+     * The list the template fills with the violations of each tuple index and the exception reports.
      */
     public function getValidatorSetUp(): string
     {
