@@ -216,10 +216,8 @@ class ObjectShapeResolverTest extends TestCase
                 ObjectShape::NotObject,
             ],
 
-            // 'dependencies' is the single entry in UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS: it is
-            // consumed through a side channel and never registered on the Draft's object Type, so
-            // it cannot be derived from Type::getModifiers() the way every other describing
-            // keyword is. Without its hardcoded entry these rows would classify NotObject.
+            // 'dependencies' is registered on the Draft 7 object Type like every other describing
+            // keyword, so it is derived from Type::getModifiers().
             'dependencies only' => [
                 ['dependencies' => ['creditCard' => ['billingAddress']]],
                 ObjectShape::ObjectDescribing,

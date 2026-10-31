@@ -8,19 +8,14 @@ use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
-use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PropertyDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
-#[ApplicableDrafts]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validPropertyDependencyDataProvider')]
@@ -334,5 +329,375 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
         $this->assertSame(['kind' => 'k', 'note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
+    }
+
+    /**
+     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
+     * silently dropped by PropertiesValidatorFactory instead of being enforced, because the
+     * dependency-attaching code only ran inside the loop over declared `properties` entries.
+     *
+     * Also asserts that both the trigger and each array-form dependency target are synthesised
+     * onto the generated class with mixed type hints when absent from the schema's `properties`
+     * block. If a target were already declared in `properties` its declared type would apply
+     * instead; this fixture exercises the fully-undeclared case.
+     */
+    public function testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('UndeclaredTriggerPropertyDependency.json');
+
+        // Valid: no trigger present, dependency not enforced; both synthesised properties readable
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and dependency satisfied; both accessors return correct values
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but required dependent property absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * When array-form dependency targets are already declared elsewhere — directly in `properties`
+     * or through a composition branch — the synthesised trigger carries a mixed type hint while
+     * each target inherits its type from its prior declaration rather than being re-synthesised
+     * as mixed. Covers root-property narrowing (billing_address typed as string) and composition
+     * narrowing (name typed as string via allOf).
+     */
+    public function testArrayFormDependencyTargetsInheritDeclaredTypesWhenAlreadyPresent(): void
+    {
+        $className = $this->generateClassFromFile('NarrowedTargetPropertyDependency.json');
+
+        // Valid: no trigger; all properties readable with their declared types
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+        $this->assertNull($object->getName());
+
+        // Valid: trigger present and both targets satisfied
+        $object = new $className(['credit_card' => 'any', 'billing_address' => 'addr', 'name' => 'John']);
+        $this->assertSame('any', $object->getCreditCard());
+        $this->assertSame('addr', $object->getBillingAddress());
+        $this->assertSame('John', $object->getName());
+
+        // Invalid: trigger present but both targets absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'\n  - 'name'",
+        );
+
+        new $className(['credit_card' => 'any']);
+    }
+
+    /**
+     * When an array-form dependency trigger is declared in `properties` but its target is not
+     * declared anywhere in the schema, the target must be synthesised as a mixed-typed property
+     * so its value is readable via the generated accessor. The dependency enforcement already
+     * works today (PropertyDependencyValidator is attached because the trigger is found); the
+     * defect is the missing getter for the undeclared target.
+     */
+    public function testArrayFormUndeclaredDependencyTargetIsSynthesisedAsMixed(): void
+    {
+        $className = $this->generateClassFromFile('DeclaredTriggerUndeclaredTargetPropertyDependency.json');
+
+        // Valid: no trigger; synthesised target accessor returns null
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and target satisfied; both values readable
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but target absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * With `additionalProperties: false` an undeclared trigger can never be part of the input (the key is
+     * rejected as an additional property), so its dependency is vacuous. Generating it would add a public
+     * accessor pair for a key the model always rejects: the dependency is skipped and a warning is logged.
+     */
+    public function testUndeclaredTriggerIsSkippedWithWarningWhenAdditionalPropertiesIsFalse(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'UndeclaredTriggerNoAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertSame(
+            1,
+            $this->countUnreachableDependencyWarnings(
+                $recordingLogger,
+                'credit_card',
+                'additionalProperties: false rejects the undeclared key',
+            ),
+        );
+        $this->assertCount(1, $this->getWarnings($recordingLogger));
+
+        // no accessors are generated for the unreachable trigger and its target
+        $this->assertFalse(method_exists($className, 'getCreditCard'));
+        $this->assertFalse(method_exists($className, 'getBillingAddress'));
+
+        $object = new $className(['name' => 'John']);
+        $this->assertSame('John', $object->getName());
+
+        // the key is rejected by additionalProperties, not by a dependency
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['credit_card' => 12345],
+            AdditionalPropertiesException::class,
+            "Provided JSON for '%class%' contains not allowed additional properties ['credit_card']",
+        );
+    }
+
+    /**
+     * The `denyAdditionalProperties()` configuration flips a missing `additionalProperties` to false, so an
+     * undeclared trigger is unreachable exactly as with an explicit `additionalProperties: false`.
+     */
+    public function testUndeclaredTriggerIsSkippedWithWarningWhenAdditionalPropertiesAreDeniedByConfiguration(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'UndeclaredTriggerPropertyDependency.json',
+            (new GeneratorConfiguration())
+                ->setDenyAdditionalProperties(true)
+                ->setCollectErrors(false)
+                ->setLogger($recordingLogger),
+        );
+
+        $this->assertSame(
+            1,
+            $this->countUnreachableDependencyWarnings(
+                $recordingLogger,
+                'credit_card',
+                'denyAdditionalProperties() rejects the undeclared key',
+            ),
+        );
+        $this->assertCount(1, $this->getWarnings($recordingLogger));
+
+        $this->assertFalse(method_exists($className, 'getCreditCard'));
+        $this->assertFalse(method_exists($className, 'getBillingAddress'));
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['credit_card' => 12345],
+            AdditionalPropertiesException::class,
+            "Provided JSON for '%class%' contains not allowed additional properties ['credit_card']",
+        );
+    }
+
+    /**
+     * A trigger matching a `patternProperties` regex is a legal key under `additionalProperties: false`, so
+     * its dependency can fire and must neither be skipped nor warned about.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUndeclaredTriggerMatchingPatternPropertiesIsEnforced(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'UndeclaredTriggerPatternProperties.json',
+            $configuration->setLogger($recordingLogger),
+        );
+
+        $this->assertSame([], $this->getWarnings($recordingLogger));
+
+        $object = new $className([]);
+        $this->assertNull($object->getXCard());
+
+        $object = new $className(['x_card' => '1234', 'x_address' => '555 Debitors Lane']);
+        $this->assertSame('1234', $object->getXCard());
+        $this->assertSame('555 Debitors Lane', $object->getXAddress());
+
+        $this->expectValidationError(
+            $configuration,
+            "Missing required attributes which are dependants of 'x_card':\n  - 'x_address'",
+        );
+
+        new $className(['x_card' => '1234']);
+    }
+
+    /**
+     * `additionalProperties: {schema}` and an absent `additionalProperties` accept the undeclared trigger, so
+     * the dependency is enforced and no warning is logged.
+     */
+    #[DataProvider('reachableUndeclaredTriggerFileProvider')]
+    public function testUndeclaredTriggerIsEnforcedWithoutWarningWhenTheKeyIsAccepted(string $file): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            $file,
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertSame([], $this->getWarnings($recordingLogger));
+
+        $object = new $className(['credit_card' => '1234', 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame('1234', $object->getCreditCard());
+
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+        );
+
+        new $className(['credit_card' => '1234']);
+    }
+
+    public static function reachableUndeclaredTriggerFileProvider(): array
+    {
+        return [
+            'additionalProperties with a schema' => ['UndeclaredTriggerAdditionalPropertiesSchema.json'],
+            'additionalProperties absent' => ['UndeclaredTriggerPropertyDependency.json'],
+        ];
+    }
+
+    /**
+     * Regression guard for the skip: a trigger declared in `properties` stays enforced under
+     * `additionalProperties: false`, without a warning.
+     */
+    public function testDeclaredTriggerIsEnforcedWithoutWarningWhenAdditionalPropertiesIsFalse(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DeclaredTriggerNoAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertSame([], $this->getWarnings($recordingLogger));
+
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * Skipping is decided per dependency: the unreachable one is skipped and warned about, the one on a
+     * declared property keeps being enforced.
+     */
+    public function testOnlyTheUnreachableDependencyIsSkipped(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PartiallyUnreachableDependencies.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertSame(
+            1,
+            $this->countUnreachableDependencyWarnings(
+                $recordingLogger,
+                'credit_card',
+                'additionalProperties: false rejects the undeclared key',
+            ),
+        );
+        $this->assertCount(1, $this->getWarnings($recordingLogger));
+        $this->assertFalse(method_exists($className, 'getCreditCard'));
+
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of 'name':\n  - 'nickname'",
+        );
+
+        new $className(['name' => 'John']);
+    }
+
+    /**
+     * A dependency on a key which the branch itself neither declares nor requires is enforced as part of the
+     * branch, for both dependency forms and both error modes.
+     */
+    #[DataProvider('undeclaredTriggerInAllOfBranchProvider')]
+    public function testUndeclaredTriggerInAnAllOfBranchIsEnforced(
+        GeneratorConfiguration $configuration,
+        string $dependency,
+        string $branchError,
+    ): void {
+        $className = $this->generateClassFromFileTemplate(
+            'UndeclaredTriggerInAllOfBranch.json',
+            [$dependency],
+            $configuration,
+            false,
+        );
+
+        $object = new $className(['note' => 'n', 'extra' => 'e']);
+        $this->assertSame(['note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
+
+        $object = new $className([]);
+        $this->assertSame([], $object->meta()->rawInput());
+
+        $exception = $this->catchException(static fn() => new $className(['note' => 'n']));
+
+        $this->assertInstanceOf(
+            $configuration->collectErrors() ? ErrorRegistryException::class : AllOfException::class,
+            $exception,
+        );
+        $this->assertStringContainsString($branchError, $exception->getMessage());
+    }
+
+    public static function undeclaredTriggerInAllOfBranchProvider(): array
+    {
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'property dependency' => [
+                    '["extra"]',
+                    "    * Missing required attributes which are dependants of 'note':\n      - 'extra'",
+                ],
+                'schema dependency' => [
+                    '{"required": ["extra"]}',
+                    "    * Invalid schema which is dependant on 'note':\n      - Missing required value for 'extra'",
+                ],
+            ],
+        );
+    }
+
+    private function getWarnings(RecordingLogger $recordingLogger): array
+    {
+        return array_values(
+            array_filter(
+                $recordingLogger->getEntries(),
+                static fn(array $entry): bool => $entry['level'] === 'warning',
+            ),
+        );
+    }
+
+    private function countUnreachableDependencyWarnings(
+        RecordingLogger $recordingLogger,
+        string $trigger,
+        string $reason,
+    ): int {
+        return count(
+            array_filter(
+                $this->getWarnings($recordingLogger),
+                static fn(array $entry): bool => $entry['message']
+                        === "Dependencies on '{trigger}' in class '{class}' can never apply: {reason}"
+                    && ($entry['context']['trigger'] ?? null) === $trigger
+                    && ($entry['context']['reason'] ?? null) === $reason
+                    && is_string($entry['context']['class'] ?? null),
+            ),
+        );
     }
 }
