@@ -295,6 +295,58 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidAdd
     // get the JSON pointer to the schema keyword that rejected the value
     public function getJsonPointer(): JsonPointer
 
+Recursive tuples
+^^^^^^^^^^^^^^^^
+
+A tuple item may reference the array which owns the tuple, eg. to describe a linked list or a tree written as ``[value, next]``. Each level of the nesting is validated against the tuple:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "$ref": "#/definitions/node"
+                    }
+                ]
+            }
+        },
+        "properties": {
+            "tree": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+.. code-block:: php
+
+    $example = new Example(['tree' => ['a', ['b', ['c']]]]);
+    // ['a', ['b', ['c']]]
+    $example->getTree();
+
+An invalid value on a deeper level is reported by the *InvalidTupleException* of each level above it. The exception of a level is nested into the exception of the level which contains it:
+
+.. code-block:: none
+
+    Invalid tuple item in array 'tree':
+      - invalid tuple #2
+        * Invalid tuple item in array 'tuple item #1 of array tree':
+          - invalid tuple #1
+            * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+
+The tuple items may be transformed by filters (see `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__), also on every level of a recursive tuple.
+
+.. hint::
+
+    A recursion which runs over the schema of ``additionalItems`` or ``unevaluatedItems`` (eg. ``"additionalItems": {"$ref": "#/definitions/node"}``) is not supported yet.
+
 Contains
 --------
 
