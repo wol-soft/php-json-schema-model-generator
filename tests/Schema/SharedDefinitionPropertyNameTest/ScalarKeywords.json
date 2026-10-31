@@ -1,0 +1,174 @@
+{
+  "type": "object",
+  "definitions": {
+    "constString": {
+      "const": "a"
+    },
+    "constInteger": {
+      "const": 5
+    },
+    "constList": {
+      "const": [1, 2]
+    },
+    "fruit": {
+      "enum": ["apple", "pear"]
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "letters": {
+      "type": "string",
+      "pattern": "^[a-z]+$"
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 3
+    },
+    "longText": {
+      "type": "string",
+      "maxLength": 2
+    },
+    "atLeast": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "atMost": {
+      "type": "integer",
+      "maximum": 3
+    },
+    "above": {
+      "type": "integer",
+      "exclusiveMinimum": 3
+    },
+    "below": {
+      "type": "integer",
+      "exclusiveMaximum": 3
+    },
+    "triple": {
+      "type": "integer",
+      "multipleOf": 3
+    },
+    "integerOnly": {
+      "type": "integer"
+    },
+    "integerOrText": {
+      "type": ["integer", "string"]
+    },
+    "timestamp": {
+      "type": "string",
+      "filter": "dateTime"
+    },
+    "timestamps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "filter": "dateTime"
+      }
+    }
+  },
+  "properties": {
+    "constStringA": {
+      "$ref": "#/definitions/constString"
+    },
+    "constStringB": {
+      "$ref": "#/definitions/constString"
+    },
+    "constIntegerA": {
+      "$ref": "#/definitions/constInteger"
+    },
+    "constIntegerB": {
+      "$ref": "#/definitions/constInteger"
+    },
+    "constListA": {
+      "$ref": "#/definitions/constList"
+    },
+    "constListB": {
+      "$ref": "#/definitions/constList"
+    },
+    "fruitA": {
+      "$ref": "#/definitions/fruit"
+    },
+    "fruitB": {
+      "$ref": "#/definitions/fruit"
+    },
+    "dateA": {
+      "$ref": "#/definitions/date"
+    },
+    "dateB": {
+      "$ref": "#/definitions/date"
+    },
+    "lettersA": {
+      "$ref": "#/definitions/letters"
+    },
+    "lettersB": {
+      "$ref": "#/definitions/letters"
+    },
+    "shortTextA": {
+      "$ref": "#/definitions/shortText"
+    },
+    "shortTextB": {
+      "$ref": "#/definitions/shortText"
+    },
+    "longTextA": {
+      "$ref": "#/definitions/longText"
+    },
+    "longTextB": {
+      "$ref": "#/definitions/longText"
+    },
+    "atLeastA": {
+      "$ref": "#/definitions/atLeast"
+    },
+    "atLeastB": {
+      "$ref": "#/definitions/atLeast"
+    },
+    "atMostA": {
+      "$ref": "#/definitions/atMost"
+    },
+    "atMostB": {
+      "$ref": "#/definitions/atMost"
+    },
+    "aboveA": {
+      "$ref": "#/definitions/above"
+    },
+    "aboveB": {
+      "$ref": "#/definitions/above"
+    },
+    "belowA": {
+      "$ref": "#/definitions/below"
+    },
+    "belowB": {
+      "$ref": "#/definitions/below"
+    },
+    "tripleA": {
+      "$ref": "#/definitions/triple"
+    },
+    "tripleB": {
+      "$ref": "#/definitions/triple"
+    },
+    "integerOnlyA": {
+      "$ref": "#/definitions/integerOnly"
+    },
+    "integerOnlyB": {
+      "$ref": "#/definitions/integerOnly"
+    },
+    "integerOrTextA": {
+      "$ref": "#/definitions/integerOrText"
+    },
+    "integerOrTextB": {
+      "$ref": "#/definitions/integerOrText"
+    },
+    "timestampA": {
+      "$ref": "#/definitions/timestamp"
+    },
+    "timestampB": {
+      "$ref": "#/definitions/timestamp"
+    },
+    "timestampsA": {
+      "$ref": "#/definitions/timestamps"
+    },
+    "timestampsB": {
+      "$ref": "#/definitions/timestamps"
+    }
+  }
+}

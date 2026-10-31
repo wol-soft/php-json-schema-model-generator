@@ -30,8 +30,6 @@ class ArrayTupleValidator extends ExtractedMethodValidator
 {
     /** @var PropertyInterface[] */
     private array $tupleProperties;
-    private string $ownerName;
-    private string $ownerMethodName;
 
     /**
      * @throws SchemaException
@@ -62,7 +60,6 @@ class ArrayTupleValidator extends ExtractedMethodValidator
         }
 
         $this->resolve();
-        $this->ownerName = $propertyName;
 
         parent::__construct(
             $schemaProcessor->getGeneratorConfiguration(),
@@ -78,28 +75,6 @@ class ArrayTupleValidator extends ExtractedMethodValidator
             ['&$invalidTuples'],
             $schema,
         );
-
-        $this->ownerMethodName = $this->extractedMethodName;
-    }
-
-    /**
-     * A definition referenced by several properties shares this validator, every reference site validates with a
-     * clone bound to the property of the site. The exception rendered into the extracted method names the bound
-     * property, so each property needs a method of its own: a method shared by all sites would report the property
-     * which was rendered first for all of them. The name derives from the name of the property only, so it is stable
-     * between generation runs and repeated clones for the same site share one method.
-     *
-     * @inheritDoc
-     */
-    public function withProperty(PropertyInterface $property): PropertyValidatorInterface
-    {
-        /** @var self $clone */
-        $clone = parent::withProperty($property);
-        $clone->extractedMethodName = $property->getName() === $this->ownerName
-            ? $this->ownerMethodName
-            : $this->ownerMethodName . '_' . substr(md5($property->getName()), 0, 8);
-
-        return $clone;
     }
 
     /**

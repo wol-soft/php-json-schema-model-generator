@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "definitions": {
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive"]
+    }
+  },
+  "properties": {
+    "first": {
+      "$ref": "#/definitions/status"
+    },
+    "second": {
+      "$ref": "#/definitions/status"
+    }
+  }
+}

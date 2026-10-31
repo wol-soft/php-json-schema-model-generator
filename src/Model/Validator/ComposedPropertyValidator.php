@@ -143,7 +143,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
         // Give the subset validator a unique extracted method name so it generates
         // its own method in the target class instead of colliding with the original.
-        $subsetValidator->extractedMethodName = $this->getExtractedMethodName() . $methodSuffix;
+        $subsetValidator->renameExtractedMethod($this->getExtractedMethodName() . $methodSuffix);
 
         // Regenerate the modifiedValuesMethod name so the subset validator's helper
         // method is distinct from the original's.

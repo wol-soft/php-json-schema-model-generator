@@ -1,0 +1,135 @@
+{
+  "type": "object",
+  "definitions": {
+    "allOfValue": {
+      "allOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "minimum": 5
+        }
+      ]
+    },
+    "anyOfValue": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "oneOfValue": {
+      "oneOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "conditionalValue": {
+      "if": {
+        "type": "integer"
+      },
+      "then": {
+        "minimum": 5
+      },
+      "else": {
+        "type": "string"
+      }
+    },
+    "notTrueValue": {
+      "not": true
+    },
+    "falseBranch": {
+      "anyOf": [
+        false,
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "listBranch": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "pairBranch": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "allOfValueA": {
+      "$ref": "#/definitions/allOfValue"
+    },
+    "allOfValueB": {
+      "$ref": "#/definitions/allOfValue"
+    },
+    "anyOfValueA": {
+      "$ref": "#/definitions/anyOfValue"
+    },
+    "anyOfValueB": {
+      "$ref": "#/definitions/anyOfValue"
+    },
+    "oneOfValueA": {
+      "$ref": "#/definitions/oneOfValue"
+    },
+    "oneOfValueB": {
+      "$ref": "#/definitions/oneOfValue"
+    },
+    "conditionalValueA": {
+      "$ref": "#/definitions/conditionalValue"
+    },
+    "conditionalValueB": {
+      "$ref": "#/definitions/conditionalValue"
+    },
+    "notTrueValueA": {
+      "$ref": "#/definitions/notTrueValue"
+    },
+    "notTrueValueB": {
+      "$ref": "#/definitions/notTrueValue"
+    },
+    "falseBranchA": {
+      "$ref": "#/definitions/falseBranch"
+    },
+    "falseBranchB": {
+      "$ref": "#/definitions/falseBranch"
+    },
+    "listBranchA": {
+      "$ref": "#/definitions/listBranch"
+    },
+    "listBranchB": {
+      "$ref": "#/definitions/listBranch"
+    },
+    "pairBranchA": {
+      "$ref": "#/definitions/pairBranch"
+    },
+    "pairBranchB": {
+      "$ref": "#/definitions/pairBranch"
+    }
+  }
+}

@@ -149,8 +149,11 @@ class EnumPostProcessor extends PostProcessor
         $enumName = $json['title']
             ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
 
+        $location = $property->getJsonSchema()->getFile() . $property->getJsonSchema()->getPointer();
+
         if (!isset($this->generatedEnums[$enumSignature])) {
             $this->generatedEnums[$enumSignature] = [
+                'location' => $location,
                 'name' => $enumName,
                 'fqcn' => $this->renderEnum(
                     $generatorConfiguration,
@@ -160,7 +163,9 @@ class EnumPostProcessor extends PostProcessor
                     $json['enum-map'] ?? null,
                 ),
             ];
-        } else {
+        } elseif ($this->generatedEnums[$enumSignature]['location'] !== $location) {
+            // The very same location is no duplicate worth a notice: each of the differently named references to a
+            // definition converts a property of its own (see SchemaDefinition::resolveReference()).
             $generatorConfiguration->getLogger()->notice(
                 'Duplicated signature {signature} for enum {enum}. Redirecting to {redirectEnum}',
                 [
@@ -320,7 +325,7 @@ class EnumPostProcessor extends PostProcessor
                 || count(array_uintersect(
                     $enumMap,
                     $sortedValues,
-                    fn($a, $b): int => $a === $b ? 0 : 1,
+                    fn($mappedValue, $enumValue): int => $mappedValue === $enumValue ? 0 : 1,
                 )) !== count($sortedValues)
             ) {
                 $throw('invalid enum map %s in file %s');

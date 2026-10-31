@@ -93,6 +93,44 @@ Draft 2019-09 introduced ``$defs`` as the standard replacement for ``definitions
         }
     }
 
+Several properties referencing a definition
+-------------------------------------------
+
+Any number of properties may reference the same definition. Each property is validated with the keywords of the
+definition and reports its own name in the validation errors:
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "tags": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "type": "object",
+        "properties": {
+            "tags": {
+                "$ref": "#/definitions/tags"
+            },
+            "keywords": {
+                "$ref": "#/definitions/tags"
+            }
+        }
+    }
+
+An invalid value for ``keywords`` results in an error which names the property ``keywords``:
+
+.. code-block:: none
+
+    Invalid items in array 'keywords':
+      - invalid item #0
+        * Invalid type for 'keywords': requires 'string', got 'integer'
+
+The class of an object definition is generated once and shared by all properties referencing the definition.
+
 Self-reference (recursive schemas)
 -----------------------------------
 

@@ -162,14 +162,23 @@ class SchemaProcessor
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
-            $this->generatorConfiguration->getLogger()->notice(
-                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
-                [
-                    'signature' => $schemaSignature,
-                    'class' => $className,
-                    'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
-                ],
-            );
+            $processedJsonSchema = $this->processedSchema[$schemaSignature]->getJsonSchema();
+
+            // The very same location is processed again when a definition is created for several differently named
+            // references (see SchemaDefinition::resolveReference()). That is no duplicate worth a notice.
+            if (
+                $processedJsonSchema->getFile() !== $jsonSchema->getFile()
+                || $processedJsonSchema->getPointer() !== $jsonSchema->getPointer()
+            ) {
+                $this->generatorConfiguration->getLogger()->notice(
+                    'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+                    [
+                        'signature' => $schemaSignature,
+                        'class' => $className,
+                        'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
+                    ],
+                );
+            }
 
             return $this->processedSchema[$schemaSignature];
         }

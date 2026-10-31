@@ -28,7 +28,7 @@ final class FilterPreTransformGuardValidator extends ExtractedMethodValidator
         private readonly string $skipCheck,
     ) {
         parent::__construct($generatorConfiguration, $property, '', [], '', []);
-        $this->extractedMethodName = 'filterPreTransformGuard_' . $inner->getExtractedMethodName();
+        $this->renameExtractedMethod('filterPreTransformGuard_' . $inner->getExtractedMethodName());
         $this->isResolved = true;
     }
 

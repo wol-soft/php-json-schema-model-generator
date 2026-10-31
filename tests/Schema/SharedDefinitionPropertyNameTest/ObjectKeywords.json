@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "definitions": {
+    "bag": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": ["value"]
+    },
+    "objectOrText": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "bagA": {
+      "$ref": "#/definitions/bag"
+    },
+    "bagB": {
+      "$ref": "#/definitions/bag"
+    },
+    "closedA": {
+      "$ref": "#/definitions/closed"
+    },
+    "closedB": {
+      "$ref": "#/definitions/closed"
+    },
+    "recordA": {
+      "$ref": "#/definitions/record"
+    },
+    "recordB": {
+      "$ref": "#/definitions/record"
+    },
+    "objectOrTextA": {
+      "$ref": "#/definitions/objectOrText"
+    },
+    "objectOrTextB": {
+      "$ref": "#/definitions/objectOrText"
+    }
+  }
+}

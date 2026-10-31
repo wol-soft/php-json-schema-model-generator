@@ -1,0 +1,125 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerList": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "recordList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "matrix": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      }
+    },
+    "pair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "schemaTail": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    },
+    "closedPair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": false
+    },
+    "containing": {
+      "type": "array",
+      "contains": {
+        "type": "integer"
+      }
+    },
+    "bounded": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "uniqueItems": true
+    }
+  },
+  "properties": {
+    "integerListA": {
+      "$ref": "#/definitions/integerList"
+    },
+    "integerListB": {
+      "$ref": "#/definitions/integerList"
+    },
+    "recordListA": {
+      "$ref": "#/definitions/recordList"
+    },
+    "recordListB": {
+      "$ref": "#/definitions/recordList"
+    },
+    "matrixA": {
+      "$ref": "#/definitions/matrix"
+    },
+    "matrixB": {
+      "$ref": "#/definitions/matrix"
+    },
+    "pairA": {
+      "$ref": "#/definitions/pair"
+    },
+    "pairB": {
+      "$ref": "#/definitions/pair"
+    },
+    "schemaTailA": {
+      "$ref": "#/definitions/schemaTail"
+    },
+    "schemaTailB": {
+      "$ref": "#/definitions/schemaTail"
+    },
+    "closedPairA": {
+      "$ref": "#/definitions/closedPair"
+    },
+    "closedPairB": {
+      "$ref": "#/definitions/closedPair"
+    },
+    "containingA": {
+      "$ref": "#/definitions/containing"
+    },
+    "containingB": {
+      "$ref": "#/definitions/containing"
+    },
+    "boundedA": {
+      "$ref": "#/definitions/bounded"
+    },
+    "boundedB": {
+      "$ref": "#/definitions/bounded"
+    }
+  },
+  "required": ["schemaTailA", "schemaTailB"]
+}

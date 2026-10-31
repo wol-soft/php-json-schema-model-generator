@@ -619,7 +619,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
               - invalid tuple #3
                 * Invalid tuple item in array 'tuple item #2 of array tree':
                   - invalid tuple #3
-                    * Invalid type for 'tuple item #2 of array tuple item #0 of array tree': requires 'array', got 'integer'
+                    * Invalid type for 'tuple item #2 of array tuple item #2 of array tree': requires 'array', got 'integer'
             MSG,
         );
     }
@@ -810,12 +810,12 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                   - Composition element #1: Failed
                     * Invalid tuple item in array 'tuple item #2 of array tree':
                       - invalid tuple #2
-                        * Invalid value for 'tuple item #1 of array tuple item #1 of array tree' declined by composition constraint
+                        * Invalid value for 'tuple item #1 of array tuple item #2 of array tree' declined by composition constraint
                           Requires to match all composition elements but matched 0 elements
                           - Composition element #1: Failed
-                            * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                            * Invalid tuple item in array 'tuple item #1 of array tuple item #2 of array tree':
                               - invalid tuple #1
-                                * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires 'string', got 'integer'
+                                * Invalid type for 'tuple item #0 of array tuple item #2 of array tree': requires 'string', got 'integer'
                   - Composition element #2: Failed
                     * Invalid type for 'tuple item #2 of array tree': requires 'int', got 'array'
             MSG,
@@ -857,9 +857,9 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Properties which reference the same tuple array definition share its validation. The error of each property
-     * names the property which was validated, not the property which happened to be generated first. The items of the
-     * tuple are shared between the properties and keep the name of the first property.
+     * Properties which reference the same tuple array definition validate with the same tuple. The error of each
+     * property names the property which was validated, not the property which happened to be generated first, the
+     * same applies to the errors of the items.
      */
     #[DataProvider('validationMethodDataProvider')]
     public function testPropertiesReferencingTheSameTupleArrayDefinitionReportTheirOwnName(
@@ -889,7 +889,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             <<<'MSG'
             Invalid tuple item in array 'second':
               - invalid tuple #1
-                * Invalid type for 'tuple item #0 of array first': requires 'string', got 'integer'
+                * Invalid type for 'tuple item #0 of array second': requires 'string', got 'integer'
             MSG,
         );
     }
