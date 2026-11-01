@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use DateTime;
 use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
@@ -289,6 +290,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                 'falseBranch' . $reference => 3,
                 'listBranch' . $reference => [1, 2],
                 'pairBranch' . $reference => ['a'],
+                'filteredAnyOf' . $reference => '2020-10-10',
             ]);
 
             $this->assertSame(7, $object->{'getAllOfValue' . $reference}());
@@ -298,6 +300,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame(3, $object->{'getFalseBranch' . $reference}());
             $this->assertSame([1, 2], $object->{'getListBranch' . $reference}());
             $this->assertSame(['a'], $object->{'getPairBranch' . $reference}());
+            $this->assertEquals(new DateTime('2020-10-10'), $object->{'getFilteredAnyOf' . $reference}());
         }
 
         foreach (['allOfValueA', 'allOfValueB'] as $name) {
@@ -393,6 +396,23 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                     * Value for '$name' is not allowed
                   - Composition element #2: Failed
                     * Invalid type for '$name': requires 'int', got 'string'
+                MSG,
+            );
+        }
+
+        // The composition is validated before the filter transforms the value
+        foreach (['filteredAnyOfA', 'filteredAnyOfB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => '1999'],
+                $this->getExpectedExceptionClass($configuration, AnyOfException::class),
+                <<<MSG
+                Invalid value for '$name' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Value for '$name' must not be shorter than 20
+                  - Composition element #2: Failed
+                    * Value for '$name' does not match pattern '^2'
                 MSG,
             );
         }
