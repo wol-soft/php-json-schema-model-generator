@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\UnresolvedPropertyException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
@@ -16,19 +17,12 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
 
-/**
- * Class PropertyProxy
- *
- * @package PHPModelGenerator\Model
- */
 class PropertyProxy extends AbstractProperty
 {
     private ?JsonSchema $overrideJsonSchema = null;
     private ?PhpAttribute $overrideJsonPointer = null;
 
     /**
-     * PropertyProxy constructor.
-     *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
      * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
@@ -67,10 +61,12 @@ class PropertyProxy extends AbstractProperty
 
     /**
      * Get the property out of the resolved definitions collection to proxy function calls
+     *
+     * @throws UnresolvedPropertyException If the definition is still being created (a recursive reference)
      */
     protected function getProperty(): PropertyInterface
     {
-        return $this->definitionsCollection->offsetGet($this->key);
+        return $this->definitionsCollection->offsetGet($this->key) ?? throw new UnresolvedPropertyException($this);
     }
 
     /**

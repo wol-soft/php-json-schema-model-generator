@@ -743,6 +743,42 @@ The values ``"a"``, ``["a"]``, ``[1, ["a"]]`` and ``[[["a"]]]`` are valid. The i
 
     No item in array 'tree' matches the 'contains' constraint
 
+The branches of the compositions ``allOf``, ``anyOf``, ``oneOf``, ``not`` and ``if``/``then``/``else`` may validate the items against the array which owns the composition as well. The following node is valid unless it holds items and every one of them is a valid node itself:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "array",
+                "not": {
+                    "items": {
+                        "$ref": "#/definitions/node"
+                    },
+                    "minItems": 1
+                }
+            }
+        },
+        "properties": {
+            "tree": {
+                "$ref": "#/definitions/node"
+            }
+        },
+        "required": [
+            "tree"
+        ]
+    }
+
+The values ``[]`` and ``[[[]]]`` are valid, the validity alternates with the depth of the nesting. The input ``{"tree": [[]]}`` is rejected, as the only item ``[]`` is a valid node:
+
+.. code-block:: none
+
+    Invalid value for 'tree' declined by composition constraint
+      Requires to match none composition element but matched 1 element
+      - Composition element #1: Valid
+
 Size validation
 ---------------
 

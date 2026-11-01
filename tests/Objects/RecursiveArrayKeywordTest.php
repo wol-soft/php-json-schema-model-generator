@@ -9,12 +9,19 @@ use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
+use PHPModelGenerator\Exception\ComposedValue\NotException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\JSONModelValidationException;
+use PHPModelGenerator\Exception\UnresolvedPropertyException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
-use TypeError;
 
 /**
  * An array keyword whose schema references the array owning the keyword (a tree, a nested list) validates every level
@@ -445,22 +452,257 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Known gap: a reference to the definition owning a not keyword, found behind the items of the not branch, makes the
-     * generation fail. The check which rejects item filters in a validation only branch reads the validators of the
-     * referenced property while the definition is still being created.
+     * The not branch validates the items against the definition which owns the not keyword. A level is valid unless
+     * it holds items and every one of them is a valid level itself, so the result alternates with the depth of the
+     * nesting: [] is valid, [[]] is not, [[[]]] is again.
      *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
-     * then has to assert that the class is generated and validates the recursion.
+     * The property is required: the getter of a property with a not keyword doesn't return null, an absent optional
+     * property would fail with a TypeError.
      */
-    public function testKnownGapNotBranchWithItemsReferencingTheOwningDefinitionFailsGeneration(): void
-    {
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage(
-            'PHPModelGenerator\Model\Property\PropertyProxy::getProperty(): Return value must be of type '
-                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
+    #[DataProvider('validationMethodDataProvider')]
+    public function testNotBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NotBranchWithItemsReferencingTheOwningDefinition.json',
+            $configuration,
         );
 
-        $this->generateClassFromFile('NotBranchWithItemsReferencingTheOwningDefinition.json');
+        foreach ([[], [1], [[], 1], [[[]]], [[], [[]]], [[[1]]], [[[[]]], 'a'], [[[[]]], [[]]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        // every item is a valid level
+        foreach ([[[]], [[], []], [[1]], [[[[]]]], [[[[]]], [1]]] as $tree) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['tree' => $tree],
+                $this->getExpectedExceptionClass($configuration, NotException::class),
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
+                  - Composition element #1: Valid
+                MSG,
+            );
+        }
+    }
+
+    /**
+     * The condition validates the items against the definition which owns the if keyword: a level whose items are all
+     * valid levels may hold two items at most.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testIfConditionWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'IfConditionWithItemsReferencingTheOwningDefinition.json',
+            $configuration,
+        );
+
+        foreach (
+            [
+                [],
+                [[], []],
+                [1, 2, 3],
+                [[[], [], []]],
+                [[], [[], [], []], []],
+                [[[], []], [[], []]],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertNull((new $className([]))->getTree());
+
+        // the condition matches, as all items are valid levels
+        foreach ([[[], [], []], [[[], []], [[], []], [[], []]]] as $tree) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['tree' => $tree],
+                $this->getExpectedExceptionClass($configuration, ConditionalException::class),
+                <<<'MSG'
+                Invalid value for 'tree' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Array 'tree' must not contain more than 2 items
+                MSG,
+            );
+        }
+    }
+
+    public static function compositionBranchWithItemsReferencingTheOwningDefinitionProvider(): array
+    {
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'allOf' => [
+                    'AllOfBranchWithItemsReferencingTheOwningDefinition.json',
+                    [[], [[]], [[], []], [[[]], [[], []]]],
+                    [[[], [], []], [1], [[[], [], []]]],
+                    AllOfException::class,
+                    [[], [], []],
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by composition constraint
+                      Requires to match all composition elements but matched 1 element
+                      - Composition element #1: Valid
+                      - Composition element #2: Failed
+                        * Array 'tree' must not contain more than 2 items
+                    MSG,
+                ],
+                'anyOf' => [
+                    'AnyOfBranchWithItemsReferencingTheOwningDefinition.json',
+                    [[], [[]], ['a'], [1, 'a'], [[], [[]], [[[]]]], [[1, 'a']]],
+                    [[1], [[1]], [[], [2]]],
+                    AnyOfException::class,
+                    [1],
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by composition constraint
+                      Requires to match at least one composition element
+                      - Composition element #1: Failed
+                        * Invalid items in array 'tree':
+                          - invalid item #0
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                      - Composition element #2: Failed
+                        * No item in array 'tree' matches the 'contains' constraint
+                    MSG,
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by composition constraint
+                      Requires to match at least one composition element
+                      - Composition element #1: Failed
+                        * Invalid items in array 'tree':
+                          - invalid item #0
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                            * Invalid value for 'tree' declined by composition constraint
+                              Requires to match at least one composition element
+                              - Composition element #1: Failed
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                              - Composition element #2: Failed
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                      - Composition element #2: Failed
+                        * No item in array 'tree' matches the 'contains' constraint
+                    MSG,
+                ],
+                'oneOf' => [
+                    'OneOfBranchWithItemsReferencingTheOwningDefinition.json',
+                    [[], [[]], [1, 2, 3], [[], [1], []]],
+                    [[1], [[], [], []], [[1, 2]]],
+                    OneOfException::class,
+                    [[], [], []],
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by composition constraint
+                      Requires to match one composition element but matched 2 elements
+                      - Composition element #1: Valid
+                      - Composition element #2: Valid
+                    MSG,
+                ],
+                'then' => [
+                    'ThenBranchWithItemsReferencingTheOwningDefinition.json',
+                    [[], [[]], [[], [[]]], [[[[]]]]],
+                    [[1], [[1]], ['a']],
+                    ConditionalException::class,
+                    [1],
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by conditional composition constraint
+                      - Condition: Valid
+                      - Conditional branch failed:
+                        * Invalid items in array 'tree':
+                          - invalid item #0
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                    MSG,
+                ],
+                'else' => [
+                    'ElseBranchWithItemsReferencingTheOwningDefinition.json',
+                    [[], [1], [[1]], [[], []], [[], [1]], [[1], [2]]],
+                    [[1, 2], [[], [1, 2]], [[[1, 2]], [3, 4]]],
+                    ConditionalException::class,
+                    [1, 2],
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by conditional composition constraint
+                      - Condition: Failed
+                        * Array 'tree' must not contain more than 1 items
+                      - Conditional branch failed:
+                        * Invalid items in array 'tree':
+                          - invalid item #0
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                          - invalid item #1
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                    MSG,
+                    <<<'MSG'
+                    Invalid value for 'tree' declined by conditional composition constraint
+                      - Condition: Failed
+                        * Array 'tree' must not contain more than 1 items
+                      - Conditional branch failed:
+                        * Invalid items in array 'tree':
+                          - invalid item #0
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                            * Invalid value for 'tree' declined by conditional composition constraint
+                              - Condition: Failed
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                              - Conditional branch failed:
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                          - invalid item #1
+                            * Invalid type for 'tree': requires 'array', got 'integer'
+                            * Invalid value for 'tree' declined by conditional composition constraint
+                              - Condition: Failed
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                              - Conditional branch failed:
+                                * Invalid type for 'tree': requires 'array', got 'integer'
+                    MSG,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * A branch of every kind of composition validates the items against the definition which owns the composition.
+     * The nested levels run the composition again, the value is rejected if a level violates it.
+     *
+     * With collected errors a level which received an item of the wrong type reports the violation of the type and,
+     * as the composition of the item is evaluated nevertheless, the failures of its branches. These messages are
+     * passed separately where they differ.
+     *
+     * @param array[] $validTrees
+     * @param array[] $invalidTrees
+     * @param class-string<ValidationException> $exceptionClass
+     */
+    #[DataProvider('compositionBranchWithItemsReferencingTheOwningDefinitionProvider')]
+    public function testCompositionBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+        string $schemaFile,
+        array $validTrees,
+        array $invalidTrees,
+        string $exceptionClass,
+        array $messageTree,
+        string $message,
+        ?string $collectedMessage = null,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile, $configuration);
+
+        foreach ($validTrees as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertNull((new $className([]))->getTree());
+
+        foreach ($invalidTrees as $tree) {
+            try {
+                new $className(['tree' => $tree]);
+                $this->fail('Expected a violation for ' . json_encode($tree));
+            } catch (JSONModelValidationException $exception) {
+                $this->assertInstanceOf($this->getExpectedExceptionClass($configuration, $exceptionClass), $exception);
+            }
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => $messageTree],
+            $this->getExpectedExceptionClass($configuration, $exceptionClass),
+            $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
+        );
     }
 
     /**
@@ -472,11 +714,8 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testKnownGapSchemaDependencyReferencingTheOwningDefinitionFailsGeneration(): void
     {
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage(
-            'PHPModelGenerator\Model\Property\PropertyProxy::getProperty(): Return value must be of type '
-                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
-        );
+        $this->expectException(UnresolvedPropertyException::class);
+        $this->expectExceptionMessage("Property 'child' references a definition which is still being created");
 
         $this->generateClassFromFile('SchemaDependencyReferencingTheOwningDefinition.json');
     }

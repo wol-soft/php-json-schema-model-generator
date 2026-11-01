@@ -15,5 +15,8 @@
     "tree": {
       "$ref": "#/definitions/node"
     }
-  }
+  },
+  "required": [
+    "tree"
+  ]
 }
