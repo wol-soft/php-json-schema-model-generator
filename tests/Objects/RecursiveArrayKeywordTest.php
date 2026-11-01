@@ -15,7 +15,6 @@ use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\JSONModelValidationException;
-use PHPModelGenerator\Exception\UnresolvedPropertyException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -703,20 +702,5 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             $this->getExpectedExceptionClass($configuration, $exceptionClass),
             $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
         );
-    }
-
-    /**
-     * Known gap: a schema dependency which references the definition owning the dependencies makes the generation
-     * fail. The handling of the dependency changes the referenced property while the definition is still being created.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
-     * then has to assert that the class is generated and validates the recursion.
-     */
-    public function testKnownGapSchemaDependencyReferencingTheOwningDefinitionFailsGeneration(): void
-    {
-        $this->expectException(UnresolvedPropertyException::class);
-        $this->expectExceptionMessage("Property 'child' references a definition which is still being created");
-
-        $this->generateClassFromFile('SchemaDependencyReferencingTheOwningDefinition.json');
     }
 }

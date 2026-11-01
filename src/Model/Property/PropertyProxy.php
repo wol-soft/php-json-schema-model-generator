@@ -44,7 +44,11 @@ class PropertyProxy extends AbstractProperty
      * the composition, or merged with a branch declaration) must not change the definition. A plain clone would keep
      * delegating every change to the shared property.
      *
-     * Only a resolved proxy can be detached, an unresolved one is returned as a plain clone.
+     * A proxy of a definition which is still being created (a recursive reference) has no property to copy yet. The
+     * copy is unresolved and takes its own copy of the property as soon as the proxy is resolved, changes to the copy
+     * have to wait for that moment (see onResolve()). Returning a plain clone for an unresolved proxy was rejected: the
+     * clone keeps delegating to the property of the definition, once it exists every change of the copy would change
+     * the definition.
      */
     public function detach(): static
     {
@@ -54,7 +58,18 @@ class PropertyProxy extends AbstractProperty
             $copy->definitionsCollection = new ResolvedDefinitionsCollection(
                 [$this->key => clone $this->getProperty()],
             );
+
+            return $copy;
         }
+
+        // The callbacks of the proxy belong to the proxy, they must not run again for the copy.
+        $copy->onResolveCallbacks = [];
+        $this->onResolve(function () use ($copy): void {
+            $copy->definitionsCollection = new ResolvedDefinitionsCollection(
+                [$copy->key => clone $this->getProperty()],
+            );
+            $copy->resolve();
+        });
 
         return $copy;
     }

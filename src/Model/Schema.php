@@ -169,6 +169,11 @@ class Schema
     public function getProperties(): array
     {
         $hasSchemaDependencyValidator = static function (PropertyInterface $property): bool {
+            // A reference to a definition which is still being created has no validators yet.
+            if ($property instanceof PropertyProxy && !$property->isResolved()) {
+                return false;
+            }
+
             foreach ($property->getValidators() as $validator) {
                 if ($validator->getValidator() instanceof SchemaDependencyValidator) {
                     return true;
