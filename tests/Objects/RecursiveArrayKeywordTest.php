@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
+use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -394,6 +395,52 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
               - invalid additional item '2'
                 * No item in array 'additional item' matches the 'contains' constraint
             MSG,
+        );
+    }
+
+    /**
+     * The items matched by contains are evaluated, every other item is rejected by unevaluatedItems. The matched
+     * indices of a level are credited to the level only: the validation of the items runs the same keywords for the
+     * nested arrays.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testItemsMatchedByContainsOfEveryLevelAreEvaluatedForUnevaluatedItems(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('ContainsAndUnevaluatedItems.json', $configuration);
+
+        foreach (['a', ['a'], [['a'], 'b'], [['a'], ['b', ['c']]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
+        );
+
+        // the second item is no node: the array of the first level doesn't evaluate it
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [['a'], ['b', 2]]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
+        );
+
+        // the only item is no node, as it has an unevaluated item
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [['a', 1]]],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                No item in array 'tree' matches the 'contains' constraint
+                Provided JSON for 'tree' contains not allowed unevaluated items [#0]
+                MSG
+                : "No item in array 'tree' matches the 'contains' constraint",
         );
     }
 
