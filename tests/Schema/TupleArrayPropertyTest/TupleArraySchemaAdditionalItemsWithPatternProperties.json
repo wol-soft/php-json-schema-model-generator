@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^x_": {
+      "type": "string"
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    }
+  }
+}

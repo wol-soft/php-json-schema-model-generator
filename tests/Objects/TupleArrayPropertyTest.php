@@ -1479,6 +1479,34 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The additional items of an array are all items behind the tuple. The pattern properties of the object which
+     * declares the array describe the keys of the object and have nothing to do with the indices of the array.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSchemaAdditionalItemsAreNotFilteredByThePatternPropertiesOfTheObject(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'TupleArraySchemaAdditionalItemsWithPatternProperties.json',
+            $configuration,
+        );
+
+        $input = ['property' => ['a', 1, 2], 'x_other' => 'text'];
+        $this->assertSame($input, (new $className($input))->meta()->rawInput());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => ['a', 1, 'bad'], 'x_other' => 'text'],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'property' contains invalid additional items
+              - invalid additional item '2'
+                * Invalid type for 'additional item': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    /**
      * An array with tuple items at a tuple index of another tuple array must not reset the errors the outer tuple
      * collected so far: the set up of the inner tuple validator assigned a variable which the outer tuple validator
      * captured by reference, so an invalid tuple item before the inner array was accepted.

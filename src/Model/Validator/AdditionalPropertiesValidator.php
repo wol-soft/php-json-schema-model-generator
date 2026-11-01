@@ -67,7 +67,11 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             $this->resolve();
         });
 
-        $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
+        // The patterns describe the keys of an object. The schema is the class declaring an array property, its
+        // patterns have nothing to do with the indices of the array.
+        $patternProperties = static::EXTRACTED_VALIDATION_KIND === null
+            ? array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? [])
+            : [];
         $declaredProperties = array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []);
         // numeric property names are integer array keys
         $this->declaredProperties = array_map('strval', $declaredProperties);
