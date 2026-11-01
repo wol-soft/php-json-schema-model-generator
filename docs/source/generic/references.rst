@@ -51,7 +51,7 @@ An example for properties referring to a definition inside the same schema (Draf
         "properties": {
             "leader": {
                 "$ref": "#person"
-            }
+            },
             "members": {
                 "type": "array",
                 "items": {

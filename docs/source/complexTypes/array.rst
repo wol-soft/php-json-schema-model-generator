@@ -192,14 +192,14 @@ Items
         }
     }
 
-If invalid tuples are provided a detailed exception will be thrown containing all violations:
+If invalid tuples are provided a detailed exception will be thrown containing all violations. The tuples are numbered starting with 1, the items are named by their index starting with 0. For the schema shown above the input ``[5, {"name": true}]`` results in:
 
 .. code-block:: none
 
     Invalid tuple item in array 'example':
       - invalid tuple #1
-        * Invalid type for 'tuple item #1 of array example': requires 'string', got 'integer'
-      - invalid tuple #1
+        * Invalid type for 'tuple item #0 of array example': requires 'string', got 'integer'
+      - invalid tuple #2
         * Invalid type for 'name': requires 'string', got 'boolean'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidTupleException* which provides the following methods to get further error details:
@@ -271,7 +271,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
                     },
                     {
                         "type": "integer"
-                    },
+                    }
                 ],
                 "additionalItems": {
                     "type": "object",
@@ -285,30 +285,11 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
         }
     }
 
-Possible exceptions:
-
-* Tuple array 'example' contains not allowed additional items: expected 2 items, got 3
-
-The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\AdditionalTupleItemsException* which provides the following methods to get further error details:
-
-.. code-block:: php
-
-    // Get the expected tuple amount
-    public function getExpectedAmount(): int
-    // Get the amount of items provided
-    public function getAmount(): int
-    // get the name of the property which failed
-    public function getPropertyName(): string
-    // get the value provided to the property
-    public function getProvidedValue()
-    // get the JSON pointer to the schema keyword that rejected the value
-    public function getJsonPointer(): JsonPointer
-
-If invalid additional items are provided a detailed exception will be thrown containing all violations:
+If invalid additional items are provided a detailed exception will be thrown containing all violations. The additional items are named by their index in the array. For the schema shown above the input ``["ab", 1, {"name": "a"}, {"name": 5}, {"name": "b"}, 7]`` results in:
 
 .. code-block:: none
 
-    Tuple array 'property' contains invalid additional items
+    Tuple array 'example' contains invalid additional items
       - invalid additional item '3'
         * Invalid type for 'name': requires 'string', got 'integer'
       - invalid additional item '5'
@@ -320,6 +301,49 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidAdd
 
     // returns a two-dimensional array which contains all validation exceptions grouped by item index
     public function getNestedExceptions(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+If ``additionalItems`` is ``false`` an array which contains more items than the tuple defines is rejected:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string",
+                        "minLength": 2
+                    },
+                    {
+                        "type": "integer"
+                    }
+                ],
+                "additionalItems": false
+            }
+        }
+    }
+
+Possible exceptions (``["ab", 1, "extra"]`` provided):
+
+* Tuple array 'example' contains not allowed additional items: expected 2 items, got 3
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\AdditionalTupleItemsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Get the expected tuple amount
+    public function getExpectedAmount(): int
+    // Get the amount of items provided
+    public function getAmount(): int
     // get the name of the property which failed
     public function getPropertyName(): string
     // get the value provided to the property
@@ -363,7 +387,7 @@ A tuple item may reference the array which owns the tuple, eg. to describe a lin
     // ['a', ['b', ['c']]]
     $example->getTree();
 
-An invalid value on a deeper level is reported by the *InvalidTupleException* of each level above it. The exception of a level is nested into the exception of the level which contains it:
+An invalid value on a deeper level is reported by the *InvalidTupleException* of each level above it. The exception of a level is nested into the exception of the level which contains it. For the schema shown above the input ``{"tree": ["a", [1]]}`` results in:
 
 .. code-block:: none
 
