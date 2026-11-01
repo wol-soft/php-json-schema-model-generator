@@ -455,9 +455,6 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      * The not branch validates the items against the definition which owns the not keyword. A level is valid unless
      * it holds items and every one of them is a valid level itself, so the result alternates with the depth of the
      * nesting: [] is valid, [[]] is not, [[[]]] is again.
-     *
-     * The property is required: the getter of a property with a not keyword doesn't return null, an absent optional
-     * property would fail with a TypeError.
      */
     #[DataProvider('validationMethodDataProvider')]
     public function testNotBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
@@ -468,6 +465,37 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             $configuration,
         );
 
+        $this->assertNotBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+            $configuration,
+            $className,
+        );
+    }
+
+    /**
+     * The levels are validated like those of a required property, a property which isn't provided isn't validated.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testNotBranchWithItemsReferencingTheOwningDefinitionIsValidForAnOptionalProperty(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NotBranchWithItemsReferencingTheOwningDefinitionOptional.json',
+            $configuration,
+        );
+
+        $this->assertNull((new $className([]))->getTree());
+        $this->assertSame(['array', 'null'], $this->getReturnTypeNames(new $className([]), 'getTree'));
+
+        $this->assertNotBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+            $configuration,
+            $className,
+        );
+    }
+
+    private function assertNotBranchWithItemsReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+        string $className,
+    ): void {
         foreach ([[], [1], [[], 1], [[[]]], [[], [[]]], [[[1]]], [[[[]]], 'a'], [[[[]]], [[]]]] as $tree) {
             $object = new $className(['tree' => $tree]);
             $this->assertSame($tree, $object->getTree());

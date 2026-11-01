@@ -24,6 +24,7 @@ Generated interface:
     public function setExample($example): static;
     public function getExample();
 
+A ``not`` validates the values which are provided. An optional property which isn't provided is valid, the getter of the property returns ``null`` (the getter of a property with a type is nullable, like the getter of any other optional property). A value which is provided explicitly is validated, including ``null``: ``"not": {"type": "null"}`` rejects a provided ``null`` and a ``not`` which is satisfied by ``null`` (eg. ``"not": {"minimum": 5}``, a keyword which doesn't apply to ``null``) rejects it, too.
 
 Possible exceptions:
 

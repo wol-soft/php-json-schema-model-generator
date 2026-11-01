@@ -490,6 +490,26 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The check of a not composition of an optional property starts with the check whether the property is provided.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testNotCompositionOfOptionalPropertiesGeneratesCodeMatchingTheCodingStandard(
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            'NotOfOptionalProperties.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
      * @param string[] $files
      */
     private function runPhpcs(array $files): array

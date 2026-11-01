@@ -104,7 +104,10 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             new $className($properties);
             $this->fail('Expected exception for invalid property names');
         } catch (ErrorRegistryException | InvalidPropertyNamesException $exception) {
-            $this->assertMessageMatchesTemplate("Provided JSON for '%class%' $exceptionMessage", $exception->getMessage());
+            $this->assertMessageMatchesTemplate(
+                "Provided JSON for '%class%' $exceptionMessage",
+                $exception->getMessage(),
+            );
 
             // collectErrors(true) wraps the property names exception in an ErrorRegistryException.
             $innerException = $exception instanceof ErrorRegistryException
@@ -240,6 +243,63 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected exception for invalid property names');
         } catch (ErrorRegistryException | InvalidPropertyNamesException $exception) {
             $this->assertMessageMatchesTemplate($exceptionMessage, $exception->getMessage());
+        }
+    }
+
+    /**
+     * A name is always provided, so the schema of the property names validates every name independent of the
+     * handling of null values.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testPropertyNamesWithConstEnumAndNotValidateEveryNameWhateverTheHandlingOfNull(
+        bool $implicitNull,
+    ): void {
+        $schemas = [
+            [
+                '{"const": "abc"}',
+                <<<'ERROR'
+                Provided JSON for '%class%' contains properties with invalid names
+                  - invalid property 'xyz'
+                    * Value for 'property name' must be "abc", got "xyz"
+                ERROR,
+            ],
+            [
+                '{"enum": ["abc"]}',
+                <<<'ERROR'
+                Provided JSON for '%class%' contains properties with invalid names
+                  - invalid property 'xyz'
+                    * Value for 'property name' must be one of ["abc"], got "xyz"
+                ERROR,
+            ],
+            [
+                '{"not": {"pattern": "^x"}}',
+                <<<'ERROR'
+                Provided JSON for '%class%' contains properties with invalid names
+                  - invalid property 'xyz'
+                    * Invalid value for 'property name' declined by composition constraint
+                      Requires to match none composition element but matched 1 element
+                      - Composition element #1: Valid
+                ERROR,
+            ],
+        ];
+
+        foreach ($schemas as [$propertyNames, $exceptionMessage]) {
+            $className = $this->generateClassFromFileTemplate(
+                'PropertyNames.json',
+                [$propertyNames],
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                false,
+                $implicitNull,
+            );
+
+            $this->assertSame(['abc' => 1], (new $className(['abc' => 1]))->meta()->rawInput());
+
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['abc' => 1, 'xyz' => 2],
+                InvalidPropertyNamesException::class,
+                $exceptionMessage,
+            );
         }
     }
 

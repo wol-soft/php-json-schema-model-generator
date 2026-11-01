@@ -67,9 +67,9 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         $json[$this->key] = [$json[$this->key]];
         $wrappedOuter = $propertySchema->withJson($json);
 
-        // Force required=true so strict null checks apply inside the not branch.
-        $property->setRequired(true);
-
+        // The branch is a required property: a null value (an explicitly provided null) does not satisfy the type
+        // of the branch. Making the property which owns the not required instead was rejected: it validates
+        // (and fails on) an optional property which isn't provided and makes the getter of the property non-nullable.
         $wrappedSchema = $wrappedOuter->withJson([
             'type' => $this->key,
             'propertySchema' => $wrappedOuter,
@@ -83,6 +83,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
             $wrappedSchema,
             false,
             $injectedTypeBranchIndices,
+            requiredBranches: true,
         );
 
         foreach ($compositionProperties as $compositionProperty) {
@@ -94,6 +95,13 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         }
 
         $availableAmount = count($compositionProperties);
+
+        // An optional property which isn't provided isn't validated. The presence of the key decides, the check of
+        // the other compositions ($value !== null) was rejected: it also skips an explicitly provided null, which is a
+        // value the not validates (`"not": {"type": "null"}` rejects it).
+        $providedPropertyCheck = $property instanceof BaseProperty || $property->isRequired()
+            ? ''
+            : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
         $property->addValidator(
             (new ComposedPropertyValidator(
@@ -112,6 +120,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
                     'postPropose' => false,
                     'mergedProperty' => null,
                     'onlyForDefinedValues' => false,
+                    'providedPropertyCheck' => $providedPropertyCheck,
                 ],
             ))->withJsonPointer($propertySchema->getPointer() . '/not'),
             100,

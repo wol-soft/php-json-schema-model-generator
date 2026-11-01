@@ -453,15 +453,37 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    /**
-     * The properties are required: a `not` composition validates a property which is not provided, the value of the
-     * missing property can't be told apart from a value which violates the negated schema.
-     */
     #[DataProvider('validationMethodDataProvider')]
     public function testNotCompositionReportsTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
     {
         $className = $this->generateClassFromFile('NotComposition.json', $configuration);
 
+        $this->assertNotCompositionReportsTheNameOfTheReferencingProperty($configuration, $className);
+    }
+
+    /**
+     * The name of the referencing property is reported like for required properties, the properties which aren't
+     * provided aren't validated.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testNotCompositionOfOptionalPropertiesReportsTheNameOfTheReferencingProperty(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('NotCompositionOptional.json', $configuration);
+
+        $object = new $className([]);
+        $this->assertNull($object->getNotIntegerA());
+        $this->assertNull($object->getNotIntegerB());
+        $this->assertNull($object->getNotShortListA());
+        $this->assertNull($object->getNotShortListB());
+
+        $this->assertNotCompositionReportsTheNameOfTheReferencingProperty($configuration, $className);
+    }
+
+    private function assertNotCompositionReportsTheNameOfTheReferencingProperty(
+        GeneratorConfiguration $configuration,
+        string $className,
+    ): void {
         $validInput = [
             'notIntegerA' => 'a',
             'notIntegerB' => 'a',

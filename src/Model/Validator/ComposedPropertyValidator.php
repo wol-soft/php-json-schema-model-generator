@@ -29,7 +29,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            array_merge($validatorVariables, [
+            array_merge(['providedPropertyCheck' => ''], $validatorVariables, [
                 'modifiedValuesMethod' => $this->modifiedValuesMethod,
                 // Set by getCheck(), see getFilterSourceMap().
                 'filterSourceMap' => '',

@@ -1,6 +1,9 @@
 {% if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
+{% if providedPropertyCheck %}
+    {{ providedPropertyCheck }} &&
+{% endif %}
 (function (&$value) use (
     &$modelData,
     &$modifiedModelData,

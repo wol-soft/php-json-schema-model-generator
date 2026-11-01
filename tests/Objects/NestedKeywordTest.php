@@ -581,8 +581,44 @@ class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * The properties are required: a not without a type is also evaluated for a property which isn't provided.
+     * A not nested in a not of an optional property validates the provided values only.
      */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testNotNestedInItselfValidatesProvidedValuesOnly(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('NotNestedInItselfOptional.json', $configuration);
+
+        $object = new $className([]);
+        $this->assertNull($object->getNotNested());
+        $this->assertNull($object->getNotNestedInteger());
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($object, 'getNotNestedInteger'));
+
+        $object = new $className(['notNested' => 5, 'notNestedInteger' => 12]);
+        $this->assertSame(5, $object->getNotNested());
+        $this->assertSame(12, $object->getNotNestedInteger());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['notNested' => 'x'],
+            $this->getExpectedExceptionClass($configuration, NotException::class),
+            <<<'MSG'
+            Invalid value for 'notNested' declined by composition constraint
+              Requires to match none composition element but matched 1 element
+              - Composition element #1: Valid
+            MSG,
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['notNestedInteger' => 3],
+            $this->getExpectedExceptionClass($configuration, NotException::class),
+            <<<'MSG'
+            Invalid value for 'notNestedInteger' declined by composition constraint
+              Requires to match none composition element but matched 1 element
+              - Composition element #1: Valid
+            MSG,
+        );
+    }
+
     #[DataProvider('validationMethodDataProvider')]
     public function testCompositionsAndConditionsNestedInThemselves(GeneratorConfiguration $configuration): void
     {

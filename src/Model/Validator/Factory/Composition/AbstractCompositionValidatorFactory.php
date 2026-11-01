@@ -348,6 +348,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *                                                    inherited rather than author-declared
      *                                                    (see inheritPropertyType()) - excluded
      *                                                    from the vacuous-branch check below.
+     * @param bool             $requiredBranches         Whether the branches are built as required
+     *                                                    properties (a null value does not satisfy
+     *                                                    the type of a branch) although the property
+     *                                                    which owns the composition may be optional.
      *
      * @return CompositionPropertyDecorator[]
      *
@@ -360,6 +364,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         JsonSchema $propertySchema,
         bool $merged,
         array $injectedTypeBranchIndices = [],
+        bool $requiredBranches = false,
     ): array {
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
@@ -419,7 +424,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $schema,
                     $property->getName(),
                     $compositionSchema,
-                    $property->isRequired(),
+                    $requiredBranches || $property->isRequired(),
                 ),
             );
 
