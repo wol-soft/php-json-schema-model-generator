@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\MaxContainsException;
+use PHPModelGenerator\Exception\Arrays\MinContainsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
@@ -15,6 +18,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 #[ApplicableDrafts]
@@ -439,5 +443,72 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
 
         new $className(['property' => 'ab']);
+    }
+
+    /**
+     * A multi-type property with contains keeps the type check and the contains check. The property of the nested
+     * schema of contains is resolved with the validator: a multi-type property is only completed once all of its
+     * validators are resolved.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMultiTypePropertyWithContainsValidatesTypeAndContainedItems(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('MultiTypePropertyWithContains.json', $configuration);
+
+        foreach (['abc', [1], ['a', 2]] as $propertyValue) {
+            $object = new $className(['property' => $propertyValue]);
+            $this->assertSame($propertyValue, $object->getProperty());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => 5],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'property': requires ['string', 'array'], got 'integer'",
+        );
+
+        foreach ([[], ['a']] as $propertyValue) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['property' => $propertyValue],
+                $this->getExpectedExceptionClass($configuration, ContainsException::class),
+                "No item in array 'property' matches the 'contains' constraint",
+            );
+        }
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMultiTypePropertyWithMinAndMaxContainsValidatesTypeAndMatchCount(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('MultiTypePropertyWithMinMaxContains.json', $configuration);
+
+        foreach (['abc', [1, 2], ['a', 1, 'b', 2, 3]] as $propertyValue) {
+            $object = new $className(['property' => $propertyValue]);
+            $this->assertSame($propertyValue, $object->getProperty());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => 5],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'property': requires ['string', 'array'], got 'integer'",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, MinContainsException::class),
+            "Array 'property' must not contain less than 2 items matching the contains constraint, 1 matching items provided",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => [1, 2, 3, 4]],
+            $this->getExpectedExceptionClass($configuration, MaxContainsException::class),
+            "Array 'property' must not contain more than 3 items matching the contains constraint, 4 matching items provided",
+        );
     }
 }

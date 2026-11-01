@@ -43,6 +43,12 @@ class ArrayContainsValidator extends PropertyTemplateValidator
             ],
             ContainsException::class,
         );
+
+        // The validator is resolved with the property of its schema: a property is not resolved before all of its
+        // validators are, and a multi-type property is only completed (type check, validators) once it is resolved.
+        $nestedProperty->onResolve(function (): void {
+            $this->resolve();
+        });
     }
 
     /**
