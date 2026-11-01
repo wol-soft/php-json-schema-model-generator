@@ -712,6 +712,8 @@ An invalid value on a deeper level is reported by the exception of each level ab
 
 The same applies to ``unevaluatedItems`` (the exceptions are *InvalidUnevaluatedItemsException*, the nested array is named ``unevaluated item``).
 
+A recursive tuple may declare ``unevaluatedItems`` for the array of each level (``"unevaluatedItems": false`` or a schema). The indices a level evaluates (by its tuple or by the branches of a composition of the level) never count for another level, so the surplus items of each level are rejected or validated by the keyword of that level.
+
 A recursion over ``contains`` needs a schema which is satisfied without an item matching the schema itself, as the array of a level matches only if one of its items matches. The following node is a string or an array which contains a node:
 
 .. code-block:: json

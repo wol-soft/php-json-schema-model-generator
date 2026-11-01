@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Objects;
 use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
@@ -701,6 +702,278 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             ['tree' => $messageTree],
             $this->getExpectedExceptionClass($configuration, $exceptionClass),
             $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
+        );
+    }
+
+    /**
+     * The tuple of every level refers to the array of the next level: each level evaluates the indices of its own tuple
+     * only, every further item of a level is rejected by the unevaluatedItems of that level.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsFalseOfARecursiveTupleRejectsTheSurplusItemsOfEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('UnevaluatedItemsFalseOnEveryLevel.json', $configuration);
+
+        foreach ([[], ['a'], ['a', []], ['a', ['b']], ['a', ['b', ['c', []]]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertNull((new $className([]))->getTree());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', [], 'x']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#2]",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', [], 'z']]],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Provided JSON for 'tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c', [], 9]]]],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #2
+                    * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        // the tuple evaluates index 1 also if it is invalid, the surplus items are reported nevertheless
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', 5, 'x', 7]],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tree': requires 'array', got 'integer'
+                Provided JSON for 'tree' contains not allowed unevaluated items [#2, #3]
+                MSG
+                : <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tree': requires 'array', got 'integer'
+                MSG,
+        );
+    }
+
+    /**
+     * The same recursive tuple inside a branch of every kind of composition which declares the tuple. The
+     * unevaluatedItems of every level sees the indices the active branch of that level evaluated, the branches of the
+     * levels above and below don't interfere.
+     *
+     * @param class-string<ValidationException> $exceptionClass
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('recursiveTupleInCompositionBranchProvider')]
+    public function testUnevaluatedItemsFalseOfARecursiveTupleInACompositionBranchRejectsTheSurplusItemsOfEveryLevel(
+        string $schemaFile,
+        string $exceptionClass,
+        string $message,
+    ): void {
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        foreach ([[], ['a'], ['a', []], ['a', ['b']], ['a', ['b', ['c', []]]]] as $tree) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', [], 'x']],
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#2]",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c', [], 9]]]],
+            $exceptionClass,
+            $message,
+        );
+    }
+
+    public static function recursiveTupleInCompositionBranchProvider(): array
+    {
+        return [
+            'allOf' => [
+                'UnevaluatedItemsFalseOnEveryLevelWithAllOfBranch.json',
+                AllOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match all composition elements but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #2
+                                * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+                MSG,
+            ],
+            'anyOf' => [
+                'UnevaluatedItemsFalseOnEveryLevelWithAnyOfBranch.json',
+                AnyOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match at least one composition element
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #2
+                                * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+                          - Composition element #2: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                  - Composition element #2: Failed
+                    * Array 'tree' must not contain more than 0 items
+                MSG,
+            ],
+            'oneOf' => [
+                'UnevaluatedItemsFalseOnEveryLevelWithOneOfBranch.json',
+                OneOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match one composition element but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #2
+                                * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+                          - Composition element #2: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                  - Composition element #2: Failed
+                    * Array 'tree' must not contain more than 0 items
+                MSG,
+            ],
+            'then' => [
+                'UnevaluatedItemsFalseOnEveryLevelWithThenBranch.json',
+                ConditionalException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by conditional composition constraint
+                          - Condition: Valid
+                          - Conditional branch failed:
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #2
+                                * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+                MSG,
+            ],
+            'else' => [
+                'UnevaluatedItemsFalseOnEveryLevelWithElseBranch.json',
+                ConditionalException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by conditional composition constraint
+                  - Condition: Failed
+                    * Array 'tree' must not contain more than 0 items
+                  - Conditional branch failed:
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by conditional composition constraint
+                          - Condition: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                          - Conditional branch failed:
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #2
+                                * Provided JSON for 'tuple item #1 of array tuple item #1 of array tree' contains not allowed unevaluated items [#2]
+                MSG,
+            ],
+        ];
+    }
+
+    /**
+     * The unevaluatedItems schema of every level validates the surplus items of that level, the tuple of the level
+     * refers to the array of the next level.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsSchemaOfARecursiveTupleValidatesTheSurplusItemsOfEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('UnevaluatedItemsSchemaOnEveryLevel.json', $configuration);
+
+        foreach (
+            [
+                [],
+                ['a', [], 1, 2],
+                ['a', ['b', [], 3], 4],
+                ['a', ['b', ['c', [], 5, 6], 7], 8],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', [], 'x']],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'tree':
+              - invalid unevaluated item #2
+                * Invalid type for 'unevaluated item': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', ['c', [], 'z'], 4, 'q']]],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tree':
+                      - invalid tuple #2
+                        * Invalid unevaluated items in array 'tuple item #1 of array tuple item #1 of array tree':
+                          - invalid unevaluated item #2
+                            * Invalid type for 'unevaluated item': requires 'int', got 'string'
+                    * Invalid unevaluated items in array 'tuple item #1 of array tree':
+                      - invalid unevaluated item #3
+                        * Invalid type for 'unevaluated item': requires 'int', got 'string'
+                MSG
+                : <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tree':
+                      - invalid tuple #2
+                        * Invalid unevaluated items in array 'tuple item #1 of array tuple item #1 of array tree':
+                          - invalid unevaluated item #2
+                            * Invalid type for 'unevaluated item': requires 'int', got 'string'
+                MSG,
         );
     }
 }

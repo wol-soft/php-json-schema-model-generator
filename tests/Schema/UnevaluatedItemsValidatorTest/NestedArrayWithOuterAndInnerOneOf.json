@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "oneOf": [
+            {
+              "items": [
+                {
+                  "type": "integer"
+                }
+              ],
+              "maxItems": 2
+            },
+            {
+              "contains": {
+                "const": "x"
+              },
+              "minItems": 3
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ],
+      "oneOf": [
+        {
+          "contains": {
+            "const": 5
+          },
+          "maxItems": 2
+        },
+        {
+          "contains": {
+            "const": 6
+          },
+          "minItems": 3
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

@@ -15,6 +15,7 @@ use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
@@ -2009,5 +2010,346 @@ MSG,
 
         $object->setTags([6, 7]);
         $this->assertSame([6, 7], $object->getTags());
+    }
+
+    /**
+     * With collected errors every violation is reported by an ErrorRegistryException (the message of the collected
+     * violations may differ from the message of the first violation), otherwise the exception of the first violation
+     * is thrown.
+     *
+     * @param callable(): mixed $action
+     * @param class-string<Exception> $exceptionClass
+     */
+    private function assertRejectedWithMessage(
+        GeneratorConfiguration $configuration,
+        callable $action,
+        string $exceptionClass,
+        string $expectedMessage,
+        ?string $collectedMessage = null,
+    ): void {
+        $this->assertThrowsWithMessage(
+            $action,
+            $configuration->collectErrors() ? ErrorRegistryException::class : $exceptionClass,
+            $configuration->collectErrors() ? $collectedMessage ?? $expectedMessage : $expectedMessage,
+        );
+    }
+
+    /**
+     * An outer array and the inner array at its tuple index both carry an anyOf. Every successful branch credits its
+     * indices (a tuple in one branch, contains in the sibling branch), a failed branch credits nothing. The credits of
+     * the outer array survive the validation of the inner array and the credits of the inner array don't count for the
+     * outer one.
+     *
+     * With collected errors a failed composition credits nothing, so the indices of the inner array it would have
+     * evaluated are reported as unevaluated in addition to the failure of the composition.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testAnyOfBranchesOfOuterAndInnerArrayCreditTheirOwnIndices(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithOuterAndInnerAnyOf.json',
+            (clone $configuration)->setImmutable(false),
+        );
+
+        // Both inner branches succeed (tuple: index 0, contains: index 1 and 2), both outer branches succeed.
+        $object = new $className(['tags' => [[1, 'x', 'x'], 5, 6]]);
+        $this->assertSame([[1, 'x', 'x'], 5, 6], $object->getTags());
+
+        // Only the tuple branch of the inner array and only the first outer branch succeed.
+        $object->setTags([[1], 5]);
+        $this->assertSame([[1], 5], $object->getTags());
+
+        // The inner array has an index no branch evaluated, the 5 credited to the outer array doesn't count for it.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => new $className(['tags' => [[1, 'x', 'surplus'], 5]]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        // The tuple branch of the inner array fails, only contains evaluates index 1.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => new $className(['tags' => [['a', 'x'], 5]]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
+            MSG,
+        );
+
+        // The tuple branch evaluates index 0, the contains branch fails.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[2, 3], 6]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+
+        // The credit of the outer array for index 1 (5) survives the validation of the inner array, index 2 (7) is
+        // not evaluated by any outer branch.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1], 5, 7]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+        );
+
+        // No branch of the inner array succeeds.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([['a'], 5]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
+                  - Composition element #2: Failed
+                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+            MSG,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
+                  - Composition element #2: Failed
+                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
+            MSG,
+        );
+
+        // The rejected values left the model untouched.
+        $this->assertSame([[1], 5], $object->getTags());
+    }
+
+    /**
+     * An outer array and the inner array at its tuple index both carry a oneOf. Only the single successful branch
+     * credits its indices: the branches which match nothing and the branch which matches next to another one (which
+     * fails the oneOf) credit nothing.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testOneOfBranchesOfOuterAndInnerArrayCreditOnlyTheIndicesOfTheSuccessfulBranch(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithOuterAndInnerOneOf.json',
+            (clone $configuration)->setImmutable(false),
+        );
+
+        // Inner: the tuple branch (index 0) is the only one, outer: the first branch (contains 5) is the only one.
+        $object = new $className(['tags' => [[1], 5]]);
+        $this->assertSame([[1], 5], $object->getTags());
+
+        // Inner: the contains branch evaluates every index, outer: the second branch (contains 6) is the only one.
+        $object->setTags([['x', 'x', 'x'], 6, 6]);
+        $this->assertSame([['x', 'x', 'x'], 6, 6], $object->getTags());
+
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 2], 5]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+
+        // Only the contains branch matches and evaluates the indices 0 and 1, index 2 is not evaluated.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([['x', 'x', 'y'], 5]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        // Only the contains branch matches, the tuple branch which evaluated index 0 failed (maxItems).
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 'x', 'x'], 6, 6]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
+            MSG,
+        );
+
+        // The second outer branch matches (index 3 is evaluated), the first outer branch fails (maxItems): the 5 which
+        // the first branch would have credited is not evaluated.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1], 5, 5, 6]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#1, #2]",
+        );
+
+        // No branch of the inner array matches.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([['x', 'x'], 5]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
+                  - Composition element #2: Failed
+                    * Array 'tuple item #0 of array tags' must not contain less than 3 items
+            MSG,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
+                  - Composition element #2: Failed
+                    * Array 'tuple item #0 of array tags' must not contain less than 3 items
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0, #1]
+            MSG,
+        );
+
+        // The rejected values left the model untouched.
+        $this->assertSame([['x', 'x', 'x'], 6, 6], $object->getTags());
+    }
+
+    /**
+     * An outer array and the inner array at its tuple index both carry an if/then/else. The condition credits its
+     * indices when it succeeds, the then branch when the condition held and the else branch when it didn't. A
+     * conditional which fails as a whole credits nothing, not even the indices of the condition.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testConditionalOfOuterAndInnerArrayCreditsTheIndicesOfTheActiveBranches(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithOuterAndInnerConditional.json',
+            (clone $configuration)->setImmutable(false),
+        );
+
+        // Inner: the condition (tuple) credits index 0, then (contains) credits index 1 and 2.
+        // Outer: the condition (contains 5) credits index 1, then (contains 6) credits index 2.
+        $object = new $className(['tags' => [[1, 'x', 'x'], 5, 6]]);
+        $this->assertSame([[1, 'x', 'x'], 5, 6], $object->getTags());
+
+        // Inner: the condition fails, else (tuple) credits index 0. Outer: else (contains 7) credits index 1.
+        $object->setTags([['a'], 7]);
+        $this->assertSame([['a'], 7], $object->getTags());
+
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 'x', 'y'], 5, 6]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        // The condition fails, else credits index 0 only.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([['a', 'b'], 7]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+
+        // The outer else branch credits index 1 (7), index 2 (8) is not evaluated.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 'x'], 7, 8]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+        );
+
+        // The outer condition and then branch credit the indices 1 and 2, index 3 is not evaluated.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 'x'], 5, 6, 9]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
+        );
+
+        // The condition of the inner array holds, the then branch fails.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 2], 7]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+            MSG,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Invalid value for 'tuple item #0 of array tags' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0, #1]
+            MSG,
+        );
+
+        // The outer condition holds, the outer then branch fails: the index credited by the condition (1) is reported.
+        $this->assertRejectedWithMessage(
+            $configuration,
+            static fn() => $object->setTags([[1, 'x'], 5, 7]),
+            ConditionalException::class,
+            <<<'MSG'
+            Invalid value for 'tags' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * No item in array 'tags' matches the 'contains' constraint
+            MSG,
+            <<<'MSG'
+            Invalid value for 'tags' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * No item in array 'tags' matches the 'contains' constraint
+            Provided JSON for 'tags' contains not allowed unevaluated items [#1, #2]
+            MSG,
+        );
+
+        // The rejected values left the model untouched.
+        $this->assertSame([['a'], 7], $object->getTags());
     }
 }
