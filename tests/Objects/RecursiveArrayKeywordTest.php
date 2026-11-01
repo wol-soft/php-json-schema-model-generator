@@ -13,6 +13,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use TypeError;
 
 /**
  * An array keyword whose schema references the array owning the keyword (a tree, a nested list) validates every level
@@ -394,5 +395,42 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
                 * No item in array 'additional item' matches the 'contains' constraint
             MSG,
         );
+    }
+
+    /**
+     * Known gap: a reference to the definition owning a not keyword, found behind the items of the not branch, makes the
+     * generation fail. The check which rejects item filters in a validation only branch reads the validators of the
+     * referenced property while the definition is still being created.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
+     * then has to assert that the class is generated and validates the recursion.
+     */
+    public function testKnownGapNotBranchWithItemsReferencingTheOwningDefinitionFailsGeneration(): void
+    {
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessage(
+            'PHPModelGenerator\Model\Property\PropertyProxy::getProperty(): Return value must be of type '
+                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
+        );
+
+        $this->generateClassFromFile('NotBranchWithItemsReferencingTheOwningDefinition.json');
+    }
+
+    /**
+     * Known gap: a schema dependency which references the definition owning the dependencies makes the generation
+     * fail. The handling of the dependency changes the referenced property while the definition is still being created.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
+     * then has to assert that the class is generated and validates the recursion.
+     */
+    public function testKnownGapSchemaDependencyReferencingTheOwningDefinitionFailsGeneration(): void
+    {
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessage(
+            'PHPModelGenerator\Model\Property\PropertyProxy::getProperty(): Return value must be of type '
+                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
+        );
+
+        $this->generateClassFromFile('SchemaDependencyReferencingTheOwningDefinition.json');
     }
 }
