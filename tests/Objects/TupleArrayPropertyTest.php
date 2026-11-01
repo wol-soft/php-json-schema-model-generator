@@ -99,14 +99,14 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError(
-            $configuration,
-            "Tuple array 'property' contains not allowed additional items: expected 3 items, got 4",
-        );
-
         $className = $this->generateClassFromFile('TupleArrayNoAdditionalItems.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => $propertyValue],
+            $this->getExpectedExceptionClass($configuration, AdditionalTupleItemsException::class),
+            "Tuple array 'property' contains not allowed additional items: expected 3 items, got 4",
+        );
     }
 
     /**
@@ -129,12 +129,16 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
         string $message,
+        ?string $collectedMessage = null,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFile('TupleArray.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => $propertyValue],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
+        );
     }
 
     public static function invalidTupleArrayDataProvider(): array
@@ -183,6 +187,13 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                       - invalid tuple #3
                         * Missing required value for 'name'
                     ERROR,
+                    // the missing value is validated as null as well when errors are collected
+                    <<<ERROR
+                    Invalid tuple item in array 'property':
+                      - invalid tuple #3
+                        * Missing required value for 'name'
+                        * Invalid type for 'name': requires 'string', got 'NULL'
+                    ERROR,
                 ],
                 'Invalid type in nested object' => [
                     [400, 'Street', ['name' => 'Hans', 'age' => true]],
@@ -210,6 +221,15 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         * Invalid type for 'tuple item #0 of array property': requires 'int', got 'NULL'
                       - invalid tuple #2
                         * Invalid type for 'tuple item #1 of array property': requires 'string', got 'NULL'
+                    ERROR,
+                    // the enum of the second item is validated for null as well when errors are collected
+                    <<<ERROR
+                    Invalid tuple item in array 'property':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'NULL'
+                      - invalid tuple #2
+                        * Invalid type for 'tuple item #1 of array property': requires 'string', got 'NULL'
+                        * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got null
                     ERROR,
                 ],
             ],
@@ -251,11 +271,14 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $message,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFile('TupleArrayAdditionalItems.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => $propertyValue],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            $message,
+        );
     }
 
     public static function invalidAdditionalItemsDataProvider(): array
@@ -355,12 +378,16 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
         string $message,
+        ?string $collectedMessage = null,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFile('TupleArrayObjectsAsAdditionalItems.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => $propertyValue],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
+        );
     }
 
     public static function invalidObjectAdditionalItemsDataProvider(): array
@@ -384,7 +411,14 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ],
                 'Missing required name' => [
                     [3, 'Avenue', ['age' => 42], ['name' => 'Hans']],
-                    sprintf($exception, "Missing required value for 'name'")
+                    sprintf($exception, "Missing required value for 'name'"),
+                    // the missing value is validated as null as well when errors are collected
+                    <<<ERROR
+                    Tuple array 'property' contains invalid additional items
+                      - invalid additional item '2'
+                        * Missing required value for 'name'
+                        * Invalid type for 'name': requires 'string', got 'NULL'
+                    ERROR,
                 ],
                 "Invalid type for 'name'" => [
                     [3, 'Avenue', ['name' => 42], ['name' => 'Hans']],
@@ -434,23 +468,85 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('invalidRecursiveTupleDataProvider')]
-    public function testInvalidRecursiveTuple(array $input): void
+    public function testInvalidRecursiveTuple(array $input, string $message): void
     {
-        $this->expectException(InvalidTupleException::class);
-
         $className = $this->generateClassFromFile('RecursiveTupleArray.json');
 
-        new $className(['property' => $input]);
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => $input],
+            InvalidTupleException::class,
+            $message,
+        );
     }
 
     public static function invalidRecursiveTupleDataProvider(): array
     {
         return [
-            'invalid first tuple' => [[1, 'def']],
-            'invalid second tuple' => [['abc', 1]],
-            'one level nested - invalid first tuple' => [[1, ['abc', 'def']]],
-            'one level nested - invalid nested first tuple' => [['abc', [1, 'def']]],
-            'one level nested - invalid nested second tuple' => [['abc', ['abc', 1]]],
+            'invalid first tuple' => [
+                [1, 'def'],
+                <<<ERROR
+                Invalid tuple item in array 'property':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array property': requires 'string', got 'integer'
+                ERROR,
+            ],
+            'invalid second tuple' => [
+                ['abc', 1],
+                <<<ERROR
+                Invalid tuple item in array 'property':
+                  - invalid tuple #2
+                    * Invalid value for 'tuple item #1 of array property' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid type for 'tuple item #1 of array property': requires 'array', got 'integer'
+                      - Composition element #2: Failed
+                        * Invalid type for 'tuple item #1 of array property': requires 'string', got 'integer'
+                ERROR,
+            ],
+            'one level nested - invalid first tuple' => [
+                [1, ['abc', 'def']],
+                <<<ERROR
+                Invalid tuple item in array 'property':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array property': requires 'string', got 'integer'
+                ERROR,
+            ],
+            'one level nested - invalid nested first tuple' => [
+                ['abc', [1, 'def']],
+                <<<ERROR
+                Invalid tuple item in array 'property':
+                  - invalid tuple #2
+                    * Invalid value for 'tuple item #1 of array property' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid tuple item in array 'tuple item #1 of array property':
+                          - invalid tuple #1
+                            * Invalid type for 'tuple item #0 of array tuple item #1 of array property': requires 'string', got 'integer'
+                      - Composition element #2: Failed
+                        * Invalid type for 'tuple item #1 of array property': requires 'string', got 'array'
+                ERROR,
+            ],
+            'one level nested - invalid nested second tuple' => [
+                ['abc', ['abc', 1]],
+                <<<ERROR
+                Invalid tuple item in array 'property':
+                  - invalid tuple #2
+                    * Invalid value for 'tuple item #1 of array property' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid tuple item in array 'tuple item #1 of array property':
+                          - invalid tuple #2
+                            * Invalid value for 'tuple item #1 of array tuple item #1 of array property' declined by composition constraint
+                              Requires to match one composition element but matched 0 elements
+                              - Composition element #1: Failed
+                                * Invalid type for 'tuple item #1 of array tuple item #1 of array property': requires 'array', got 'integer'
+                              - Composition element #2: Failed
+                                * Invalid type for 'tuple item #1 of array tuple item #1 of array property': requires 'string', got 'integer'
+                      - Composition element #2: Failed
+                        * Invalid type for 'tuple item #1 of array property': requires 'string', got 'array'
+                ERROR,
+            ],
         ];
     }
 
