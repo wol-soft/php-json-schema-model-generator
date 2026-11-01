@@ -249,6 +249,32 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testObjectKeywordsSince2019ReportTheNameOfTheReferencingProperty(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('ObjectKeywordsSince2019.json', $configuration);
+
+        foreach (self::REFERENCES as $reference) {
+            $object = new $className(['strict' . $reference => ['name' => 'Hans']]);
+
+            $this->assertSame('Hans', $object->{'getStrict' . $reference}()->getName());
+        }
+
+        foreach (['strictA', 'strictB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['other' => 1]],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Provided JSON for '%class%' contains not allowed unevaluated properties ['other']
+                MSG,
+            );
+        }
+    }
+
     #[DataProvider('validationMethodDataProvider')]
     public function testCompositionsReportTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
     {
@@ -675,6 +701,10 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                 'closed' . $reference => ['name' => 'Hans'],
                 'record' . $reference => ['value' => 1],
                 'objectOrText' . $reference => ['value' => 1],
+                'patterned' . $reference => ['ab' => 1],
+                'named' . $reference => ['ab' => 1],
+                'sized' . $reference => ['a' => 1, 'b' => 2],
+                'dependent' . $reference => ['a' => 1, 'b' => 2],
             ]);
 
             $this->assertSame(['a' => 1], $object->{'getBag' . $reference}()->meta()->rawInput());
@@ -721,6 +751,69 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                 <<<MSG
                 Invalid nested object for property '$name':
                   - Invalid type for 'value': requires 'int', got 'string'
+                MSG,
+            );
+        }
+
+        foreach (['patternedA', 'patternedB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['ab' => 'x']],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Provided JSON for '%class%' contains invalid pattern properties
+                      - invalid property 'ab' matching pattern '^a'
+                        * Invalid type for 'pattern property': requires 'int', got 'string'
+                MSG,
+            );
+        }
+
+        foreach (['namedA', 'namedB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['abc' => 1]],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Provided JSON for '%class%' contains properties with invalid names
+                      - invalid property 'abc'
+                        * Value for 'property name' must not be longer than 2
+                MSG,
+            );
+        }
+
+        foreach (['sizedA', 'sizedB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['a' => 1]],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Provided object for '%class%' must not contain less than 2 properties
+                MSG,
+            );
+
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['a' => 1, 'b' => 2, 'c' => 3, 'd' => 4]],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Provided object for '%class%' must not contain more than 3 properties
+                MSG,
+            );
+        }
+
+        foreach (['dependentA', 'dependentB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['a' => 1]],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                <<<MSG
+                Invalid nested object for property '$name':
+                  - Missing required attributes which are dependants of 'a':
+                      - 'b'
                 MSG,
             );
         }

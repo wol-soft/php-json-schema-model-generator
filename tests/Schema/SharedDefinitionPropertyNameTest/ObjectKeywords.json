@@ -39,6 +39,39 @@
           "type": "string"
         }
       ]
+    },
+    "patterned": {
+      "type": "object",
+      "patternProperties": {
+        "^a": {
+          "type": "integer"
+        }
+      }
+    },
+    "named": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 2
+      }
+    },
+    "sized": {
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 3
+    },
+    "dependent": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "dependencies": {
+        "a": ["b"]
+      }
     }
   },
   "properties": {
@@ -65,6 +98,30 @@
     },
     "objectOrTextB": {
       "$ref": "#/definitions/objectOrText"
+    },
+    "patternedA": {
+      "$ref": "#/definitions/patterned"
+    },
+    "patternedB": {
+      "$ref": "#/definitions/patterned"
+    },
+    "namedA": {
+      "$ref": "#/definitions/named"
+    },
+    "namedB": {
+      "$ref": "#/definitions/named"
+    },
+    "sizedA": {
+      "$ref": "#/definitions/sized"
+    },
+    "sizedB": {
+      "$ref": "#/definitions/sized"
+    },
+    "dependentA": {
+      "$ref": "#/definitions/dependent"
+    },
+    "dependentB": {
+      "$ref": "#/definitions/dependent"
     }
   }
 }
