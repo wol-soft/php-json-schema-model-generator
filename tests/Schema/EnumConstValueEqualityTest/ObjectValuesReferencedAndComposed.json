@@ -1,0 +1,83 @@
+{
+  "definitions": {
+    "enumObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "x": "y"
+        }
+      ]
+    },
+    "constObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "x": "y"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "referencedEnumObject": {
+      "$ref": "#/definitions/enumObject"
+    },
+    "referencedConstObject": {
+      "$ref": "#/definitions/constObject"
+    },
+    "oneOfConstObjects": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string"
+            }
+          },
+          "const": {
+            "kind": "a"
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string"
+            }
+          },
+          "const": {
+            "kind": "b"
+          }
+        }
+      ]
+    },
+    "anyOfEnumObject": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string"
+            }
+          },
+          "enum": [
+            {
+              "kind": "a"
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

@@ -104,11 +104,22 @@ class RenderHelper
      */
     public function validationError(PropertyValidatorInterface $validator): string
     {
-        $exceptionConstructor = sprintf(
-            'new \%s($value ?? null, ...%s)',
-            $validator->getExceptionClass(),
-            preg_replace('/\'&(\$\w+)\'/i', '$1', self::varExportArray($validator->getExceptionParams())),
+        $providedValue = $validator->getProvidedValueCode();
+        $exceptionParams = preg_replace(
+            '/\'&(\$\w+)\'/i',
+            '$1',
+            self::varExportArray($validator->getExceptionParams()),
         );
+
+        // PSR-12: the arguments of a call which spans multiple lines are placed on a line of their own
+        $exceptionConstructor = str_contains($providedValue, "\n")
+            ? sprintf(
+                "new \\%s(\n    %s,\n    ...%s\n)",
+                $validator->getExceptionClass(),
+                self::indent($providedValue, 1),
+                $exceptionParams,
+            )
+            : sprintf('new \%s(%s, ...%s)', $validator->getExceptionClass(), $providedValue, $exceptionParams);
 
         if ($this->generatorConfiguration->collectErrors()) {
             return "\$this->_errorRegistry->addError($exceptionConstructor);";
@@ -198,7 +209,7 @@ class RenderHelper
 
             $code = ($setUp !== '' ? "{$setUp}\n" : '')
                 . 'if ' . self::formatCondition($validator->getCheck(), 0)
-                . " {\n    {$this->validationError($validator)}\n}";
+                . " {\n    " . self::indent($this->validationError($validator), 1) . "\n}";
 
             return self::indent($code, $indentLevel);
         }

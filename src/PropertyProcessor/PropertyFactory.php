@@ -45,6 +45,13 @@ use PHPModelGenerator\Utils\TypeIntersection;
 class PropertyFactory
 {
     /**
+     * The keywords of a schema which target the property that holds the value of the schema, not the class which is
+     * generated for an object schema. The class of a nested object is shared by every schema with the same structure,
+     * so these keywords must not become part of it.
+     */
+    public const array OUTER_PROPERTY_KEYWORDS = ['filter', 'enum', 'default', 'const'];
+
+    /**
      * Create a property, applying all applicable Draft modifiers.
      *
      * @throws SchemaException
@@ -762,8 +769,7 @@ class PropertyFactory
 
         // Strip property-level keywords before passing the schema to processSchema: these keywords
         // target the outer property and are handled by the universal modifiers below.
-        $nestedJson = $json;
-        unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+        $nestedJson = array_diff_key($json, array_flip(self::OUTER_PROPERTY_KEYWORDS));
 
         $nestedSchema = $schemaProcessor->processSchema(
             $propertySchema->withJson($nestedJson),
@@ -959,8 +965,7 @@ class PropertyFactory
         // Force `type: object` on the copy handed to processSchema so the nested class is generated;
         // the outer property stays untyped. Property-level universal keywords target the outer
         // property (handled by applyModifiers) and are stripped here, mirroring createObjectProperty.
-        $nestedJson = $propertySchema->getJson();
-        unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+        $nestedJson = array_diff_key($propertySchema->getJson(), array_flip(self::OUTER_PROPERTY_KEYWORDS));
         $nestedJson['type'] = 'object';
 
         $nestedSchema = $schemaProcessor->processSchema(
@@ -1393,7 +1398,10 @@ class PropertyFactory
         // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
         // returns all types, which would incorrectly apply type-specific modifiers.
         $coveredTypes = $type === 'any'
-            ? array_filter($builtDraft->getCoveredTypes('any'), static fn($t) => $t->getType() === 'any')
+            ? array_filter(
+                $builtDraft->getCoveredTypes('any'),
+                static fn($coveredType) => $coveredType->getType() === 'any',
+            )
             : $builtDraft->getCoveredTypes($type);
 
         foreach ($coveredTypes as $coveredType) {

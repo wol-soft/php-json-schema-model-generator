@@ -1,0 +1,37 @@
+!(static function (mixed $provided, array $allowedValues): bool {
+    $equals = static function (mixed $left, mixed $right, bool $nested) use (&$equals): bool {
+        // the data of a model is the data it was set up with
+        if ($left instanceof \PHPModelGenerator\Interfaces\JSONModelInterface) {
+            $left = $left->meta()->rawInput();
+        }
+
+        if (is_array($left) && is_array($right)) {
+            if (count($left) !== count($right)) {
+                return false;
+            }
+
+            foreach ($left as $key => $item) {
+                if (!array_key_exists($key, $right) || !$equals($item, $right[$key], true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // a number inside of a structure equals a number of the other type with the same value (1 and 1.0)
+        if ($nested && (is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
+            return $left == $right;
+        }
+
+        return $left === $right;
+    };
+
+    foreach ($allowedValues as $allowedValue) {
+        if ($equals($provided, $allowedValue, false)) {
+            return true;
+        }
+    }
+
+    return false;
+})($value, {{ allowedValues }})

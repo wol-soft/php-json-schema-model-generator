@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "x": {
+      "type": "string"
+    },
+    "n": {
+      "type": "integer"
+    }
+  },
+  "const": {
+    "n": 1,
+    "x": "y"
+  }
+}

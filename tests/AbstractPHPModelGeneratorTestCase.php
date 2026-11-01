@@ -326,7 +326,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
                     }
                 }
 
-                $jsonSchema = json_encode($jsonSchemaArray);
+                // a float constant which is written with a fraction of zero (1.0) must stay a float
+                $jsonSchema = json_encode($jsonSchemaArray, JSON_PRESERVE_ZERO_FRACTION);
             }
         }
 

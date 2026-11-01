@@ -374,8 +374,7 @@ class SchemaProcessor
         // Exclude keywords that belong to the outer property (not the merged class body).
         // Mirrors the exclusions that createObjectProperty() applies before passing the schema
         // to processSchema().
-        $mergedBaseJson = $siblingJson;
-        unset($mergedBaseJson['filter'], $mergedBaseJson['enum'], $mergedBaseJson['default']);
+        $mergedBaseJson = array_diff_key($siblingJson, array_flip(PropertyFactory::OUTER_PROPERTY_KEYWORDS));
         $mergedBaseJson['type'] = 'base';
 
         $mergedSchemaJson = $propertySchema->withJson($mergedBaseJson);

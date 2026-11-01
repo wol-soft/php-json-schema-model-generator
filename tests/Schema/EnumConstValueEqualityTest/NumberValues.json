@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "numberEnum": {
+      "type": "number",
+      "enum": [1, 2.5]
+    },
+    "numberConst": {
+      "type": "number",
+      "const": 1
+    },
+    "integerEnum": {
+      "type": "integer",
+      "enum": [1.0, 2]
+    },
+    "integerConst": {
+      "type": "integer",
+      "const": 2.0
+    },
+    "untypedIntegerEnum": {
+      "enum": [1, 2]
+    },
+    "numberOrStringEnum": {
+      "type": ["number", "string"],
+      "enum": [1, "a"]
+    },
+    "numberEnumWithDefault": {
+      "type": "number",
+      "enum": [1, 2],
+      "default": 1
+    }
+  }
+}

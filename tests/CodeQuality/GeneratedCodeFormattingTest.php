@@ -454,6 +454,42 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The comparison of an enum and a const with object and array values is embedded into the validation of the
+     * property (the property of an object, the value of the schema root) in both modes of the error handling.
+     */
+    #[DataProvider('enumAndConstOfObjectValuesDataProvider')]
+    public function testEnumAndConstOfObjectValuesGenerateCodeMatchingTheCodingStandard(
+        string $file,
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            $file,
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    public static function enumAndConstOfObjectValuesDataProvider(): array
+    {
+        return self::combineDataProvider(
+            [
+                'properties' => ['EnumAndConstOfObjectValues.json'],
+                'schema root' => ['RootLevelConstOfObject.json'],
+            ],
+            [
+                'direct exception' => [false],
+                'collect errors' => [true],
+            ],
+        );
+    }
+
+    /**
      * @param string[] $files
      */
     private function runPhpcs(array $files): array

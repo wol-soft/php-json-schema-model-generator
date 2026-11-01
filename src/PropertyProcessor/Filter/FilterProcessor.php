@@ -743,6 +743,7 @@ class FilterProcessor
                 $guardedCheck,
                 $validator->getExceptionClass(),
                 $exceptionParams,
+                $validator->getProvidedValueCode(),
             ))->withJsonPointer($jsonPointer),
             3,
         );
