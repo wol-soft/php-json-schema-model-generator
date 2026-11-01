@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "definitions": {
+    "stringOrList": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "contains": {
+        "$ref": "#/definitions/integerOrList"
+      }
+    },
+    "integerOrList": {
+      "type": [
+        "integer",
+        "array"
+      ],
+      "contains": {
+        "$ref": "#/definitions/stringOrList"
+      }
+    }
+  },
+  "properties": {
+    "chain": {
+      "$ref": "#/definitions/stringOrList"
+    }
+  }
+}

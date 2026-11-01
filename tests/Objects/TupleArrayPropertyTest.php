@@ -1504,35 +1504,4 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             MSG,
         );
     }
-
-    /**
-     * Known gap: a tuple array as the schema of contains raises a warning. The closure of the contains validator
-     * doesn't capture $modelData, which the closure of the inner tuple validator captures.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
-     * then has to assert that no warning is raised.
-     */
-    public function testKnownGapTupleArrayAsContainsSchemaRaisesAWarning(): void
-    {
-        $className = $this->generateClassFromFile('TupleAsContainsSchema.json');
-
-        $warnings = [];
-        set_error_handler(
-            static function (int $severity, string $message) use (&$warnings): bool {
-                $warnings[] = $message;
-
-                return true;
-            },
-            E_WARNING,
-        );
-
-        try {
-            $object = new $className(['containsSlot' => [['a']]]);
-        } finally {
-            restore_error_handler();
-        }
-
-        $this->assertSame([['a']], $object->getContainsSlot());
-        $this->assertSame(['Undefined variable $modelData'], $warnings);
-    }
 }

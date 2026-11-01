@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -250,6 +252,100 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
                           - invalid tuple #1
                             * Invalid type for 'tuple item #0 of array unevaluated item': requires 'int', got 'string'
             MSG,
+        );
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testContainsSchemaWhichReferencesItselfIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('Contains.json', $configuration);
+
+        foreach (
+            [
+                'a',
+                ['a'],
+                [1, 'a'],
+                [['a']],
+                [1, [2, ['x']]],
+                [[[['a']]], 5],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        // the property is optional
+        $this->assertNull((new $className([]))->getTree());
+
+        // no item
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => []],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'tree' matches the 'contains' constraint",
+        );
+
+        // no item matches
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [1, 2]],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'tree' matches the 'contains' constraint",
+        );
+
+        // the only array item contains no matching item: the check applies to every level
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [1, [2, [3]]]],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'tree' matches the 'contains' constraint",
+        );
+
+        // the nodes of the array are validated by the items keyword, the contains keyword of each node is checked
+        $object = new $className(['forest' => ['a', ['b'], [1, ['c']]]]);
+        $this->assertSame(['a', ['b'], [1, ['c']]], $object->getForest());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['forest' => ['a', ['b'], [1, [2]]]],
+            $this->getExpectedExceptionClass($configuration, InvalidItemException::class),
+            <<<'MSG'
+            Invalid items in array 'forest':
+              - invalid item #2
+                * No item in array 'forest' matches the 'contains' constraint
+            MSG,
+        );
+    }
+
+    /**
+     * Two definitions reference each other: a level matches if it holds an item which matches the other definition.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testContainsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('MutualContains.json', $configuration);
+
+        foreach (['a', [1], ['x', 2], [['a']], [[1, [2, ['b']]]]] as $chain) {
+            $object = new $className(['chain' => $chain]);
+            $this->assertSame($chain, $object->getChain());
+        }
+
+        // a string is no integer and no array
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a']],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'chain' matches the 'contains' constraint",
+        );
+
+        // the array of the second level contains an integer, but not a string or an array
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => [[1]]],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'chain' matches the 'contains' constraint",
         );
     }
 }

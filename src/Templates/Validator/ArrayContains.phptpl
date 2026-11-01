@@ -19,7 +19,7 @@ is_array($value) && (function (&$items){{ capturedVariables }} {
 
             {{ viewHelper.resolvePropertyDecorator(property, false, 3) }}
 
-            {{ viewHelper.renderValidators(property, schema, 3) }}
+            {{ viewHelper.renderExtractedValidators(property, schema, validationMethod, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

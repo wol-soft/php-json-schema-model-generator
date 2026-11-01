@@ -15,6 +15,12 @@ use PHPModelGenerator\Utils\RenderHelper;
  * embedded subschema. Optionally counts matches when minContains / maxContains are used,
  * and optionally exports the per-index match map into a local accumulator so a surrounding
  * composition branch can credit the matched indices to its evaluated set.
+ *
+ * The validators of the schema are rendered into a method of their own (see RenderHelper::renderExtractedValidators()),
+ * the schema may reference the array owning the keyword. Rendering the whole validator into a method (like the
+ * ExtractedMethodValidator does) was rejected: the match counter is shared with the minContains and maxContains
+ * validators following this one, the match map with the composition body of a tracked branch, both live in the
+ * scope around the closure.
  */
 class ArrayContainsValidator extends PropertyTemplateValidator
 {
@@ -37,6 +43,9 @@ class ArrayContainsValidator extends PropertyTemplateValidator
                 'trackBranchMatches' => false,
                 'trackEvaluatedItems' => false,
                 'trackEvaluatedItemsProperty' => '',
+                'validationMethod' => $schema->reserveMethodName(
+                    RenderHelper::extractedMethodNameCandidate($property, 'ContainedItem'),
+                ),
                 'capturedVariables' => '',
                 'viewHelper' => new RenderHelper($generatorConfiguration),
                 'generatorConfiguration' => $generatorConfiguration,
@@ -86,26 +95,24 @@ class ArrayContainsValidator extends PropertyTemplateValidator
 
     /**
      * The variables the closure shares with its surrounding scope depend on the tracking which is enabled after the
-     * validator was created.
+     * validator was created. The model data is always captured: the validators of the schema which are rendered into
+     * a method (tuples, items, compositions, ...) are called with it.
      */
     public function getCheck(): string
     {
         $capturedVariables = array_filter([
             $this->templateValues['countMatches'] ? '&$containsMatches' : null,
             $this->templateValues['trackBranchMatches'] ? '&$branchContainsMatches' : null,
+            '$modelData',
         ]);
 
-        $this->templateValues['capturedVariables'] = $capturedVariables
-            ? ' use (' . implode(', ', $capturedVariables) . ')'
-            : '';
+        $this->templateValues['capturedVariables'] = ' use (' . implode(', ', $capturedVariables) . ')';
 
         return parent::getCheck();
     }
 
     public function getValidatorSetUp(): string
     {
-        return $this->templateValues['countMatches'] ? '
-            $containsMatches = 0;
-        ' : '';
+        return $this->templateValues['countMatches'] ? '$containsMatches = 0;' : '';
     }
 }
