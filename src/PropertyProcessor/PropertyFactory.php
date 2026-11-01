@@ -727,6 +727,10 @@ class PropertyFactory
      * Handle a nested object property: generate the nested class, wire the outer property,
      * then apply universal modifiers (filter, enum, default, const) on the outer property.
      *
+     * @param bool $applyUniversalModifiers False for the object variant of a multi type property: the universal
+     *                                      modifiers are applied once to the multi type property itself, applying them
+     *                                      to the variant as well would validate e.g. an enum twice.
+     *
      * @throws SchemaException
      */
     private function createObjectProperty(
@@ -737,6 +741,7 @@ class PropertyFactory
         bool $required,
         bool $isArrayItem = false,
         bool $guarded = false,
+        bool $applyUniversalModifiers = true,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
         $property = $this->buildProperty(
@@ -786,7 +791,9 @@ class PropertyFactory
         }
 
         // Universal modifiers (filter, enum, default, const) run on the outer property.
-        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
+        if ($applyUniversalModifiers) {
+            $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
+        }
 
         return $property;
     }
@@ -1183,6 +1190,7 @@ class PropertyFactory
                     $subSchema,
                     $required,
                     $isArrayItem,
+                    applyUniversalModifiers: false,
                 )
                 : $this->createSubTypeProperty(
                     $schemaProcessor,

@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "enumProperty": {
+      "type": ["object", "string"],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "enum": ["alpha", "beta"]
+    },
+    "constProperty": {
+      "type": ["object", "string"],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "const": "alpha"
+    }
+  }
+}

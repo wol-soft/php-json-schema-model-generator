@@ -10,6 +10,8 @@ use PHPModelGenerator\Exception\Arrays\MaxContainsException;
 use PHPModelGenerator\Exception\Arrays\MinContainsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\EnumException;
+use PHPModelGenerator\Exception\Generic\InvalidConstException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -509,6 +511,45 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
             ['property' => [1, 2, 3, 4]],
             $this->getExpectedExceptionClass($configuration, MaxContainsException::class),
             "Array 'property' must not contain more than 3 items matching the contains constraint, 4 matching items provided",
+        );
+    }
+
+    /**
+     * The enum and the const of a multi type property with an object variant are validated once, not once for the
+     * property and once for the variant: with collected errors the violation is reported once.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testEnumAndConstOfAMultiTypePropertyWithAnObjectVariantAreValidatedOnce(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'MultiTypePropertyWithObjectVariantAndEnumOrConst.json',
+            $configuration,
+        );
+
+        $object = new $className(['enumProperty' => 'beta', 'constProperty' => 'alpha']);
+        $this->assertSame('beta', $object->getEnumProperty());
+        $this->assertSame('alpha', $object->getConstProperty());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['enumProperty' => 'gamma'],
+            $this->getExpectedExceptionClass($configuration, EnumException::class),
+            <<<'MSG'
+            Value for 'enumProperty' must be one of ["alpha","beta",null], got "gamma"
+            MSG,
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['constProperty' => 'gamma'],
+            $this->getExpectedExceptionClass($configuration, InvalidConstException::class),
+            <<<'MSG'
+            Value for 'constProperty' must be "alpha", got "gamma"
+            MSG,
         );
     }
 }
