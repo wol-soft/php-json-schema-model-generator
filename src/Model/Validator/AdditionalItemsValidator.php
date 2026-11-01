@@ -15,4 +15,5 @@ class AdditionalItemsValidator extends AdditionalPropertiesValidator
 
     protected const EXCEPTION_CLASS = InvalidAdditionalTupleItemsException::class;
     protected const EXTRACTED_VALIDATION_KIND = 'AdditionalItem';
+    protected const VALIDATES_ARRAY = true;
 }

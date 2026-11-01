@@ -14,19 +14,12 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class PatternPropertiesValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class PatternPropertiesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
     private readonly PropertyInterface $validationProperty;
     private readonly string $key;
 
     /**
-     * PatternPropertiesValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -65,6 +58,10 @@ class PatternPropertiesValidator extends PropertyTemplateValidator implements Ob
             InvalidPatternPropertiesException::class,
             [$this->pattern, '&$invalidProperties'],
         );
+
+        $this->templateValues['validationMethod'] = $schema->reserveMethodName(
+            RenderHelper::extractedMethodNameCandidate($this->property, 'PatternProperty'),
+        );
     }
 
     /**
@@ -93,7 +90,8 @@ class PatternPropertiesValidator extends PropertyTemplateValidator implements Ob
     }
 
     /**
-     * Initialize all variables which are required to execute a property names validator
+     * The values are validated by a closure which reads them as `$properties` and reports the invalid ones by
+     * `$invalidProperties`
      */
     public function getValidatorSetUp(): string
     {

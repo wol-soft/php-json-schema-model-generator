@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\CodeQuality;
 
 use DateTime;
+use PHPModelGenerator\Draft\Draft_2019_09;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -288,6 +289,27 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
                 ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
                 ->setImmutable(false)
                 ->setCollectErrors(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The validators of the items of an array and of the values of an object are rendered into methods of their own
+     * (additional items, unevaluated items, contained items, additional, pattern and unevaluated properties). Both
+     * error handling variants render the call inside a different amount of nesting levels.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testElementValidationMethodsGenerateCodeMatchingTheCodingStandard(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $this->generateClassFromFile(
+            'ElementValidationMethods.json',
+            $configuration
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setDraft(new Draft_2019_09()),
         );
 
         $report = $this->runPhpcs($this->getGeneratedFiles());

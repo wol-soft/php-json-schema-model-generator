@@ -21,11 +21,7 @@
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
-            {% if validationMethod %}
-                {{ viewHelper.renderExtractedValidators(validationProperty, schema, validationMethod, 3) }}
-            {% else %}
-                {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
-            {% endif %}
+            {{ viewHelper.renderExtractedValidators(validationProperty, schema, validationMethod, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

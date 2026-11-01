@@ -28,16 +28,19 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
     /**
-     * Set by the validator of the additional items of an array property: the kind of the method validating an
-     * additional item (see RenderHelper::renderExtractedValidators()). Also marks the validator as the validator of an
-     * array property, which has to skip a value which is no array (a property which isn't provided or an untyped
-     * property).
-     *
-     * The validator of the additional properties of an object renders the validators of the additional property
-     * inline: the value of an additional property can't be part of a cycle of validators, an object is validated by a
-     * class of its own. The additional items of an array may reference the array itself.
+     * The kind of the method validating an additional value (see RenderHelper::renderExtractedValidators()). The
+     * validators of the value run in a scope of their own: the validators of an array value (additional items,
+     * contains, ...) would otherwise assign the variables of this validator which the closure shares with its
+     * surroundings (`$properties`, `$invalidProperties`) and change the value and the invalid entries of the
+     * additional property being validated.
      */
-    protected const EXTRACTED_VALIDATION_KIND = null;
+    protected const EXTRACTED_VALIDATION_KIND = 'AdditionalProperty';
+
+    /**
+     * Whether the validator belongs to an array property. The check has to skip a value which is no array (a property
+     * which isn't provided, an untyped property), the value of an object is always the model data.
+     */
+    protected const VALIDATES_ARRAY = false;
 
     private readonly PropertyInterface $validationProperty;
     private bool $collectAdditionalProperties = false;
@@ -69,28 +72,20 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
 
         // The patterns describe the keys of an object. The schema is the class declaring an array property, its
         // patterns have nothing to do with the indices of the array.
-        $patternProperties = static::EXTRACTED_VALIDATION_KIND === null
-            ? array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? [])
-            : [];
+        $patternProperties = static::VALIDATES_ARRAY
+            ? []
+            : array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
         $declaredProperties = array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []);
         // numeric property names are integer array keys
         $this->declaredProperties = array_map('strval', $declaredProperties);
 
-        $property = new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure);
-        $validatesArray = static::EXTRACTED_VALIDATION_KIND !== null;
-
         parent::__construct(
-            $property,
+            new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
-                'validationMethod' => $validatesArray
-                    ? $schema->reserveMethodName(
-                        RenderHelper::extractedMethodNameCandidate($property, static::EXTRACTED_VALIDATION_KIND),
-                    )
-                    : null,
-                'typeGuard' => $validatesArray ? 'is_array($value) && ' : '',
+                'typeGuard' => static::VALIDATES_ARRAY ? 'is_array($value) && ' : '',
                 'additionalProperties' => RenderHelper::varExportArray($declaredProperties),
                 'patternProperties' => $patternProperties
                     ? RenderHelper::varExportPcrePatterns($patternProperties)
@@ -102,6 +97,10 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             ],
             static::EXCEPTION_CLASS,
             ['&$invalidProperties'],
+        );
+
+        $this->templateValues['validationMethod'] = $schema->reserveMethodName(
+            RenderHelper::extractedMethodNameCandidate($this->property, static::EXTRACTED_VALIDATION_KIND),
         );
     }
 
