@@ -1,4 +1,4 @@
-(function () use ($properties, &$invalidProperties, $modelData) {
+{{ typeGuard }}(function () use ($properties, &$invalidProperties, $modelData) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -21,7 +21,11 @@
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
-            {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
+            {% if validationMethod %}
+                {{ viewHelper.renderExtractedValidators(validationProperty, schema, validationMethod, 3) }}
+            {% else %}
+                {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
+            {% endif %}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

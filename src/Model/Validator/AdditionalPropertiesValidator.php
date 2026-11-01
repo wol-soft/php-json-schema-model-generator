@@ -15,9 +15,8 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class AdditionalPropertiesValidator
- *
- * @package PHPModelGenerator\Model\Validator
+ * Validates the keys of an object which are not declared as properties by a schema. Also the base of the validator for
+ * the additional items of a tuple array, which reads the items as the properties of the array.
  */
 class AdditionalPropertiesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
@@ -28,14 +27,24 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
 
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
+    /**
+     * Set by the validator of the additional items of an array property: the kind of the method validating an
+     * additional item (see RenderHelper::renderExtractedValidators()). Also marks the validator as the validator of an
+     * array property, which has to skip a value which is no array (a property which isn't provided or an untyped
+     * property).
+     *
+     * The validator of the additional properties of an object renders the validators of the additional property
+     * inline: the value of an additional property can't be part of a cycle of validators, an object is validated by a
+     * class of its own. The additional items of an array may reference the array itself.
+     */
+    protected const EXTRACTED_VALIDATION_KIND = null;
+
     private readonly PropertyInterface $validationProperty;
     private bool $collectAdditionalProperties = false;
     /** @var string[] */
     private readonly array $declaredProperties;
 
     /**
-     * AdditionalPropertiesValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -63,12 +72,21 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
         // numeric property names are integer array keys
         $this->declaredProperties = array_map('strval', $declaredProperties);
 
+        $property = new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure);
+        $validatesArray = static::EXTRACTED_VALIDATION_KIND !== null;
+
         parent::__construct(
-            new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure),
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
+                'validationMethod' => $validatesArray
+                    ? $schema->reserveMethodName(
+                        RenderHelper::extractedMethodNameCandidate($property, static::EXTRACTED_VALIDATION_KIND),
+                    )
+                    : null,
+                'typeGuard' => $validatesArray ? 'is_array($value) && ' : '',
                 'additionalProperties' => RenderHelper::varExportArray($declaredProperties),
                 'patternProperties' => $patternProperties
                     ? RenderHelper::varExportPcrePatterns($patternProperties)
@@ -120,7 +138,8 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
     }
 
     /**
-     * Initialize all variables which are required to execute a property names validator
+     * The values are validated by a closure which reads them as `$properties` and reports the invalid ones by
+     * `$invalidProperties`
      */
     public function getValidatorSetUp(): string
     {

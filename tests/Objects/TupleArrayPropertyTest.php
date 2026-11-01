@@ -12,13 +12,13 @@ use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use Throwable;
-use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -1399,21 +1399,83 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Known gap: a tuple array with a schema as additionalItems crashes when the property is not provided and
-     * implicit null is enabled. The additional items validator runs on the null value of the missing property
-     * (array_keys() rejects null) instead of being skipped like the other validators of the property.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
-     * then has to assert that the model is created.
+     * With implicit null the validators run for a property which isn't provided or provided as null: the additional
+     * items must only be validated for an array, like the other validators of the tuple.
      */
-    public function testKnownGapSchemaAdditionalItemsCrashForAMissingPropertyWithImplicitNull(): void
+    #[DataProvider('validationMethodWithImplicitNullDataProvider')]
+    public function testSchemaAdditionalItemsOfAnOptionalPropertyAreOnlyValidatedForAnArray(
+        GeneratorConfiguration $configuration,
+        bool $implicitNull,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'TupleArraySchemaAdditionalItems.json',
+            $configuration,
+            implicitNull: $implicitNull,
+        );
+
+        $this->assertNull((new $className([]))->getProperty());
+
+        if ($implicitNull) {
+            $this->assertNull((new $className(['property' => null]))->getProperty());
+        } else {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['property' => null],
+                $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+                "Invalid type for 'property': requires 'array', got 'NULL'",
+            );
+        }
+
+        $object = new $className(['property' => [1, 'a', 'b']]);
+        $this->assertSame([1, 'a', 'b'], $object->getProperty());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['property' => [1, 'a', 2]],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'property' contains invalid additional items
+              - invalid additional item '2'
+                * Invalid type for 'additional item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * An untyped property accepts every value: the additional items apply to an array only. The check of the
+     * additional items must not fail for null and for other types than an array.
+     */
+    #[DataProvider('validationMethodWithImplicitNullDataProvider')]
+    public function testSchemaAdditionalItemsOfAnUntypedPropertyAreOnlyValidatedForAnArray(
+        GeneratorConfiguration $configuration,
+        bool $implicitNull,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'UntypedSchemaAdditionalItems.json',
+            $configuration,
+            implicitNull: $implicitNull,
+        );
+
+        foreach ([[], ['slot' => null], ['slot' => 'abc'], ['slot' => 12], ['slot' => ['a']], ['slot' => ['a', 1, 2]]] as $input) {
+            $object = new $className($input);
+            $this->assertSame($input['slot'] ?? null, $object->getSlot());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['slot' => ['a', 1, 'b']],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'slot' contains invalid additional items
+              - invalid additional item '2'
+                * Invalid type for 'additional item': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    public static function validationMethodWithImplicitNullDataProvider(): array
     {
-        $className = $this->generateClassFromFile('TupleArraySchemaAdditionalItems.json');
-
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage('array_keys(): Argument #1 ($array) must be of type array, null given');
-
-        new $className([]);
+        return self::combineDataProvider(self::validationMethodDataProvider(), self::implicitNullDataProvider());
     }
 
     /**

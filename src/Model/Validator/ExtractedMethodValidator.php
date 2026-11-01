@@ -31,11 +31,9 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         array $exceptionParams = [],
         ?Schema $schema = null,
     ) {
-        $methodName = sprintf(
-            '_validate%s_%s_%s',
-            str_replace(' ', '', ucfirst($property->getAttribute())),
+        $methodName = RenderHelper::extractedMethodNameCandidate(
+            $property,
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
-            md5(json_encode($property->getJsonSchema()->getJson())),
         );
 
         // Two validators of the same kind on the same attribute with identical schema JSON (two

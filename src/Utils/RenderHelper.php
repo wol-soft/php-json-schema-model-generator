@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\PropertyValidationMethod;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
@@ -216,8 +217,8 @@ class RenderHelper
         $renderedMethods = '';
 
         // don't change to a foreach loop as the render process of a method might add additional methods
-        for ($i = 0; $i < count($schema->getMethods()); $i++) {
-            $code = $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode();
+        for ($methodIndex = 0; $methodIndex < count($schema->getMethods()); $methodIndex++) {
+            $code = $schema->getMethods()[array_keys($schema->getMethods())[$methodIndex]]->getCode();
 
             $renderedMethods .= '    ' . self::indent($code, 1) . "\n\n";
         }
@@ -295,6 +296,60 @@ class RenderHelper
         }
 
         return self::indent($code, $indentLevel);
+    }
+
+    /**
+     * Renders the validation of one element of a container (see renderValidators()) as a call of a method of its own.
+     *
+     * The validators of the element are rendered into the method, not into the validators of the container: an element
+     * which references the schema owning the container (a tree whose additional items are trees again) renders the
+     * container, which renders the element again. The method is registered before its body is rendered, so the
+     * recursive occurrence renders the call of the method instead. As a side effect the nested validators of an
+     * element run in a scope of their own: the variables a validator shares with its closure (error lists, counters)
+     * can't collide with the variables of a validator of the same kind validating the container.
+     *
+     * Extracting only the elements which are part of a reference cycle was rejected: the cycle is only known once every
+     * reference is resolved and the rendering would need a global state tracking the properties being rendered.
+     *
+     * @param string $methodName Reserved by the validator of the container (see extractedMethodNameCandidate()), all
+     *                           clones of the validator bound to other properties call the same method.
+     */
+    public function renderExtractedValidators(
+        PropertyInterface $property,
+        Schema $schema,
+        string $methodName,
+        int $indentLevel = 0,
+    ): string {
+        if (!$property->getOrderedValidators()) {
+            return '';
+        }
+
+        if (!$schema->hasMethod($methodName)) {
+            $schema->addMethod(
+                $methodName,
+                new PropertyValidationMethod($methodName, $property, $schema, $this->generatorConfiguration),
+            );
+        }
+
+        return self::indent("\$this->$methodName(\$value, \$modelData);", $indentLevel);
+    }
+
+    /**
+     * The name of a method extracted for the validator of the property: derived from the attribute and the schema of
+     * the property only, so it is stable between generation runs. The caller reserves the name in the schema which
+     * receives the method (Schema::reserveMethodName()) as validators of identical properties share the candidate.
+     *
+     * Mixing the identity of the validator or of the property into the name was rejected: it shifts with unrelated
+     * schemas processed earlier in the run and renames the methods of classes which did not change.
+     */
+    public static function extractedMethodNameCandidate(PropertyInterface $property, string $kind): string
+    {
+        return sprintf(
+            '_validate%s_%s_%s',
+            str_replace(' ', '', ucfirst($property->getAttribute())),
+            $kind,
+            md5(json_encode($property->getJsonSchema()->getJson())),
+        );
     }
 
     /**
