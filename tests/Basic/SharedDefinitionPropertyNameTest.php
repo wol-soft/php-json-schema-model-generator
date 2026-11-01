@@ -55,8 +55,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
     private const array REFERENCES = ['A', 'B'];
 
     /**
-     * The tuples with a schema for the additional items are required: validating the additional items of a property
-     * which is not provided fails with a TypeError.
+     * The tuples with a schema for the additional items are required, the other properties are optional.
      */
     #[DataProvider('validationMethodDataProvider')]
     public function testArrayKeywordsReportTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
@@ -676,6 +675,68 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                 MSG,
             );
         }
+    }
+
+    /**
+     * The properties are optional: the keywords of the definitions validate an array only. A property which isn't
+     * provided is skipped (with implicit null it is validated as null), the property which is provided reports its own
+     * name.
+     */
+    #[DataProvider('validationMethodWithImplicitNullDataProvider')]
+    public function testArrayKeywordsOfOptionalPropertiesAreSkippedIfThePropertyIsNotProvided(
+        GeneratorConfiguration $configuration,
+        bool $implicitNull,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'OptionalArrayKeywords.json',
+            $configuration,
+            implicitNull: $implicitNull,
+        );
+
+        $object = new $className([]);
+        foreach (self::REFERENCES as $reference) {
+            $this->assertNull($object->{'getSchemaTail' . $reference}());
+            $this->assertNull($object->{'getContaining' . $reference}());
+            $this->assertNull($object->{'getClosedPair' . $reference}());
+        }
+
+        $object = new $className(['schemaTailB' => ['a', 1, 2], 'containingA' => ['a', 1], 'closedPairB' => ['a']]);
+        $this->assertNull($object->getSchemaTailA());
+        $this->assertSame(['a', 1, 2], $object->getSchemaTailB());
+        $this->assertSame(['a', 1], $object->getContainingA());
+        $this->assertNull($object->getContainingB());
+        $this->assertNull($object->getClosedPairA());
+        $this->assertSame(['a'], $object->getClosedPairB());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['schemaTailB' => ['a', 'b']],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'schemaTailB' contains invalid additional items
+              - invalid additional item '1'
+                * Invalid type for 'additional item': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['containingB' => ['a']],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'containingB' matches the 'contains' constraint",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['closedPairA' => ['a', 'b']],
+            $this->getExpectedExceptionClass($configuration, AdditionalTupleItemsException::class),
+            "Tuple array 'closedPairA' contains not allowed additional items: expected 1 items, got 2",
+        );
+    }
+
+    public static function validationMethodWithImplicitNullDataProvider(): array
+    {
+        return self::combineDataProvider(self::validationMethodDataProvider(), self::implicitNullDataProvider());
     }
 
     /**
