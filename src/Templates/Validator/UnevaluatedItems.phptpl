@@ -22,7 +22,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
-            {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
+            {{ viewHelper.renderExtractedValidators(validationProperty, schema, validationMethod, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

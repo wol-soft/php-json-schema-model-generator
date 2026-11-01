@@ -64,6 +64,9 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
                 'suffix' => $this->variableSuffix,
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
+                'validationMethod' => $schema->reserveMethodName(
+                    RenderHelper::extractedMethodNameCandidate($property, 'UnevaluatedItem'),
+                ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],

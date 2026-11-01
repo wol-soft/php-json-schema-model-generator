@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -139,6 +141,114 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
                     * Invalid tuple item in array 'additional item':
                       - invalid tuple #1
                         * Invalid type for 'tuple item #0 of array additional item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsSchemaWhichReferencesItselfIsValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('UnevaluatedItems.json', $configuration);
+
+        foreach (
+            [
+                [],
+                ['a'],
+                ['a', []],
+                ['a', ['b', ['c', ['d']]]],
+                ['a', ['b'], ['c', ['d', []]], []],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree, $object->getTree());
+        }
+
+        // the property is optional
+        $this->assertNull((new $className([]))->getTree());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'tree':
+              - invalid unevaluated item #1
+                * Invalid type for 'unevaluated item': requires 'array', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', 1]]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'tree':
+              - invalid unevaluated item #1
+                * Invalid unevaluated items in array 'unevaluated item':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'array', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', ['b', [2]]]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'tree':
+              - invalid unevaluated item #1
+                * Invalid unevaluated items in array 'unevaluated item':
+                  - invalid unevaluated item #1
+                    * Invalid tuple item in array 'unevaluated item':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a', 1, ['b', 2]]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'tree':
+              - invalid unevaluated item #1
+                * Invalid type for 'unevaluated item': requires 'array', got 'integer'
+              - invalid unevaluated item #2
+                * Invalid unevaluated items in array 'unevaluated item':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'array', got 'integer'
+            MSG,
+        );
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('MutualUnevaluatedItems.json', $configuration);
+
+        foreach ([[], ['a'], ['a', [1]], ['a', [1, ['b', [2, ['c']]]], [3]]] as $chain) {
+            $object = new $className(['chain' => $chain]);
+            $this->assertSame($chain, $object->getChain());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a', [1, ['b', ['c']]]]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'chain':
+              - invalid unevaluated item #1
+                * Invalid unevaluated items in array 'unevaluated item':
+                  - invalid unevaluated item #1
+                    * Invalid unevaluated items in array 'unevaluated item':
+                      - invalid unevaluated item #1
+                        * Invalid tuple item in array 'unevaluated item':
+                          - invalid tuple #1
+                            * Invalid type for 'tuple item #0 of array unevaluated item': requires 'int', got 'string'
             MSG,
         );
     }
