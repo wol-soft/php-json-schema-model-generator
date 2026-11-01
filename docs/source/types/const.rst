@@ -26,6 +26,10 @@ Possible exceptions:
 
 * Value for 'example' must be 42, got 41
 
+.. hint::
+
+    A property with the constant `null` is typed with the `null` type of PHP, see `Null <null.html>`__.
+
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidConstException* which provides the following methods to get further error details:
 
 .. code-block:: php

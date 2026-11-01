@@ -151,8 +151,13 @@ class RenderHelper
             return implode(' | ', array_unique($names));
         }
 
-        // Single type — preserve ?Type shorthand
-        return ($nullable ? '?' : '') . $names[0];
+        // Single type — preserve ?Type shorthand, except for the null type: it already contains null and PHP rejects
+        // "?null". Dropping the shorthand here covers every declaration (getter, setter, builder, accessors of
+        // additional properties) and every source of the nullability (optional, implicit null, a forced nullable
+        // type). Clearing the type of a null const/enum (as the null type of a schema does) was rejected: the
+        // getters of a required null const would lose their `null` declaration and each source producing a null-only
+        // type would need the same special handling.
+        return ($nullable && $names[0] !== 'null' ? '?' : '') . $names[0];
     }
 
     public function getTypeHintAnnotation(
