@@ -399,14 +399,12 @@ An invalid value on a deeper level is reported by the *InvalidTupleException* of
 
 The tuple items may be transformed by filters (see `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__), also on every level of a recursive tuple.
 
-.. hint::
-
-    A recursion which runs over the schema of ``additionalItems`` or ``unevaluatedItems`` (eg. ``"additionalItems": {"$ref": "#/definitions/node"}``) is not supported yet.
+The recursion may also run over the schema of ``additionalItems``, ``unevaluatedItems`` and ``contains``, see `Recursive array keywords`_.
 
 Contains
 --------
 
-The contains check uses a schema which must match at least one of the items provided in the input data to pass the validation. Simple checks like 'must contain a string' are possible as well as checks like 'must contain an object with a specific structure'.
+The contains check uses a schema which must match at least one of the items provided in the input data to pass the validation. Simple checks like 'must contain a string' are possible as well as checks like 'must contain an object with a specific structure'. The schema is a regular schema, also tuples, items, compositions and conditions can be used.
 
 .. code-block:: json
 
@@ -665,6 +663,85 @@ the keyword inside the object.
 
     See `combined schemas <../toc-combinedSchemas.html>`__ for the per-keyword rules that govern
     how each composition contributes to the evaluated set.
+
+Recursive array keywords
+------------------------
+
+Not only a tuple item may reference the array which owns the keyword: the schema of ``additionalItems``, of ``unevaluatedItems`` (Draft 2019-09 and later) and of ``contains`` may do so as well. Each level of the nesting is validated by the keyword of the array of the level. The definitions may reference each other, and the keywords may be mixed in a cycle (eg. the additional items of a list are described by a definition whose ``contains`` references the list).
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "additionalItems": {
+                    "$ref": "#/definitions/node"
+                }
+            }
+        },
+        "properties": {
+            "tree": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+.. code-block:: php
+
+    $example = new Example(['tree' => ['a', ['b', ['c']], []]]);
+    // ['a', ['b', ['c']], []]
+    $example->getTree();
+
+An invalid value on a deeper level is reported by the exception of each level above it. For the schema shown above the input ``{"tree": ["a", ["b", 1]]}`` results in:
+
+.. code-block:: none
+
+    Tuple array 'tree' contains invalid additional items
+      - invalid additional item '1'
+        * Tuple array 'additional item' contains invalid additional items
+          - invalid additional item '1'
+            * Invalid type for 'additional item': requires 'array', got 'integer'
+
+The same applies to ``unevaluatedItems`` (the exceptions are *InvalidUnevaluatedItemsException*, the nested array is named ``unevaluated item``).
+
+A recursion over ``contains`` needs a schema which is satisfied without an item matching the schema itself, as the array of a level matches only if one of its items matches. The following node is a string or an array which contains a node:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": [
+                    "string",
+                    "array"
+                ],
+                "contains": {
+                    "$ref": "#/definitions/node"
+                }
+            }
+        },
+        "properties": {
+            "tree": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+The values ``"a"``, ``["a"]``, ``[1, ["a"]]`` and ``[[["a"]]]`` are valid. The input ``{"tree": [1, [2]]}`` is rejected, the array ``[2]`` contains no node and so doesn't match the schema of the outer ``contains``. The exception only reports that no item matches:
+
+.. code-block:: none
+
+    No item in array 'tree' matches the 'contains' constraint
 
 Size validation
 ---------------

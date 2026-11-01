@@ -348,4 +348,51 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             "No item in array 'chain' matches the 'contains' constraint",
         );
     }
+
+    /**
+     * The cycle runs over the additional items of one definition and the contains keyword of the other definition.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testAdditionalItemsAndContainsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('MixedAdditionalItemsAndContains.json', $configuration);
+
+        foreach (
+            [
+                ['a'],
+                ['a', 'x'],
+                ['a', [['b']]],
+                ['a', 'x', [['b', 'y', [['c']]]]],
+            ] as $chain
+        ) {
+            $object = new $className(['chain' => $chain]);
+            $this->assertSame($chain, $object->getChain());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'chain' contains invalid additional items
+              - invalid additional item '1'
+                * Invalid type for 'additional item': requires ['string', 'array'], got 'integer'
+            MSG,
+        );
+
+        // the array of the second level contains no list, the array of the third level is no list
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['chain' => ['a', 1, [['b', 1]]]],
+            $this->getExpectedExceptionClass($configuration, InvalidAdditionalTupleItemsException::class),
+            <<<'MSG'
+            Tuple array 'chain' contains invalid additional items
+              - invalid additional item '1'
+                * Invalid type for 'additional item': requires ['string', 'array'], got 'integer'
+              - invalid additional item '2'
+                * No item in array 'additional item' matches the 'contains' constraint
+            MSG,
+        );
+    }
 }

@@ -563,7 +563,7 @@ a ``SchemaException`` at generation time.
 Recursive Objects
 -----------------
 
-If objects are defined recursive the recursion will be resolved into a single class.
+If objects are defined recursive the recursion will be resolved into a single class. A recursion which runs over the keywords of an array (``additionalItems``, ``unevaluatedItems``, ``contains``) is described in `Recursive array keywords <array.html#recursive-array-keywords>`__.
 
 .. code-block:: json
 
