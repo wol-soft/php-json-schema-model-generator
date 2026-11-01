@@ -219,6 +219,38 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidTup
 
     Incomplete tuples are valid. Consequently an empty array provided for the schema shown above would pass the validation. Keep this in mind when designing tuple constraints. To force the given data to provide all tuples use tuple items combined with the `minItems` array size validation.
 
+A tuple item also accepts the boolean literals ``true`` and ``false`` instead of a schema:
+
+``true`` — any value (also ``null``) is accepted at the index, the other items keep being validated.
+
+``false`` — no value is accepted at the index. An array which is shorter than the index is valid.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string"
+                    },
+                    false
+                ]
+            }
+        }
+    }
+
+If a value is provided at the index of a ``false`` item the exception contains a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException* for the item (``['a', 1]`` provided for the schema shown above):
+
+.. code-block:: none
+
+    Invalid tuple item in array 'example':
+      - invalid tuple #2
+        * Value for 'tuple item #1 of array example' is not allowed
+
 Additional items
 ^^^^^^^^^^^^^^^^
 

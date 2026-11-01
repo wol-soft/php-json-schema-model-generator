@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -47,14 +48,27 @@ class ArrayTupleValidator extends ExtractedMethodValidator
         foreach ($propertiesStructure->getJson() as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
+            // A boolean schema can't be navigated into: the position is validated by an empty schema (`true`
+            // accepts every value) which is extended by a validator rejecting every value for `false`
+            $tupleItemSchema = is_bool($tupleItem)
+                ? $propertiesStructure->withPointer($propertiesStructure->getPointer() . "/$tupleIndex")->withJson([])
+                : $propertiesStructure->navigate($tupleIndex);
+
             // an item of the array behaves like a nested property to add item-level validation
             $tupleProperty = $propertyFactory->create(
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
-                $propertiesStructure->navigate($tupleIndex),
+                $tupleItemSchema,
                 true,
             );
+
+            if ($tupleItem === false) {
+                $tupleProperty->addValidator(
+                    (new PropertyValidator($tupleProperty, 'true', DeniedPropertyException::class))
+                        ->withJsonPointer($tupleItemSchema->getPointer()),
+                );
+            }
 
             $this->tupleProperties[] = $tupleProperty;
         }

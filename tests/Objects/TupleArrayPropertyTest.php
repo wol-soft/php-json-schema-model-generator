@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
@@ -16,6 +17,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use Throwable;
 use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
@@ -1031,21 +1033,273 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A boolean schema is a valid entry of a tuple-form `items` list, but the tuple validator only handles
-     * schema objects: the generation fails with an uncaught TypeError instead of generating a class.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as boolean entries are
-     * supported, the test then has to assert the generated behaviour (`true` accepts every value at the index,
-     * `false` rejects every value).
+     * A boolean schema is a valid entry of a tuple-form `items` list: `true` accepts every value at the index (also
+     * null), `false` rejects every value at the index. An array which is shorter than the index has no value there.
      */
-    public function testKnownGapBooleanSchemaInTupleItemsCrashesTheGenerator(): void
+    #[DataProvider('validationMethodDataProvider')]
+    public function testBooleanSchemasInTupleItemsAtEveryPosition(GeneratorConfiguration $configuration): void
     {
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage(
-            'Cannot assign true to property PHPModelGenerator\Model\SchemaDefinition\JsonSchema::$json of type array',
+        $className = $this->generateClassFromFile('BooleanSchemasInTuple.json', $configuration);
+        $expectedException = $this->getExpectedExceptionClass($configuration, InvalidTupleException::class);
+
+        foreach (
+            [
+                'firstTrue' => [[null, 'a', 1], [['x' => 1], 'a', 1], [1.5, 'a'], [true], []],
+                'middleTrue' => [['a', null, 1], ['a', [1, 2], 1], ['a', 'b'], ['a']],
+                'lastTrue' => [['a', 1, null], ['a', 1, ['x' => 1]], ['a', 1, 1.5], ['a', 1]],
+                'firstFalse' => [[], [], []],
+                'middleFalse' => [['a'], ['a'], ['a']],
+                'lastFalse' => [['a', 1], ['a'], []],
+            ] as $property => $validValues
+        ) {
+            foreach ($validValues as $validValue) {
+                $object = new $className([$property => $validValue]);
+                $this->assertSame($validValue, $object->{'get' . ucfirst($property)}());
+            }
+        }
+
+        // the indices next to a `true` index keep being validated
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['firstTrue' => [true, 1, 1]],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'firstTrue':
+              - invalid tuple #2
+                * Invalid type for 'tuple item #1 of array firstTrue': requires 'string', got 'integer'
+            MSG,
         );
 
-        $this->generateClassFromFile('TupleWithBooleanSchema.json');
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['middleTrue' => ['a', true, 'x']],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'middleTrue':
+              - invalid tuple #3
+                * Invalid type for 'tuple item #2 of array middleTrue': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['lastTrue' => [1, 1, 'whatever']],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'lastTrue':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array lastTrue': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // every value at a `false` index is rejected, also null
+        foreach (['x', 1, null, ['x' => 1], false] as $deniedValue) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['firstFalse' => [$deniedValue]],
+                $expectedException,
+                <<<'MSG'
+                Invalid tuple item in array 'firstFalse':
+                  - invalid tuple #1
+                    * Value for 'tuple item #0 of array firstFalse' is not allowed
+                MSG,
+            );
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['middleFalse' => ['a', null, 1]],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'middleFalse':
+              - invalid tuple #2
+                * Value for 'tuple item #1 of array middleFalse' is not allowed
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['lastFalse' => ['a', 1, 'x']],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'lastFalse':
+              - invalid tuple #3
+                * Value for 'tuple item #2 of array lastFalse' is not allowed
+            MSG,
+        );
+
+        // the violations of all indices are reported
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['firstFalse' => ['x', 5]],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'firstFalse':
+              - invalid tuple #1
+                * Value for 'tuple item #0 of array firstFalse' is not allowed
+              - invalid tuple #2
+                * Invalid type for 'tuple item #1 of array firstFalse': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['lastFalse' => [1, 'a', 'x']],
+            $expectedException,
+            <<<'MSG'
+            Invalid tuple item in array 'lastFalse':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array lastFalse': requires 'string', got 'integer'
+              - invalid tuple #2
+                * Invalid type for 'tuple item #1 of array lastFalse': requires 'int', got 'string'
+              - invalid tuple #3
+                * Value for 'tuple item #2 of array lastFalse' is not allowed
+            MSG,
+        );
+    }
+
+    /**
+     * The exception of a `false` index points into the schema at the index.
+     */
+    public function testBooleanSchemaFalseInTupleItemsPointsToTheIndex(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BooleanSchemasInTuple.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $exception = $this->catchException(static fn() => new $className(['middleFalse' => ['a', 1, 2]]));
+
+        $this->assertInstanceOf(InvalidTupleException::class, $exception);
+        $this->assertSame('/properties/middleFalse/items', $exception->getJsonPointer()->pointer);
+        $this->assertSame(['tuple item #1 of array middleFalse'], array_map(
+            static fn(Throwable $tupleException): string => $tupleException->getPropertyName(),
+            $exception->getInvalidTuples()[2],
+        ));
+        $this->assertSame(
+            '/properties/middleFalse/items/1',
+            $exception->getInvalidTuples()[2][0]->getJsonPointer()->pointer,
+        );
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSetterValidatesBooleanSchemasInTupleItems(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile(
+            'BooleanSchemasInTuple.json',
+            (clone $configuration)->setImmutable(false),
+        );
+
+        $object = new $className(['middleTrue' => ['a', 1, 2], 'middleFalse' => ['a']]);
+
+        $object->setMiddleTrue(['b', null, 3]);
+        $this->assertSame(['b', null, 3], $object->getMiddleTrue());
+
+        $object->setMiddleFalse(['b']);
+        $this->assertSame(['b'], $object->getMiddleFalse());
+
+        $exception = $this->catchException(static fn() => $object->setMiddleFalse(['b', 1]));
+
+        $this->assertInstanceOf($this->getExpectedExceptionClass($configuration, InvalidTupleException::class), $exception);
+        $this->assertSame(
+            <<<'MSG'
+            Invalid tuple item in array 'middleFalse':
+              - invalid tuple #2
+                * Value for 'tuple item #1 of array middleFalse' is not allowed
+            MSG,
+            $exception->getMessage(),
+        );
+        $this->assertSame(['b'], $object->getMiddleFalse());
+
+        $exception = $this->catchException(static fn() => $object->setMiddleTrue(['b', true, 'x']));
+
+        $this->assertInstanceOf($this->getExpectedExceptionClass($configuration, InvalidTupleException::class), $exception);
+        $this->assertSame(
+            <<<'MSG'
+            Invalid tuple item in array 'middleTrue':
+              - invalid tuple #3
+                * Invalid type for 'tuple item #2 of array middleTrue': requires 'int', got 'string'
+            MSG,
+            $exception->getMessage(),
+        );
+        $this->assertSame(['b', null, 3], $object->getMiddleTrue());
+    }
+
+    /**
+     * The index of a boolean schema belongs to the tuple: the items it covers are evaluated, whether the value is
+     * accepted or not.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testBooleanSchemasInTupleItemsAreEvaluatedItems(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('BooleanSchemaTupleWithUnevaluatedItems.json', $configuration);
+
+        $object = new $className(['anything' => [['x' => 1], 'a'], 'nothing' => []]);
+        $this->assertSame([['x' => 1], 'a'], $object->getAnything());
+        $this->assertSame([], $object->getNothing());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['anything' => [1, 'a', 'extra']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'anything' contains not allowed unevaluated items [#2]",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['nothing' => [1]],
+            $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+            <<<'MSG'
+            Invalid tuple item in array 'nothing':
+              - invalid tuple #1
+                * Value for 'tuple item #0 of array nothing' is not allowed
+            MSG,
+        );
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testBooleanSchemasInTupleItemsOfACompositionBranch(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('BooleanSchemaTupleInComposition.json', $configuration);
+
+        foreach ([[], 'text'] as $validValue) {
+            $object = new $className(['branch' => $validValue]);
+            $this->assertSame($validValue, $object->getBranch());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['branch' => [1]],
+            $this->getExpectedExceptionClass($configuration, AnyOfException::class),
+            <<<'MSG'
+            Invalid value for 'branch' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Invalid tuple item in array 'branch':
+                  - invalid tuple #1
+                    * Value for 'tuple item #0 of array branch' is not allowed
+              - Composition element #2: Failed
+                * Invalid type for 'branch': requires 'string', got 'array'
+            MSG,
+        );
+    }
+
+    /**
+     * The index of a boolean schema doesn't take part in the serialization of the tuple, the filter of the other index
+     * serializes the value as usual.
+     */
+    public function testBooleanSchemaInTupleItemsWithTransformingFilterOnTheNextIndex(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BooleanSchemaTupleWithFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => [['x' => 1], '2020-10-10']]);
+
+        $this->assertEquals([['x' => 1], new DateTime('2020-10-10')], $object->getTags());
+        $this->assertSame(['tags' => [['x' => 1], '20201010']], $object->toArray());
     }
 
     /**
