@@ -748,7 +748,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         if ($type instanceof ReflectionUnionType) {
-            return array_map(fn(ReflectionNamedType $t): string => $t->getName(), $type->getTypes());
+            return array_map(fn(ReflectionNamedType $namedType): string => $namedType->getName(), $type->getTypes());
         }
 
         /** @var ReflectionNamedType $type */
