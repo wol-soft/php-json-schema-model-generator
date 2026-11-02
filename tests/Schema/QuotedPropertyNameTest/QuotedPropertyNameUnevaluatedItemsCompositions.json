@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "slots's": {
+      "type": "array",
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "contains": {
+                "const": "a"
+              }
+            },
+            {
+              "contains": {
+                "const": "b"
+              }
+            }
+          ]
+        },
+        {
+          "contains": {
+            "type": "integer"
+          }
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "cond's": {
+      "type": "array",
+      "if": {
+        "minItems": 2
+      },
+      "then": {
+        "contains": {
+          "type": "string"
+        }
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

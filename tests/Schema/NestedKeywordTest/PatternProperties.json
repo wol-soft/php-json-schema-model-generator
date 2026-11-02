@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^p": {
+      "type": "object",
+      "patternProperties": {
+        "^q": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "properties": {
+    "typedInteger": {
+      "type": "integer",
+      "not": {
+        "minimum": 5
+      }
+    },
+    "typedString": {
+      "type": "string",
+      "not": {
+        "pattern": "^x"
+      }
+    },
+    "typedIntegerWithDefault": {
+      "type": "integer",
+      "not": {
+        "minimum": 5
+      },
+      "default": 3
+    },
+    "untypedNumber": {
+      "not": {
+        "minimum": 5
+      }
+    },
+    "untypedEmpty": {
+      "not": {}
+    },
+    "notNull": {
+      "not": {
+        "type": "null"
+      }
+    },
+    "notString": {
+      "not": {
+        "type": "string"
+      }
+    },
+    "notConst": {
+      "type": "integer",
+      "not": {
+        "const": 3
+      }
+    },
+    "nestedObject": {
+      "type": "object",
+      "properties": {
+        "limited": {
+          "type": "integer",
+          "not": {
+            "minimum": 5
+          }
+        }
+      }
+    },
+    "limitedItems": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "not": {
+          "minimum": 5
+        }
+      }
+    },
+    "requiredTypedInteger": {
+      "type": "integer",
+      "not": {
+        "minimum": 5
+      }
+    },
+    "requiredUntypedNumber": {
+      "not": {
+        "minimum": 5
+      }
+    }
+  },
+  "required": [
+    "requiredTypedInteger",
+    "requiredUntypedNumber"
+  ]
+}

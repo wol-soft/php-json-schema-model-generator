@@ -1,0 +1,212 @@
+{
+  "type": "object",
+  "properties": {
+    "enumObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "x": "y"
+        }
+      ]
+    },
+    "requiredEnumObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "x": "y"
+        }
+      ]
+    },
+    "constObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "x": "y"
+      }
+    },
+    "requiredConstObject": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "x": "y"
+      }
+    },
+    "enumObjects": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "enum": [
+        {
+          "a": 1,
+          "b": 2
+        },
+        {
+          "a": 3,
+          "b": 4
+        }
+      ]
+    },
+    "enumNestedObject": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer"
+            }
+          }
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "inner": {
+            "value": 1
+          },
+          "tag": "t"
+        }
+      ]
+    },
+    "constNestedObject": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer"
+            }
+          }
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "inner": {
+          "value": 1
+        },
+        "tag": "t"
+      }
+    },
+    "enumObjectArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      },
+      "enum": [
+        [
+          {
+            "x": "y"
+          }
+        ],
+        [
+          {
+            "x": "z"
+          },
+          {
+            "x": "y"
+          }
+        ]
+      ]
+    },
+    "constObjectArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      },
+      "const": [
+        {
+          "x": "y"
+        }
+      ]
+    },
+    "untypedEnumObject": {
+      "enum": [
+        {
+          "x": "y",
+          "n": 1
+        },
+        "text"
+      ]
+    },
+    "untypedConstObject": {
+      "const": {
+        "x": "y",
+        "n": 1
+      }
+    },
+    "enumArray": {
+      "type": "array",
+      "enum": [
+        [1, 2],
+        [3],
+        []
+      ]
+    },
+    "constArray": {
+      "type": "array",
+      "const": [1, [2, 3]]
+    },
+    "enumNumbers": {
+      "enum": [
+        {
+          "count": 1,
+          "list": [1, 2.5]
+        }
+      ]
+    },
+    "enumFalsyValues": {
+      "enum": [
+        [0],
+        {
+          "value": 0
+        }
+      ]
+    },
+    "constFalsyValues": {
+      "const": [false, null]
+    }
+  },
+  "required": [
+    "requiredEnumObject",
+    "requiredConstObject"
+  ]
+}

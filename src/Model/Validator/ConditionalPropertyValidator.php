@@ -100,6 +100,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         // Late-bind `compositionValidator` so template guards see the flags set on the current
         // clone rather than on the pre-`withJsonPointer()` original.
         $this->templateValues['compositionValidator'] = $this;
+        $this->templateValues['typeGuard'] = $this->buildTypeGuard();
 
         $filteredKeyMap = $this->getBranchFilteredKeyMap();
 

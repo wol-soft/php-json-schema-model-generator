@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        }
+      },
+      "dependencies": {
+        "a": {
+          "properties": {
+            "child": {
+              "$ref": "#/definitions/node"
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

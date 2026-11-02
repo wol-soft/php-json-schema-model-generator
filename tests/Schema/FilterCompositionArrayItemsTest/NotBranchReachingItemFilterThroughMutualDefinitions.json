@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "definitions": {
+    "first": {
+      "type": "array",
+      "not": {
+        "items": {
+          "$ref": "#/definitions/second"
+        },
+        "minItems": 1
+      }
+    },
+    "second": {
+      "type": "array",
+      "items": [
+        {
+          "$ref": "#/definitions/first"
+        },
+        {
+          "type": "string",
+          "filter": [
+            {
+              "filter": "dateTime",
+              "outputFormat": "Ymd"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/first"
+    }
+  }
+}

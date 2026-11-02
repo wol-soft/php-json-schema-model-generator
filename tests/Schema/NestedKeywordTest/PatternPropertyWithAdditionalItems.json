@@ -1,14 +1,16 @@
 {
   "type": "object",
-  "properties": {
-    "tags": {
+  "patternProperties": {
+    "^p": {
       "type": "array",
       "items": [
-        true,
         {
           "type": "string"
         }
-      ]
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
     }
   }
 }

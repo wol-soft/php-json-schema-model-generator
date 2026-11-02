@@ -1,0 +1,20 @@
+{
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "merged": {
+          "const": null
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "merged": {
+          "enum": [null]
+        }
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -54,7 +54,7 @@ class AdditionalPropertiesValidatorFactory extends AbstractValidatorFactory
 
         $schema->addBaseValidator(
             (new NoAdditionalPropertiesValidator(
-                new Property($schema->getClassName(), null, $propertySchema),
+                new BaseProperty($schema->getClassName(), null, $propertySchema),
                 $json,
             ))->withJsonPointer($additionalPropertiesPointer),
         );

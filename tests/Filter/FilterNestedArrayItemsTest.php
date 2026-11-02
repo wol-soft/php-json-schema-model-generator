@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
-use Error;
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -342,6 +343,167 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tree' => [[[['20230101']]]]], $object->toArray());
     }
 
+    /**
+     * A tuple whose index 1 references the array itself with a transforming filter at index 0: every level of the
+     * nesting transforms the item at index 0, the serialization of the cycle applies the serializer of the filter on
+     * every level.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testRecursiveTupleArrayWithAFilterNextToTheRecursionIsTransformedAndSerialized(
+        bool $collectErrors,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleArrayWithFilteredIndex.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors($collectErrors)
+                ->setImmutable(false)
+                ->setSerialization(true),
+        );
+
+        $object = new $className(['tree' => ['2020-10-10', ['2021-01-01', ['2022-02-02']]]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), [new DateTime('2021-01-01'), [new DateTime('2022-02-02')]]],
+            $object->getTree(),
+        );
+        $this->assertSame(['tree' => ['20201010', ['20210101', ['20220202']]]], $object->toArray());
+        $this->assertSame(
+            ['tree' => ['20201010', ['20210101', ['20220202']]]],
+            json_decode($object->toJSON(), true),
+        );
+        // The raw input of the model keeps the values as they were provided.
+        $this->assertSame(
+            ['tree' => ['2020-10-10', ['2021-01-01', ['2022-02-02']]]],
+            $object->meta()->rawInput(),
+        );
+
+        // The cycle is deeper than the levels which are unrolled in the generated code.
+        $deep = new $className(['tree' => ['2020-01-01', ['2020-02-02', ['2020-03-03', ['2020-04-04', ['2020-05-05']]]]]]);
+        $this->assertSame(
+            ['tree' => ['20200101', ['20200202', ['20200303', ['20200404', ['20200505']]]]]],
+            $deep->toArray(),
+        );
+
+        // Arrays which end before the recursion starts and the exclusion of the property.
+        $short = new $className(['tree' => ['2020-10-10']]);
+        $this->assertSame(['tree' => ['20201010']], $short->toArray());
+        $this->assertSame([], $short->toArray(['tree']));
+
+        // An already transformed value is accepted on every level, also mixed with raw values.
+        $transformed = new $className(
+            ['tree' => [new DateTime('2020-10-10'), ['2021-01-01', [new DateTime('2022-02-02')]]]],
+        );
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), [new DateTime('2021-01-01'), [new DateTime('2022-02-02')]]],
+            $transformed->getTree(),
+        );
+        $this->assertSame(['tree' => ['20201010', ['20210101', ['20220202']]]], $transformed->toArray());
+
+        // The setter runs the same validation as the constructor.
+        $object->setTree(['2023-03-03', ['2023-04-04']]);
+        $this->assertEquals([new DateTime('2023-03-03'), [new DateTime('2023-04-04')]], $object->getTree());
+        $this->assertSame(['tree' => ['20230303', ['20230404']]], $object->toArray());
+
+        $object->setTree([new DateTime('2024-01-01'), [new DateTime('2024-02-02')]]);
+        $this->assertSame(['tree' => ['20240101', ['20240202']]], $object->toArray());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['2020-10-10', ['not a date']]],
+            $collectErrors ? ErrorRegistryException::class : InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #1
+                    * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "not a date"
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['2020-10-10', ['2021-01-01', [5]]]],
+            $collectErrors ? ErrorRegistryException::class : InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires ['DateTime', 'string'], got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * The recursion starts at index 0 and the filtered item follows at index 1: the serializer of the cycle visits
+     * the recursing slot before the filtered one.
+     */
+    public function testRecursiveTupleArrayWhichRecursesBeforeTheFilteredIndexIsSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleArrayRecursingAtFirstIndex.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tree' => [[[[], '2020-10-10'], '2021-01-01'], '2022-02-02']]);
+        $this->assertEquals(
+            [[[[], new DateTime('2020-10-10')], new DateTime('2021-01-01')], new DateTime('2022-02-02')],
+            $object->getTree(),
+        );
+        $this->assertSame(
+            ['tree' => [[[[], '20201010'], '20210101'], '20220202']],
+            $object->toArray(),
+        );
+        $this->assertSame(
+            ['tree' => [[[[], '20201010'], '20210101'], '20220202']],
+            json_decode($object->toJSON(), true),
+        );
+
+        $transformed = new $className(['tree' => [[[], new DateTime('2020-10-10')], '2021-01-01']]);
+        $this->assertSame(['tree' => [[[], '20201010'], '20210101']], $transformed->toArray());
+
+        $object->setTree([[[], '2023-03-03'], new DateTime('2023-04-04')]);
+        $this->assertSame(['tree' => [[[], '20230303'], '20230404']], $object->toArray());
+    }
+
+    /**
+     * Two definitions reference each other and filter their first item differently: the serializer of each level
+     * applies the filter of its own definition, also when the cycle is run through several times.
+     */
+    public function testMutuallyRecursiveTupleArraysWithDifferentFiltersAreSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MutuallyRecursiveTupleArraysWithFilters.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(
+            ['chain' => ['2020-10-10', ['2021-02-02', ['2022-03-03', ['2023-04-04', ['2024-05-05']]]]]],
+        );
+        $this->assertEquals(
+            [
+                new DateTime('2020-10-10'),
+                [new DateTime('2021-02-02'), [new DateTime('2022-03-03'), [new DateTime('2023-04-04'), [new DateTime('2024-05-05')]]]],
+            ],
+            $object->getChain(),
+        );
+        $this->assertSame(
+            ['chain' => ['20201010', ['2021', ['20220303', ['2023', ['20240505']]]]]],
+            $object->toArray(),
+        );
+        $this->assertSame(
+            ['chain' => ['20201010', ['2021', ['20220303', ['2023', ['20240505']]]]]],
+            json_decode($object->toJSON(), true),
+        );
+
+        $transformed = new $className(['chain' => [new DateTime('2020-10-10'), [new DateTime('2021-02-02')]]]);
+        $this->assertSame(['chain' => ['20201010', ['2021']]], $transformed->toArray());
+
+        $object->setChain(['2025-06-06', ['2026-07-07']]);
+        $this->assertSame(['chain' => ['20250606', ['2026']]], $object->toArray());
+    }
+
     // -------------------------------------------------------------------------
     // Arrays held by additionalProperties, patternProperties and unevaluatedProperties
     // -------------------------------------------------------------------------
@@ -487,6 +649,17 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         ];
     }
 
+    public static function nestedUnevaluatedItemsFilterFixtureDataProvider(): array
+    {
+        return [
+            'array as item of an array' => ['NestedUnevaluatedItemsFilter.json', 'tags'],
+            'array held by additionalProperties' => [
+                'AdditionalPropertiesUnevaluatedItemsFilter.json',
+                'additional property',
+            ],
+        ];
+    }
+
     public static function arrayTransformingFilterFixtureDataProvider(): array
     {
         return [
@@ -499,46 +672,54 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
     }
 
     /**
-     * Known gap: unevaluatedItems declared on an array which is an item of another array can't be evaluated. The
-     * class neither receives the evaluation tracking trait nor the field which holds the evaluated indices, so the
-     * validation of the inner array calls into code which doesn't exist. This is independent of any filter. The
-     * indices are tracked per property name, the inner arrays of all outer elements would share one entry.
-     *
-     * This test pins the current failure so the gap stays visible. It fails as soon as nested unevaluatedItems are
-     * supported, the test then has to assert the evaluated behaviour.
+     * The evaluated indices of a nested array are only kept while its element is validated, the serializer couldn't
+     * tell which items the filter of unevaluatedItems transformed. The schema is rejected instead of serializing
+     * every transformed item as an empty array.
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testKnownGapUnevaluatedItemsOfANestedArrayCrashAtRuntime(): void
+    #[DataProvider('nestedUnevaluatedItemsFilterFixtureDataProvider')]
+    public function testTransformingFilterInUnevaluatedItemsOfANestedArrayThrowsAnExceptionWhenSerializing(
+        string $schemaFile,
+        string $arrayName,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Transforming filter 'dateTime' in the unevaluatedItems of the nested array '"
+                . preg_quote($arrayName, '/') . "' can't be serialized in file .+: the evaluated indices are only "
+                . 'kept for the array properties of the model at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+    }
+
+    /**
+     * Without serialization nothing reads the evaluated indices after the validation: the filter of unevaluatedItems
+     * of a nested array transforms the items which are unevaluated in the very inner array, per inner array.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testTransformingFilterInUnevaluatedItemsOfANestedArrayTransformsPerInnerArray(): void
     {
         $className = $this->generateClassFromFile(
-            'NestedUnevaluatedItems.json',
+            'NestedUnevaluatedItemsFilter.json',
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        $warnings = [];
-        set_error_handler(
-            static function (int $severity, string $message) use (&$warnings): bool {
-                $warnings[] = $message;
-
-                return true;
-            },
-            E_WARNING,
+        $object = new $className(['tags' => [[1, '2020-10-10', '2020-11-11'], [2], [3, '2021-01-01']]]);
+        $this->assertEquals(
+            [
+                [1, new DateTime('2020-10-10'), new DateTime('2020-11-11')],
+                [2],
+                [3, new DateTime('2021-01-01')],
+            ],
+            $object->getTags(),
         );
 
-        try {
-            new $className(['tags' => [[1, 'a']]]);
-
-            $this->fail('Expected the evaluation tracking of the nested array to be missing');
-        } catch (Error $error) {
-            $this->assertSame(
-                sprintf('Call to undefined method %s::collectUnevaluatedIndices()', $className),
-                $error->getMessage(),
-            );
-        } finally {
-            restore_error_handler();
-        }
-
-        $this->assertSame([sprintf('Undefined property: %s::$_evaluatedItemIndices', $className)], $warnings);
+        // An already transformed value is accepted, the integer of the tuple is not touched by the filter.
+        $object->setTags([[4, new DateTime('2022-02-02')]]);
+        $this->assertEquals([[4, new DateTime('2022-02-02')]], $object->getTags());
     }
 
     public static function collectErrorsDataProvider(): array

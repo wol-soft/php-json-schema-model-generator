@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\UnresolvedPropertyException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -82,8 +83,10 @@ class ArrayItemFilterScope
      * themselves, for the items of a nested array on any level, keyed by the declaration (see declarationKey()).
      *
      * The unevaluatedItems of a nested array are not considered. Their filter is serialized through the indices the
-     * keyword evaluated, which are tracked per property name: the nested arrays of all elements would share one entry.
-     * Considering them would announce a serializer which the generated code can't deliver.
+     * keyword evaluated, which are only kept for the array property of the model: the evaluation of a nested array
+     * hands its indices back when the element is validated (see EvaluatedItemsScope). Considering them would
+     * announce a serializer which the generated code can't deliver, such a filter is rejected by
+     * assertUnevaluatedItemsAreNotFiltered().
      *
      * @param bool $includeUnevaluatedItems Whether the unevaluatedItems of the array property itself are considered
      *
@@ -119,6 +122,14 @@ class ArrayItemFilterScope
      * without any keyword in the schema of the items. A `not` or condition nested in the branch is validated by the
      * factory which creates it.
      *
+     * A branch can reach a definition which is still being created (the branch refers to the definition owning the
+     * `not` or `if` keyword, or to a definition referring back to it): the property of the reference doesn't exist
+     * yet. The check is then continued once the reference is resolved, it runs from the start as nothing has been
+     * changed. Skipping the unresolved reference was rejected: a filter which is reachable only through the
+     * recursion would be accepted. Looking for unresolved references in a walk of its own before the check was
+     * rejected as well: that walk has to mirror every step of the check and a step it doesn't know would let the
+     * crash back in (or the filter pass).
+     *
      * @param string $branchDescription The branch as part of the message, e.g. "a 'not' composition branch"
      *
      * @throws SchemaException
@@ -128,22 +139,72 @@ class ArrayItemFilterScope
         PropertyInterface $property,
         string $branchDescription,
     ): void {
-        foreach (self::declarationsOf($branch) as $declaration) {
-            foreach ($declaration->getItemProperties() as $itemProperty) {
-                if (self::filtersOfSlotValue($itemProperty) === []) {
-                    continue;
-                }
+        try {
+            $filtersItems = self::filtersItemsOfBranch($branch);
+        } catch (UnresolvedPropertyException $exception) {
+            $exception->getProxy()->onResolve(
+                static fn() => self::assertNoItemFilterInValidationOnlyBranch($branch, $property, $branchDescription),
+            );
 
-                throw new SchemaException(
-                    sprintf(
-                        "A filter keyword inside the array items of %s is not supported for property '%s' in file %s",
-                        $branchDescription,
-                        $property->getName(),
-                        $property->getJsonSchema()->getFile(),
-                    ),
-                    $property->getJsonSchema(),
-                );
+            return;
+        }
+
+        if ($filtersItems) {
+            throw new SchemaException(
+                sprintf(
+                    "A filter keyword inside the array items of %s is not supported for property '%s' in file %s",
+                    $branchDescription,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ),
+                $property->getJsonSchema(),
+            );
+        }
+    }
+
+    /**
+     * Rejects a transforming filter inside the unevaluatedItems of an array which is not a property of the model (an
+     * item of another array, the value of an additional or pattern property, ...), as the serializer of the model
+     * couldn't serialize the items the filter transformed.
+     *
+     * The serializer of an array applies the serializer of the filter to the indices unevaluatedItems evaluated. That
+     * information is kept by the model for its array properties only. A nested array is validated element by element
+     * and every element starts with an empty set of evaluated indices (see EvaluatedItemsScope), the indices of one
+     * element are gone when the next is validated. Serializing the items without it would silently serialize every
+     * transformed item as an empty array.
+     *
+     * Keeping the evaluated indices of every element was rejected: the element index is not available to the
+     * validators of the element, tracking it needs a path through every extracted method and closure of the
+     * validation. Serializing every value of the output type of the filter was rejected: an index evaluated by
+     * another keyword (a tuple index with a filter of its own) may hold a value of the same type, and a filter
+     * without a declared return type can't be recognized by its output at all.
+     *
+     * @throws SchemaException
+     */
+    public static function assertUnevaluatedItemsAreNotFiltered(PropertyInterface $arrayProperty): void
+    {
+        foreach (self::declarationsOf($arrayProperty) as $declaration) {
+            if (!$declaration->validator instanceof UnevaluatedItemsValidator) {
+                continue;
             }
+
+            $itemProperty = $declaration->getItemProperties()[0];
+            $filters = self::filtersOfSlotValue($itemProperty);
+
+            if ($filters === []) {
+                continue;
+            }
+
+            throw new SchemaException(
+                sprintf(
+                    "Transforming filter '%s' in the unevaluatedItems of the nested array '%s' can't be serialized in"
+                        . ' file %s: the evaluated indices are only kept for the array properties of the model',
+                    self::firstToken($filters),
+                    $arrayProperty->getName(),
+                    $arrayProperty->getJsonSchema()->getFile(),
+                ),
+                $itemProperty->getJsonSchema(),
+            );
         }
     }
 
@@ -203,6 +264,22 @@ class ArrayItemFilterScope
                 $filteredSlots[] = [$slot, $filters];
             }
         }
+    }
+
+    /**
+     * @throws UnresolvedPropertyException
+     */
+    private static function filtersItemsOfBranch(PropertyInterface $branch): bool
+    {
+        foreach (self::declarationsOf($branch) as $declaration) {
+            foreach ($declaration->getItemProperties() as $itemProperty) {
+                if (self::filtersOfSlotValue($itemProperty) !== []) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

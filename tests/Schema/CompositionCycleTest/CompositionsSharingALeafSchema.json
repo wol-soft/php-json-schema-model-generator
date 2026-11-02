@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/left"
+        },
+        {
+          "$ref": "#/definitions/right"
+        }
+      ]
+    },
+    "left": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/leaf"
+        }
+      ]
+    },
+    "right": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/leaf"
+        }
+      ]
+    },
+    "leaf": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

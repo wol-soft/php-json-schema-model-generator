@@ -563,7 +563,7 @@ a ``SchemaException`` at generation time.
 Recursive Objects
 -----------------
 
-If objects are defined recursive the recursion will be resolved into a single class.
+If objects are defined recursive the recursion will be resolved into a single class. A recursion which runs over the keywords of an array (``additionalItems``, ``unevaluatedItems``, ``contains``) is described in `Recursive array keywords <array.html#recursive-array-keywords>`__.
 
 .. code-block:: json
 
@@ -785,6 +785,41 @@ Generated interface:
     Basically this means your base object gets getters and setters for the additional properties transferred from the schema dependency but this getters and setters won't perform any validation. If you require type checks and validations performed on the properties define them in your main schema as not required properties and require them as a property dependency.
 
     The same applies to filters: a filter of a property inside the dependency schema runs inside the dependency schema (the validators of the property see the filtered value) but the base object returns the value as provided. If the base object should return the filtered value declare the property including the filter in your main schema. A property which is declared by the main schema keeps the declaration of the main schema, independent of the order of the properties.
+
+The schema of a dependency may reference the definition which owns the dependency. The following definition describes a node which holds a child node if the property ``a`` is provided; the child is validated by the same definition, so the dependency is evaluated on every level of the nesting:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "object",
+                "properties": {
+                    "a": {
+                        "type": "integer"
+                    }
+                },
+                "dependencies": {
+                    "a": {
+                        "properties": {
+                            "child": {
+                                "$ref": "#/definitions/node"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "properties": {
+            "tree": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+A property of a dependency schema which references a definition doesn't change the definition for the other properties referencing it: the property which is transferred to the base model is a copy of the referenced property.
 
 Possible exceptions:
 

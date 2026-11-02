@@ -6,25 +6,18 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\Utils\JsonValueCheck;
 
-/**
- * Class EnumValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class EnumValidator extends PropertyValidator
 {
-    /**
-     * EnumValidator constructor.
-     */
     public function __construct(PropertyInterface $property, array $allowedValues)
     {
         parent::__construct(
             $property,
-            '!in_array($value, ' . RenderHelper::varExportArray($allowedValues) . ', true)',
+            JsonValueCheck::notOneOf($allowedValues),
             EnumException::class,
             [$allowedValues],
+            JsonValueCheck::providedValue($allowedValues),
         );
     }
 }

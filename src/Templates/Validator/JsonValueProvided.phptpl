@@ -1,0 +1,11 @@
+(static function (mixed $provided): mixed {
+    $normalize = static function (mixed $item) use (&$normalize): mixed {
+        if ($item instanceof \PHPModelGenerator\Interfaces\JSONModelInterface) {
+            $item = $item->meta()->rawInput();
+        }
+
+        return is_array($item) ? array_map($normalize, $item) : $item;
+    };
+
+    return $normalize($provided);
+})($value ?? null)

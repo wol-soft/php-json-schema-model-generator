@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    }
+  },
+  "unevaluatedProperties": {
+    "type": "array",
+    "items": [
+      {
+        "type": "integer"
+      }
+    ],
+    "unevaluatedItems": {
+      "type": "string"
+    }
+  }
+}

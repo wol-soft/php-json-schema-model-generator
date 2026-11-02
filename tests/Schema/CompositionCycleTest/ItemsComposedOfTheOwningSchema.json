@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/node"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

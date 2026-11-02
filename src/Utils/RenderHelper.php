@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\PropertyValidationMethod;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 class RenderHelper
 {
@@ -100,15 +101,48 @@ class RenderHelper
     }
 
     /**
+     * Escape a value for the use inside of a single quoted string of the generated code. Only the backslash and the
+     * single quote are special in a single quoted string. addslashes() was rejected: it also escapes the double
+     * quote, which a single quoted string doesn't know: the backslash stays part of the string and the value changes
+     * (the key of a property named `say "hi"` would never be found in the provided data).
+     */
+    public static function escapeSingleQuoted(string $value): string
+    {
+        return addcslashes($value, "'\\");
+    }
+
+    /**
      * Generate code to handle a validation error
      */
     public function validationError(PropertyValidatorInterface $validator): string
     {
-        $exceptionConstructor = sprintf(
-            'new \%s($value ?? null, ...%s)',
-            $validator->getExceptionClass(),
-            preg_replace('/\'&(\$\w+)\'/i', '$1', self::varExportArray($validator->getExceptionParams())),
+        $providedValue = $validator->getProvidedValueCode();
+        $exceptionParams = preg_replace(
+            '/\'&(\$\w+)\'/i',
+            '$1',
+            self::varExportArray($validator->getExceptionParams()),
         );
+
+        // PSR-12: the arguments of a call which spans multiple lines are placed on a line of their own
+        $exceptionConstructor = str_contains($providedValue, "\n")
+            ? sprintf(
+                "new \\%s(\n    %s,\n    ...%s\n)",
+                $validator->getExceptionClass(),
+                self::indent($providedValue, 1),
+                $exceptionParams,
+            )
+            : sprintf('new \%s(%s, ...%s)', $validator->getExceptionClass(), $providedValue, $exceptionParams);
+
+        // The validators of a generated class itself receive the name of the class as property name. The exception
+        // is marked, otherwise the class name becomes a segment of its instance pointer (and of the pointers of the
+        // exceptions nested below it). An exception which isn't a ValidationException of the library (the exception
+        // of a custom validator) has no instance pointer and doesn't provide the marker.
+        if (
+            $validator->validatesGeneratedClass()
+            && is_subclass_of($validator->getExceptionClass(), ValidationException::class)
+        ) {
+            $exceptionConstructor = "($exceptionConstructor)->withPlaceholderPropertyName()";
+        }
 
         if ($this->generatorConfiguration->collectErrors()) {
             return "\$this->_errorRegistry->addError($exceptionConstructor);";
@@ -151,8 +185,13 @@ class RenderHelper
             return implode(' | ', array_unique($names));
         }
 
-        // Single type — preserve ?Type shorthand
-        return ($nullable ? '?' : '') . $names[0];
+        // Single type — preserve ?Type shorthand, except for the null type: it already contains null and PHP rejects
+        // "?null". Dropping the shorthand here covers every declaration (getter, setter, builder, accessors of
+        // additional properties) and every source of the nullability (optional, implicit null, a forced nullable
+        // type). Clearing the type of a null const/enum (as the null type of a schema does) was rejected: the
+        // getters of a required null const would lose their `null` declaration and each source producing a null-only
+        // type would need the same special handling.
+        return ($nullable && $names[0] !== 'null' ? '?' : '') . $names[0];
     }
 
     public function getTypeHintAnnotation(
@@ -193,7 +232,7 @@ class RenderHelper
 
             $code = ($setUp !== '' ? "{$setUp}\n" : '')
                 . 'if ' . self::formatCondition($validator->getCheck(), 0)
-                . " {\n    {$this->validationError($validator)}\n}";
+                . " {\n    " . self::indent($this->validationError($validator), 1) . "\n}";
 
             return self::indent($code, $indentLevel);
         }
@@ -217,8 +256,8 @@ class RenderHelper
         $renderedMethods = '';
 
         // don't change to a foreach loop as the render process of a method might add additional methods
-        for ($i = 0; $i < count($schema->getMethods()); $i++) {
-            $code = $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode();
+        for ($methodIndex = 0; $methodIndex < count($schema->getMethods()); $methodIndex++) {
+            $code = $schema->getMethods()[array_keys($schema->getMethods())[$methodIndex]]->getCode();
 
             $renderedMethods .= '    ' . self::indent($code, 1) . "\n\n";
         }
@@ -232,7 +271,8 @@ class RenderHelper
     }
 
     /**
-     * True when the property or a branch of one of its compositions carries an UnevaluatedItemsValidator.
+     * True when the property or a branch of one of its compositions carries an unevaluatedItems validator (the
+     * schema-form as well as the `false`-form, which reads the indices credited by a sibling `contains`).
      *
      * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
      * property's validator chain runs (ahead of any composition validator, which may credit
@@ -245,13 +285,110 @@ class RenderHelper
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {
-        foreach (ArrayItemFilterScope::declarationsOf($property, true) as $declaration) {
-            if ($declaration->validator instanceof UnevaluatedItemsValidator) {
-                return true;
-            }
+        return EvaluatedItemsScope::isTracked($property);
+    }
+
+    /**
+     * Renders the validators of the property which validates one element of a container (the items of an array, the
+     * value of an additional property, ...).
+     *
+     * An element which carries an unevaluatedItems validator is validated in an evaluation scope of its own: the
+     * element starts with an empty set of evaluated indices and hands the set of the enclosing array back untouched.
+     * The set is tracked by the name of the array property, and the element shares that name with its siblings (all
+     * inner arrays of an outer array) and with the enclosing array (the schema-form items carry the name of the
+     * enclosing property).
+     *
+     * The scope is restored in a `finally` block, a failing element (the exception is collected by the caller) and a
+     * `continue` of the caller must not leave the credits of the element behind. Resetting the set without restoring
+     * it was rejected: the set of the enclosing array holds the indices a sibling `contains` credited before the
+     * elements are validated, a following unevaluatedItems check of the enclosing array would lose them. Separate
+     * keys per element were rejected as well: the element index is not available to the validators of the element
+     * (extracted methods and closures) and a reference cycle validates the same location on several levels at once.
+     */
+    public function renderValidators(PropertyInterface $property, Schema $schema, int $indentLevel = 0): string
+    {
+        $renderedValidators = array_filter(
+            array_map(
+                fn(PropertyValidatorInterface $validator): string => $this->renderValidator($validator, $schema),
+                $property->getOrderedValidators(),
+            ),
+            static fn(string $renderedValidator): bool => $renderedValidator !== '',
+        );
+
+        $code = implode("\n", $renderedValidators);
+
+        if ($this->hasUnevaluatedItemsValidator($property)) {
+            $key = var_export($property->getName(), true);
+
+            $code = implode(
+                "\n",
+                [
+                    "\$savedEvaluatedItemIndices = \$this->_evaluatedItemIndices[$key] ?? [];",
+                    "\$this->_evaluatedItemIndices[$key] = [];",
+                    'try {',
+                    '    ' . self::indent($code, 1),
+                    '} finally {',
+                    "    \$this->_evaluatedItemIndices[$key] = \$savedEvaluatedItemIndices;",
+                    '}',
+                ],
+            );
         }
 
-        return false;
+        return self::indent($code, $indentLevel);
+    }
+
+    /**
+     * Renders the validation of one element of a container (see renderValidators()) as a call of a method of its own.
+     *
+     * The validators of the element are rendered into the method, not into the validators of the container: an element
+     * which references the schema owning the container (a tree whose additional items are trees again) renders the
+     * container, which renders the element again. The method is registered before its body is rendered, so the
+     * recursive occurrence renders the call of the method instead. As a side effect the nested validators of an
+     * element run in a scope of their own: the variables a validator shares with its closure (error lists, counters)
+     * can't collide with the variables of a validator of the same kind validating the container.
+     *
+     * Extracting only the elements which are part of a reference cycle was rejected: the cycle is only known once every
+     * reference is resolved and the rendering would need a global state tracking the properties being rendered.
+     *
+     * @param string $methodName Reserved by the validator of the container (see extractedMethodNameCandidate()), all
+     *                           clones of the validator bound to other properties call the same method.
+     */
+    public function renderExtractedValidators(
+        PropertyInterface $property,
+        Schema $schema,
+        string $methodName,
+        int $indentLevel = 0,
+    ): string {
+        if (!$property->getOrderedValidators()) {
+            return '';
+        }
+
+        if (!$schema->hasMethod($methodName)) {
+            $schema->addMethod(
+                $methodName,
+                new PropertyValidationMethod($methodName, $property, $schema, $this->generatorConfiguration),
+            );
+        }
+
+        return self::indent("\$this->$methodName(\$value, \$modelData);", $indentLevel);
+    }
+
+    /**
+     * The name of a method extracted for the validator of the property: derived from the attribute and the schema of
+     * the property only, so it is stable between generation runs. The caller reserves the name in the schema which
+     * receives the method (Schema::reserveMethodName()) as validators of identical properties share the candidate.
+     *
+     * Mixing the identity of the validator or of the property into the name was rejected: it shifts with unrelated
+     * schemas processed earlier in the run and renames the methods of classes which did not change.
+     */
+    public static function extractedMethodNameCandidate(PropertyInterface $property, string $kind): string
+    {
+        return sprintf(
+            '_validate%s_%s_%s',
+            str_replace(' ', '', ucfirst($property->getAttribute())),
+            $kind,
+            md5(json_encode($property->getJsonSchema()->getJson())),
+        );
     }
 
     /**

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "not": {
+        "items": {
+          "$ref": "#/definitions/node"
+        },
+        "minItems": 1
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  },
+  "required": [
+    "tree"
+  ]
+}

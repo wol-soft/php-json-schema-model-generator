@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "anyOf": [
+        {
+          "minLength": 5
+        },
+        {
+          "pattern": "^x"
+        }
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "anyOf": [
+        {
+          "items": {
+            "type": "integer"
+          }
+        },
+        {
+          "minItems": 5
+        }
+      ]
+    }
+  }
+}

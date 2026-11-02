@@ -19,6 +19,8 @@ use PHPModelGenerator\Utils\RenderHelper;
 abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 {
     protected string $extractedMethodName;
+    private string $ownerName;
+    private string $ownerMethodName;
 
     public function __construct(
         protected readonly GeneratorConfiguration $generatorConfiguration,
@@ -29,11 +31,9 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         array $exceptionParams = [],
         ?Schema $schema = null,
     ) {
-        $methodName = sprintf(
-            '_validate%s_%s_%s',
-            str_replace(' ', '', ucfirst($property->getAttribute())),
+        $methodName = RenderHelper::extractedMethodNameCandidate(
+            $property,
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
-            md5(json_encode($property->getJsonSchema()->getJson())),
         );
 
         // Two validators of the same kind on the same attribute with identical schema JSON (two
@@ -44,8 +44,34 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         // whenever an unrelated schema was processed earlier in the run, renaming the extracted
         // methods of classes that did not change.
         $this->extractedMethodName = $schema?->reserveMethodName($methodName) ?? $methodName;
+        $this->ownerName = $property->getName();
+        $this->ownerMethodName = $this->extractedMethodName;
 
         parent::__construct($property, $template, $templateValues, $exceptionClass, $exceptionParams);
+    }
+
+    /**
+     * The exception rendered into the extracted method names the property the validator is bound to, so a validator
+     * which is bound to a property with another name than the property it was created for (a recursive reference to
+     * the definition owning the validator is a property of its own, named by the position of the reference) needs a
+     * method of its own: a method shared by all of them would name the property which was rendered first for all of
+     * them. The name derives from the name of the bound property only, so it is stable between generation runs and
+     * all validators bound to properties with the same name share one method.
+     *
+     * Mixing the identity of the validator or of the property into the name was rejected: it shifts with unrelated
+     * schemas processed earlier in the run, see the constructor.
+     *
+     * @inheritDoc
+     */
+    public function withProperty(PropertyInterface $property): PropertyValidatorInterface
+    {
+        /** @var static $clone */
+        $clone = parent::withProperty($property);
+        $clone->extractedMethodName = $property->getName() === $this->ownerName
+            ? $this->ownerMethodName
+            : $this->ownerMethodName . '_' . substr(md5($property->getName()), 0, 8);
+
+        return $clone;
     }
 
     public function getMethod(): MethodInterface
@@ -95,5 +121,15 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
     public function getExtractedMethodName(): string
     {
         return $this->extractedMethodName;
+    }
+
+    /**
+     * For a validator which derives its method from the method of another validator: keeps the clones bound to other
+     * properties (see withProperty()) derived from the new name.
+     */
+    protected function renameExtractedMethod(string $methodName): void
+    {
+        $this->extractedMethodName = $methodName;
+        $this->ownerMethodName = $methodName;
     }
 }

@@ -146,6 +146,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     are always active, so the items are transformed. At most one declaration (the property itself or one branch) may
     filter the items of a slot, otherwise a ``SchemaException`` is thrown. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
 
+.. note::
+
+    A branch must not lead back to the schema it is a branch of without descending into the value (a ``$ref`` to the
+    schema itself or to a schema which composes it again): the schema would require itself for the very same value and
+    the generator rejects it with a ``SchemaException``. See
+    `A recursion has to descend into the value <../generic/references.html#a-recursion-has-to-descend-into-the-value>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

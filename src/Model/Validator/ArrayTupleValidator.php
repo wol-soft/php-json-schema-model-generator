@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -15,18 +16,23 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class ArrayTupleValidator
+ * Validates the positions of a tuple-form `items` list, each by the property of the same index.
  *
- * @package PHPModelGenerator\Model\Validator
+ * Extracted into a method of its own, like ArrayItemValidator: a tuple property may reference the array which owns the
+ * tuple (`items: [{"type": "string"}, {"$ref": "#/definitions/node"}]` inside the definition `node`). Rendered inline,
+ * the validators of such a tuple property would contain the very validator being rendered and the rendering would never
+ * terminate. As an extracted method the self reference is a method call.
+ *
+ * Extracting only the tuples which are actually recursive was rejected: the cycle may run over any number of
+ * definitions and compositions and is only known once every reference is resolved, whereas the validator has to be
+ * either an extracted one or an inline one when it is created.
  */
-class ArrayTupleValidator extends PropertyTemplateValidator
+class ArrayTupleValidator extends ExtractedMethodValidator
 {
     /** @var PropertyInterface[] */
     private array $tupleProperties;
 
     /**
-     * ArrayTupleValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -42,14 +48,27 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         foreach ($propertiesStructure->getJson() as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
+            // A boolean schema can't be navigated into: the position is validated by an empty schema (`true`
+            // accepts every value) which is extended by a validator rejecting every value for `false`
+            $tupleItemSchema = is_bool($tupleItem)
+                ? $propertiesStructure->withPointer($propertiesStructure->getPointer() . "/$tupleIndex")->withJson([])
+                : $propertiesStructure->navigate($tupleIndex);
+
             // an item of the array behaves like a nested property to add item-level validation
             $tupleProperty = $propertyFactory->create(
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
-                $propertiesStructure->navigate($tupleIndex),
+                $tupleItemSchema,
                 true,
             );
+
+            if ($tupleItem === false) {
+                $tupleProperty->addValidator(
+                    (new PropertyValidator($tupleProperty, 'true', DeniedPropertyException::class))
+                        ->withJsonPointer($tupleItemSchema->getPointer()),
+                );
+            }
 
             $this->tupleProperties[] = $tupleProperty;
         }
@@ -57,6 +76,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         $this->resolve();
 
         parent::__construct(
+            $schemaProcessor->getGeneratorConfiguration(),
             new Property($propertyName, null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
@@ -67,6 +87,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
             ],
             InvalidTupleException::class,
             ['&$invalidTuples'],
+            $schema,
         );
     }
 
@@ -95,7 +116,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
     }
 
     /**
-     * Initialize all variables which are required to execute a property names validator
+     * The list the template fills with the violations of each tuple index and the exception reports.
      */
     public function getValidatorSetUp(): string
     {

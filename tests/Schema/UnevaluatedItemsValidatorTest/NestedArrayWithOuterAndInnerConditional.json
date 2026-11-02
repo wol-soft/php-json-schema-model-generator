@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "if": {
+            "items": [
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "then": {
+            "contains": {
+              "const": "x"
+            }
+          },
+          "else": {
+            "items": [
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "unevaluatedItems": false
+        }
+      ],
+      "if": {
+        "contains": {
+          "const": 5
+        }
+      },
+      "then": {
+        "contains": {
+          "const": 6
+        }
+      },
+      "else": {
+        "contains": {
+          "const": 7
+        }
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

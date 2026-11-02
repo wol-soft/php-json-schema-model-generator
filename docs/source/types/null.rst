@@ -40,3 +40,32 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getProvidedValue()
     // get the JSON pointer to the schema keyword that rejected the value
     public function getJsonPointer(): JsonPointer
+
+Null only properties via const and enum
+---------------------------------------
+
+A property declared with `"const": null` or `"enum": [null]` only accepts `null`, too. Contrary to the **null** type the typehint is auto-detected from the value. The declared type is `null` independent of the property being required or optional and of the implicit null setting.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "const": null
+            }
+        }
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    public function setExample(null $example): static;
+    public function getExample(): null;
+
+Possible exceptions:
+
+* Value for 'example' must be null, got "text" (for `const`)
+* Value for 'example' must be one of [null], got "text" (for `enum`)

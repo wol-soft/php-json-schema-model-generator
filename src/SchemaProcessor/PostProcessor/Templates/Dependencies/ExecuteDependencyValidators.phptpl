@@ -12,8 +12,8 @@ private function _executeDependencyValidators(array $modelData, array $skippedPr
         validators pass to their exception, like in the constructor.
     #}
     {% foreach dependencyValidators as propertyName, validators %}
-        if (!in_array('{{ propertyName }}', $skippedProperties, true)) {
-            $value = $modelData['{{ propertyName }}'] ?? null;
+        if (!in_array('{{ viewHelper.escapeSingleQuoted(propertyName) }}', $skippedProperties, true)) {
+            $value = $modelData['{{ viewHelper.escapeSingleQuoted(propertyName) }}'] ?? null;
 
             {% foreach validators as validator %}
                 {{ viewHelper.renderValidator(validator, schema, 2) }}

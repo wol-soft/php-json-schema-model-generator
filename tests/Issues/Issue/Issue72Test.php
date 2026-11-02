@@ -1003,6 +1003,51 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
+     * Known gap: a `$ref` branch is judged by the JSON of the reference, not by the keywords of the referenced
+     * definition. The first branch below validates the minItems of the definition but is reported as vacuous. The
+     * warning assertion pins the current (wrong) behaviour; it has to be inverted when the warning learns to resolve
+     * the reference.
+     */
+    public function testKnownGapRefBranchToADefinitionWithKeywordsIsReportedAsVacuous(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'RefBranchWithKeywordsIsReportedAsVacuous.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1, 'property' => 'tags'],
+            ),
+            'The false positive is the pinned behaviour of the known gap.',
+        );
+
+        // the generated code validates the definition of the branch
+        $this->assertSame(['a', 'b'], (new $className(['tags' => ['a', 'b']]))->getTags());
+        $this->assertSame([], (new $className(['tags' => []]))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => ['a']],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Array 'tags' must not contain less than 2 items
+              - Composition element #2: Failed
+                * Array 'tags' must not contain more than 0 items
+            MSG,
+        );
+    }
+
+    /**
      * The vacuous-branch warning must be driven by the Draft's own registered validator keywords,
      * not a hardcoded list of "known safe"
      * keywords - otherwise an unrecognized or misspelled key would wrongly be treated as a real

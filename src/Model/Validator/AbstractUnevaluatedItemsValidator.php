@@ -44,6 +44,7 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
             $templatePath,
             $extraTemplateValues + [
                 'arrayPropertyName' => $property->getName(),
+                'escapedArrayPropertyName' => RenderHelper::escapeSingleQuoted($property->getName()),
                 'compositionSlotKeys' => '[]',
                 'siblingTupleItemsCount' => $siblingTupleItemsCount,
                 'siblingCoversTail' => $siblingCoversTail ? 'true' : 'false',
@@ -72,6 +73,14 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
         $coversTail = array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false;
 
         return [count($items), $coversTail];
+    }
+
+    /**
+     * The key of the evaluated indices of the array: the name of the property which owns the validator
+     */
+    public function getArrayPropertyName(): string
+    {
+        return $this->templateValues['arrayPropertyName'];
     }
 
     public function getCheck(): string

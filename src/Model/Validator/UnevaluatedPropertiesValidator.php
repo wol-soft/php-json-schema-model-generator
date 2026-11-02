@@ -64,6 +64,10 @@ class UnevaluatedPropertiesValidator extends AbstractUnevaluatedPropertiesValida
             ],
             $propertyName,
         );
+
+        $this->templateValues['validationMethod'] = $compositionScope->reserveMethodName(
+            RenderHelper::extractedMethodNameCandidate($this->property, 'UnevaluatedProperty'),
+        );
     }
 
     /**
@@ -87,13 +91,14 @@ class UnevaluatedPropertiesValidator extends AbstractUnevaluatedPropertiesValida
     }
 
     /**
-     * Initialize all variables which are required to execute an unevaluated properties validator.
+     * The values are validated by a closure which reads them as `$properties` and reports the invalid ones by
+     * `$invalidProperties`
      */
     public function getValidatorSetUp(): string
     {
-        return '
+        return <<<'CODE'
             $properties = $value;
             $invalidProperties = [];
-        ';
+            CODE;
     }
 }

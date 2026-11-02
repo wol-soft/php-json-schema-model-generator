@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "k": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": {
+    "type": "array",
+    "items": [
+      {
+        "type": "string"
+      }
+    ],
+    "additionalItems": {
+      "type": "integer"
+    }
+  }
+}

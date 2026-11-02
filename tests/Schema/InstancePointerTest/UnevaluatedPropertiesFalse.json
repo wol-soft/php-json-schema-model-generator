@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "strict": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

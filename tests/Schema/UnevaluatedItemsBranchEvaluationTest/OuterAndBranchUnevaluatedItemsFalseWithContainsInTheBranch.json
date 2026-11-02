@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "anyOf": [
+        {
+          "contains": {
+            "type": "string"
+          },
+          "unevaluatedItems": false,
+          "minItems": 2
+        },
+        {
+          "maxItems": 5
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

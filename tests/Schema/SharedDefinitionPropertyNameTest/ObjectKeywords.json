@@ -1,0 +1,127 @@
+{
+  "type": "object",
+  "definitions": {
+    "bag": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": ["value"]
+    },
+    "objectOrText": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "patterned": {
+      "type": "object",
+      "patternProperties": {
+        "^a": {
+          "type": "integer"
+        }
+      }
+    },
+    "named": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 2
+      }
+    },
+    "sized": {
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 3
+    },
+    "dependent": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "dependencies": {
+        "a": ["b"]
+      }
+    }
+  },
+  "properties": {
+    "bagA": {
+      "$ref": "#/definitions/bag"
+    },
+    "bagB": {
+      "$ref": "#/definitions/bag"
+    },
+    "closedA": {
+      "$ref": "#/definitions/closed"
+    },
+    "closedB": {
+      "$ref": "#/definitions/closed"
+    },
+    "recordA": {
+      "$ref": "#/definitions/record"
+    },
+    "recordB": {
+      "$ref": "#/definitions/record"
+    },
+    "objectOrTextA": {
+      "$ref": "#/definitions/objectOrText"
+    },
+    "objectOrTextB": {
+      "$ref": "#/definitions/objectOrText"
+    },
+    "patternedA": {
+      "$ref": "#/definitions/patterned"
+    },
+    "patternedB": {
+      "$ref": "#/definitions/patterned"
+    },
+    "namedA": {
+      "$ref": "#/definitions/named"
+    },
+    "namedB": {
+      "$ref": "#/definitions/named"
+    },
+    "sizedA": {
+      "$ref": "#/definitions/sized"
+    },
+    "sizedB": {
+      "$ref": "#/definitions/sized"
+    },
+    "dependentA": {
+      "$ref": "#/definitions/dependent"
+    },
+    "dependentB": {
+      "$ref": "#/definitions/dependent"
+    }
+  }
+}

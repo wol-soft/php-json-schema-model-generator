@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "properties": {
+    "allOfString": {
+      "type": "string",
+      "allOf": [
+        {
+          "minLength": 2
+        },
+        {
+          "pattern": "^a"
+        }
+      ]
+    },
+    "anyOfInteger": {
+      "type": "integer",
+      "anyOf": [
+        {
+          "minimum": 5
+        },
+        {
+          "maximum": -5
+        }
+      ]
+    },
+    "oneOfString": {
+      "type": "string",
+      "oneOf": [
+        {
+          "minLength": 3
+        },
+        {
+          "maxLength": 1
+        }
+      ]
+    },
+    "notString": {
+      "type": "string",
+      "not": {
+        "const": "x"
+      }
+    },
+    "conditionalString": {
+      "type": "string",
+      "if": {
+        "minLength": 3
+      },
+      "then": {
+        "pattern": "^a"
+      },
+      "else": {
+        "pattern": "^b"
+      }
+    },
+    "allOfArray": {
+      "type": "array",
+      "allOf": [
+        {
+          "minItems": 1
+        }
+      ]
+    },
+    "enumString": {
+      "type": "string",
+      "enum": [
+        "a",
+        "b"
+      ]
+    },
+    "constString": {
+      "type": "string",
+      "const": "x"
+    }
+  }
+}

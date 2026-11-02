@@ -1,6 +1,28 @@
 {
   "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "$ref": "#/definitions/node"
+      }
+    }
+  },
   "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    },
+    "contained": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      }
+    },
     "tags": {
       "type": "array",
       "items": {
@@ -27,6 +49,9 @@
           "type": "integer"
         }
       },
+      "additionalProperties": {
+        "type": "integer"
+      },
       "if": {
         "properties": {
           "x": {
@@ -38,6 +63,19 @@
         "required": [
           "x"
         ]
+      }
+    }
+  },
+  "patternProperties": {
+    "^x_": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
       }
     }
   },

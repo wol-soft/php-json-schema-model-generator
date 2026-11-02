@@ -1,6 +1,9 @@
 {%if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
+{% if typeGuard %}
+    {{ typeGuard }} &&
+{% endif %}
 (function (&$value) use (
     &$modelData,
     &$ifException,
@@ -13,7 +16,7 @@
     $originalModelData = $value;
 
     {% if compositionValidator.getSlotKey() %}
-        $slotKey = '{{ compositionValidator.getSlotKey() }}';
+        $slotKey = '{{ viewHelper.escapeSingleQuoted(compositionValidator.getSlotKey()) }}';
         $compositionEvaluatedIndices = [];
     {% endif %}
     {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
@@ -30,6 +33,16 @@
 
     {% if compositionValidator.getSlotKey() and ifProperty.branchHasContains() %}
         $branchContainsMatches = [];
+    {% endif %}
+
+    {% if ifProperty.getEvaluationScopeKey() %}
+        {#
+            The branch evaluates its own items in a scope of its own, see ComposedItem.phptpl: the indices of a
+            branch which fails are discarded, the indices of a branch which succeeds are added to the set of the
+            enclosing array afterwards.
+        #}
+        $savedBranchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ ifProperty.getEvaluationScopeKey() }}] ?? [];
+        $this->_evaluatedItemIndices[{{ ifProperty.getEvaluationScopeKey() }}] = [];
     {% endif %}
 
     try {
@@ -50,12 +63,24 @@
         {% endif %}
     } catch (\Exception $exception) {
         $ifException = $exception;
+    {% if ifProperty.getEvaluationScopeKey() %}
+    } finally {
+        $branchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ ifProperty.getEvaluationScopeKey() }}] ?? [];
+        $this->_evaluatedItemIndices[{{ ifProperty.getEvaluationScopeKey() }}] = $savedBranchEvaluatedItemIndices;
     }
+    {% else %}
+    }
+    {% endif %}
+    {% if ifProperty.getEvaluationScopeKey() %}
+        if (!$ifException) {
+            $this->_evaluatedItemIndices[{{ ifProperty.getEvaluationScopeKey() }}] += $branchEvaluatedItemIndices;
+        }
+    {% endif %}
 
     $value = $originalModelData;
 
     {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and ifProperty.branchIsArrayKind() %}
-        if (!$ifException) {
+        if (!$ifException && is_array($originalModelData)) {
             {% if ifProperty.branchClaimsAllIndices() %}
                 $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
             {% endif %}
@@ -75,6 +100,9 @@
             {% endif %}
             {% if ifProperty.branchHasContains() %}
                 $compositionEvaluatedIndices += $branchContainsMatches;
+            {% endif %}
+            {% if ifProperty.getEvaluationScopeKey() %}
+                $compositionEvaluatedIndices += $branchEvaluatedItemIndices;
             {% endif %}
         }
     {% endif %}
@@ -112,6 +140,16 @@
                 $branchContainsMatches = [];
             {% endif %}
 
+            {% if thenProperty.getEvaluationScopeKey() %}
+                {#
+                    The branch evaluates its own items in a scope of its own, see ComposedItem.phptpl: the indices of a
+                    branch which fails are discarded, the indices of a branch which succeeds are added to the set of the
+                    enclosing array afterwards.
+                #}
+                $savedBranchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ thenProperty.getEvaluationScopeKey() }}] ?? [];
+                $this->_evaluatedItemIndices[{{ thenProperty.getEvaluationScopeKey() }}] = [];
+            {% endif %}
+
             try {
                 {{ viewHelper.resolvePropertyDecorator(thenProperty, false, 3) }}
 
@@ -130,10 +168,22 @@
                 {% endif %}
             } catch (\Exception $exception) {
                 $thenException = $exception;
+            {% if thenProperty.getEvaluationScopeKey() %}
+            } finally {
+                $branchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ thenProperty.getEvaluationScopeKey() }}] ?? [];
+                $this->_evaluatedItemIndices[{{ thenProperty.getEvaluationScopeKey() }}] = $savedBranchEvaluatedItemIndices;
             }
+            {% else %}
+            }
+            {% endif %}
+            {% if thenProperty.getEvaluationScopeKey() %}
+                if (!$thenException) {
+                    $this->_evaluatedItemIndices[{{ thenProperty.getEvaluationScopeKey() }}] += $branchEvaluatedItemIndices;
+                }
+            {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and thenProperty.branchIsArrayKind() %}
-                if (!$thenException) {
+                if (!$thenException && is_array($originalModelData)) {
                     {% if thenProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
@@ -153,6 +203,9 @@
                     {% endif %}
                     {% if thenProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
+                    {% endif %}
+                    {% if thenProperty.getEvaluationScopeKey() %}
+                        $compositionEvaluatedIndices += $branchEvaluatedItemIndices;
                     {% endif %}
                 }
             {% endif %}
@@ -193,6 +246,16 @@
                 $branchContainsMatches = [];
             {% endif %}
 
+            {% if elseProperty.getEvaluationScopeKey() %}
+                {#
+                    The branch evaluates its own items in a scope of its own, see ComposedItem.phptpl: the indices of a
+                    branch which fails are discarded, the indices of a branch which succeeds are added to the set of the
+                    enclosing array afterwards.
+                #}
+                $savedBranchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ elseProperty.getEvaluationScopeKey() }}] ?? [];
+                $this->_evaluatedItemIndices[{{ elseProperty.getEvaluationScopeKey() }}] = [];
+            {% endif %}
+
             try {
                 {{ viewHelper.resolvePropertyDecorator(elseProperty, false, 3) }}
 
@@ -211,10 +274,22 @@
                 {% endif %}
             } catch (\Exception $exception) {
                 $elseException = $exception;
+            {% if elseProperty.getEvaluationScopeKey() %}
+            } finally {
+                $branchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ elseProperty.getEvaluationScopeKey() }}] ?? [];
+                $this->_evaluatedItemIndices[{{ elseProperty.getEvaluationScopeKey() }}] = $savedBranchEvaluatedItemIndices;
             }
+            {% else %}
+            }
+            {% endif %}
+            {% if elseProperty.getEvaluationScopeKey() %}
+                if (!$elseException) {
+                    $this->_evaluatedItemIndices[{{ elseProperty.getEvaluationScopeKey() }}] += $branchEvaluatedItemIndices;
+                }
+            {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and elseProperty.branchIsArrayKind() %}
-                if (!$elseException) {
+                if (!$elseException && is_array($originalModelData)) {
                     {% if elseProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
@@ -234,6 +309,9 @@
                     {% endif %}
                     {% if elseProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
+                    {% endif %}
+                    {% if elseProperty.getEvaluationScopeKey() %}
+                        $compositionEvaluatedIndices += $branchEvaluatedItemIndices;
                     {% endif %}
                 }
             {% endif %}

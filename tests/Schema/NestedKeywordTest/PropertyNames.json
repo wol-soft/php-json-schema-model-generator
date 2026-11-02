@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "propertyNames": {
+    "maxLength": 3
+  },
+  "properties": {
+    "ch": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 2
+      }
+    }
+  }
+}

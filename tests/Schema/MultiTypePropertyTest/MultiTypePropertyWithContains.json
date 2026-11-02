@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "contains": {
+        "type": "integer"
+      }
+    }
+  }
+}

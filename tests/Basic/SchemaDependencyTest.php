@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -15,11 +17,6 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 
-/**
- * Class SchemaDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -500,5 +497,188 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertNull($object->getCreditCard());
+    }
+
+    public static function schemaDependencyReferencingTheOwningDefinitionProvider(): array
+    {
+        return [
+            'dependency schema with the reference only' => [
+                'SchemaDependencyReferencingTheOwningDefinition.json',
+            ],
+            'dependency schema with a sibling property of the reference' => [
+                'SchemaDependencyReferencingTheOwningDefinitionWithSiblingProperty.json',
+            ],
+        ];
+    }
+
+    /**
+     * The dependency schema of a definition declares a property which references the definition itself. Each level of
+     * the nesting is validated by the dependency schema if the property the dependency is declared for is provided.
+     * The reference is found while the definition is still being created, so the property of the dependency schema
+     * can't be inspected when the dependency is processed.
+     */
+    #[DataProvider('schemaDependencyReferencingTheOwningDefinitionProvider')]
+    public function testSchemaDependencyReferencingTheOwningDefinitionIsValidatedOnEveryLevel(
+        string $schemaFile,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile, (new GeneratorConfiguration())->setCollectErrors(false));
+
+        foreach (
+            [
+                [],
+                ['a' => 1],
+                ['a' => 1, 'child' => []],
+                ['a' => 1, 'child' => ['a' => 2]],
+                ['a' => 1, 'child' => ['a' => 2, 'child' => ['a' => 3, 'child' => []]]],
+            ] as $tree
+        ) {
+            $object = new $className(['tree' => $tree]);
+            $this->assertSame($tree['a'] ?? null, $object->getTree()->getA());
+            $this->assertSame(['tree' => $tree], $object->meta()->rawInput());
+        }
+
+        $this->assertNull((new $className([]))->getTree());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a' => 1, 'child' => ['a' => 'x']]],
+            NestedObjectException::class,
+            <<<'MSG'
+            Invalid nested object for property 'tree':
+              - Invalid schema which is dependant on 'a':
+                  - Invalid nested object for property 'child':
+                      - Invalid type for 'a': requires 'int', got 'string'
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a' => 1, 'child' => ['a' => 2, 'child' => ['a' => 3, 'child' => ['a' => 'x']]]]],
+            NestedObjectException::class,
+            <<<'MSG'
+            Invalid nested object for property 'tree':
+              - Invalid schema which is dependant on 'a':
+                  - Invalid nested object for property 'child':
+                      - Invalid schema which is dependant on 'a':
+                          - Invalid nested object for property 'child':
+                              - Invalid schema which is dependant on 'a':
+                                  - Invalid nested object for property 'child':
+                                      - Invalid type for 'a': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    /**
+     * With error collection the sibling property of the reference is validated by the dependency schema as well, a
+     * violation inside the recursion is reported as an error of the model.
+     *
+     * Only the class of the exception is asserted for the violation inside the recursion: the transferred property of
+     * the dependency schema instantiates the nested object a second time, so the messages of such a violation report
+     * the nested object twice.
+     */
+    public function testSchemaDependencyReferencingTheOwningDefinitionCollectsTheViolations(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SchemaDependencyReferencingTheOwningDefinitionWithSiblingProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a' => 1, 'label' => 5, 'child' => []]],
+            ErrorRegistryException::class,
+            <<<'MSG'
+            Invalid nested object for property 'tree':
+              - Invalid schema which is dependant on 'a':
+                  - Invalid type for 'label': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        new $className([
+            'tree' => ['a' => 1, 'label' => 'x', 'child' => ['a' => 2, 'label' => 'y', 'child' => ['a' => 'z']]],
+        ]);
+    }
+
+    /**
+     * A property of a dependency schema which references a definition another property of the main schema references
+     * as well doesn't change the definition: the main property keeps its type and its validation.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSchemaDependencyReferencingTheDefinitionOfAnotherPropertyKeepsTheDefinition(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'SchemaDependencyReferencingTheDefinitionOfAnotherProperty.json',
+            $configuration,
+        );
+
+        $object = new $className(['boss' => ['name' => 'Hannes']]);
+        $this->assertSame('Hannes', $object->getBoss()->getName());
+        $this->assertNotSame('mixed', (string) (new ReflectionMethod($className, 'getBoss'))->getReturnType());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['boss' => 5],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'boss': requires 'object', got 'integer'",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['boss' => []],
+            $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid nested object for property 'boss':
+                  - Missing required value for 'name'
+                  - Invalid type for 'name': requires 'string', got 'NULL'
+                MSG
+                : <<<'MSG'
+                Invalid nested object for property 'boss':
+                  - Missing required value for 'name'
+                MSG,
+        );
+
+        // the dependency schema is enforced
+        $dependency = new $className(['credit_card' => 12345, 'owner' => ['name' => 'Hannes'], 'limit' => 5]);
+        $this->assertSame(12345, $dependency->getCreditCard());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['credit_card' => 12345, 'limit' => 'x'],
+            $this->getExpectedExceptionClass($configuration, InvalidSchemaDependencyException::class),
+            <<<'MSG'
+            Invalid schema which is dependant on 'credit_card':
+              - Invalid type for 'limit': requires 'int', got 'string'
+            MSG,
+        );
+    }
+
+    /**
+     * Known gap: an object property which is declared only inside the schema of a dependency is instantiated and
+     * validated although the property owning the dependency is absent. The dependency does not apply then and the
+     * value should be accepted as an unconstrained additional value, like the value of a property of any scalar type
+     * declared in the dependency schema is. The test pins the current behaviour; it must be updated together with the
+     * fix: the value is accepted for an absent owner and the nested class is only instantiated for a present owner.
+     */
+    public function testKnownGapObjectPropertyOfTheDependencySchemaIsValidatedIfTheDependencyDoesNotApply(): void
+    {
+        $className = $this->generateClassFromFile('ObjectPropertyDeclaredOnlyInTheDependencySchema.json');
+
+        // the dependency applies
+        $this->assertSame('s', (new $className(['a' => 's', 'b' => ['x' => 's']]))->getA());
+
+        // the owner of the dependency is absent, the dependency doesn't apply
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['b' => []],
+            NestedObjectException::class,
+            <<<'MSG'
+            Invalid nested object for property 'b':
+              - Missing required value for 'x'
+            MSG,
+        );
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use JsonSerializable;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -25,6 +26,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
 use PHPModelGenerator\Utils\ArrayItemFilterScope;
+use PHPModelGenerator\Utils\EvaluatedItemsScope;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
@@ -42,6 +44,7 @@ class SerializationPostProcessor extends PostProcessor
             ->addInterface(JsonSerializable::class)
             ->addInterface(SerializationInterface::class);
 
+        $this->assertNestedUnevaluatedItemsAreNotFiltered($schema);
         $this->addSerializeFunctionsForTransformingFilters($schema, $generatorConfiguration);
         $this->addSerializationHookMethod($schema, $generatorConfiguration);
         $this->addSkipNotProvidedPropertiesMap($schema, $generatorConfiguration);
@@ -54,6 +57,27 @@ class SerializationPostProcessor extends PostProcessor
 
         if (isset($json['unevaluatedProperties']) && $json['unevaluatedProperties'] !== false) {
             $this->addUnevaluatedPropertiesTransformingFilterSerializer($schema, $generatorConfiguration);
+        }
+    }
+
+    /**
+     * The unevaluatedItems of an array which is not a property of the model (the elements of the arrays of the
+     * properties, the values of additional and pattern properties) are evaluated per element. The serializer can't
+     * know which indices they evaluated, a filter in there can't be serialized.
+     *
+     * @throws SchemaException
+     */
+    private function assertNestedUnevaluatedItemsAreNotFiltered(Schema $schema): void
+    {
+        $valueProperties = EvaluatedItemsScope::valuePropertiesOf($schema);
+        $nestedArrayProperties = $valueProperties;
+
+        foreach ([...$schema->getProperties(), ...$valueProperties] as $rootProperty) {
+            array_push($nestedArrayProperties, ...EvaluatedItemsScope::elementPropertiesOf($rootProperty));
+        }
+
+        foreach ($nestedArrayProperties as $nestedArrayProperty) {
+            ArrayItemFilterScope::assertUnevaluatedItemsAreNotFiltered($nestedArrayProperty);
         }
     }
 
@@ -300,9 +324,10 @@ class SerializationPostProcessor extends PostProcessor
      * method of the nested level (see createSlot()). Several declarations may contribute to one slot (the branches of
      * an anyOf): see finishSlot().
      *
-     * The unevaluatedItems of a nested level are not visited. Their indices are tracked per property name
-     * (_evaluatedItemIndices), the nested arrays of all elements would share one entry and the serializer could not
-     * tell which indices the keyword evaluated in which nested array.
+     * The unevaluatedItems of a nested level are not visited. The indices are only kept for the array property of the
+     * model (_evaluatedItemIndices), the evaluation of a nested array hands them back when its element is validated
+     * and the serializer could not tell which indices the keyword evaluated in which nested array. A filter in there
+     * is rejected (see ArrayItemFilterScope::assertUnevaluatedItemsAreNotFiltered()).
      *
      * The indices which have a serializer of their own (`serializedIndices`) are skipped by the serializer of the
      * schema-form items: the slots overlap and may reach the very same filter declaration, the serializer must run

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "if": {
+        "minItems": 1
+      },
+      "else": {
+        "$ref": "#/definitions/node"
+      }
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

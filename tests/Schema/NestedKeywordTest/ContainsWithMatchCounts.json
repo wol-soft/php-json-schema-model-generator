@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "outer": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "contains": {
+          "type": "string"
+        },
+        "minContains": 2
+      },
+      "minContains": 2,
+      "maxContains": 3
+    }
+  }
+}

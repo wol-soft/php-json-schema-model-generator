@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "tupleSlot": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "integer"
+            }
+          ],
+          "unevaluatedItems": {
+            "type": "string"
+          }
+        }
+      ],
+      "additionalItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
+        "unevaluatedItems": false
+      }
+    },
+    "unevaluatedSlot": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
+        "unevaluatedItems": {
+          "type": "boolean"
+        }
+      }
+    },
+    "containsSlot": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      }
+    }
+  }
+}

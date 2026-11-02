@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "definitions": {
+    "alias": {
+      "$ref": "#/definitions/node"
+    },
+    "node": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#/definitions/alias"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/alias"
+    }
+  }
+}

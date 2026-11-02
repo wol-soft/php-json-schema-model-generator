@@ -4,22 +4,18 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Utils\ResolvableTrait;
 
-/**
- * Class AbstractPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 {
     use ResolvableTrait;
 
-    /**
-     * AbstractPropertyValidator constructor.
-     */
+    /** The code of the value which a validator provides to its exception unless it compares another representation */
+    public const string VALIDATED_VALUE_CODE = '$value ?? null';
+
     protected string $jsonPointer = '';
 
     public function __construct(
@@ -77,6 +73,19 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     public function getExceptionParams(): array
     {
         return array_merge([$this->property->getName(), $this->jsonPointer], $this->exceptionParams);
+    }
+
+    /**
+     * By default the validated value is provided to the exception
+     */
+    public function getProvidedValueCode(): string
+    {
+        return self::VALIDATED_VALUE_CODE;
+    }
+
+    public function validatesGeneratedClass(): bool
+    {
+        return $this->property instanceof BaseProperty;
     }
 
     /**

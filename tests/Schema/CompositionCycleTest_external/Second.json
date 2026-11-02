@@ -1,0 +1,8 @@
+{
+  "type": "array",
+  "allOf": [
+    {
+      "$ref": "First.json"
+    }
+  ]
+}

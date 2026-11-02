@@ -24,6 +24,19 @@ class SchemaDefinition
     protected ResolvedDefinitionsCollection $resolvedPaths;
     /** @var array */
     protected $unresolvedProxies = [];
+    /**
+     * The entry which is currently created for a definition: a reference to the definition found while the entry is
+     * created is a recursive reference.
+     *
+     * @var array<string, string>
+     */
+    private array $entriesInCreation = [];
+    /**
+     * The entry of a definition which describes an object: shared by all references to the definition
+     *
+     * @var array<string, string>
+     */
+    private array $objectEntries = [];
 
     /**
      * SchemaDefinition constructor.
@@ -81,10 +94,23 @@ class SchemaDefinition
         // property's generated getter from `?Item` to the incorrect `Item`.
         $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
 
-        if (!$this->resolvedPaths->offsetExists($key)) {
+        // The name of the property is metadata as well: the validators of a property name it in their exceptions and
+        // in checks (the key of the property in the provided data), a property shared by differently named references
+        // reports the name of the first reference for all of them (or doesn't validate the later ones at all). Each
+        // name therefore gets a property of its own. Two exceptions share the entry of the first reference:
+        // - a recursive reference (found while the entry of the definition is created): the recursion has to end in
+        //   the property which is created, a name specific entry would be created again and again.
+        // - an object: its constraints are validated by the generated class, which names its own properties. The
+        //   property only holds an instance check which is bound to the referencing property when it is rendered.
+        //   Creating the property for each name was rejected: the class would be processed again for each name only
+        //   to be reported as a duplicate of itself.
+        $entryKey = $this->entriesInCreation[$key] ?? $this->objectEntries[$key] ?? $key . '-' . md5($propertyName);
+
+        if (!$this->resolvedPaths->offsetExists($entryKey)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
             // to the currently created property
-            $this->resolvedPaths->offsetSet($key, null);
+            $this->resolvedPaths->offsetSet($entryKey, null);
+            $this->entriesInCreation[$key] = $entryKey;
 
             try {
                 $property = (new PropertyFactory())
@@ -97,26 +123,38 @@ class SchemaDefinition
                         $isArrayItem,
                     );
 
-                $this->resolvedPaths->offsetSet($key, $property);
+                $this->resolvedPaths->offsetSet($entryKey, $property);
+                unset($this->entriesInCreation[$key]);
+
+                if ($property->isResolved() && $property->getNestedSchema() !== null) {
+                    $this->objectEntries[$key] = $entryKey;
+                }
 
                 /** @var PropertyProxy $proxy */
-                foreach ($this->unresolvedProxies[$key] ?? [] as $proxy) {
+                foreach ($this->unresolvedProxies[$entryKey] ?? [] as $proxy) {
                     $proxy->resolve();
                 }
 
-                unset($this->unresolvedProxies[$key]);
+                unset($this->unresolvedProxies[$entryKey]);
 
                 return $property;
             } catch (PHPModelGeneratorException $exception) {
-                $this->resolvedPaths->offsetUnset($key);
-                throw $exception;
+                $this->resolvedPaths->offsetUnset($entryKey);
+                unset($this->entriesInCreation[$key]);
+
+                // The definition was found, creating its property failed. The failure names the real cause and must
+                // reach the caller unchanged: the reference resolution restates a failure to locate the definition
+                // ("Unresolved Reference") but not a fault in the definition. Restating every failure of a reference
+                // was rejected: the message of the real cause (eg. a rejected composition) is hidden behind a message
+                // which blames the reference and only available as previous exception.
+                throw $exception instanceof SchemaException ? $exception->markAsReferencedSchemaFailure() : $exception;
             }
         }
 
-        $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
-        $this->unresolvedProxies[$key][] = $proxy;
+        $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $entryKey);
+        $this->unresolvedProxies[$entryKey][] = $proxy;
 
-        if ($this->resolvedPaths->offsetGet($key)) {
+        if ($this->resolvedPaths->offsetGet($entryKey)) {
             $proxy->resolve();
         }
 

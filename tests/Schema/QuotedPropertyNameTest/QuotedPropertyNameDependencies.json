@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "owner's": {
+      "type": "string"
+    },
+    "dependant \"x\"": {
+      "type": "string"
+    },
+    "other\\": {
+      "type": "string"
+    },
+    "dash-ed name": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "owner's": [
+      "dependant \"x\""
+    ],
+    "other\\": {
+      "required": [
+        "owner's"
+      ],
+      "properties": {
+        "owner's": {
+          "maxLength": 3
+        }
+      }
+    },
+    "dash-ed name": {
+      "required": [
+        "owner's"
+      ]
+    }
+  }
+}

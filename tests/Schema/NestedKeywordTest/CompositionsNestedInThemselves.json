@@ -1,0 +1,93 @@
+{
+  "type": "object",
+  "required": [
+    "allOfNested",
+    "anyOfNested",
+    "oneOfNested",
+    "notNested",
+    "ifNested"
+  ],
+  "properties": {
+    "allOfNested": {
+      "type": "string",
+      "allOf": [
+        {
+          "allOf": [
+            {
+              "minLength": 2
+            },
+            {
+              "maxLength": 4
+            }
+          ]
+        },
+        {
+          "pattern": "^a"
+        }
+      ]
+    },
+    "anyOfNested": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string",
+              "minLength": 3
+            }
+          ]
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "oneOfNested": {
+      "oneOf": [
+        {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 10
+            },
+            {
+              "type": "integer",
+              "maximum": 5
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "notNested": {
+      "not": {
+        "not": {
+          "type": "integer"
+        }
+      }
+    },
+    "ifNested": {
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "if": {
+          "minLength": 3
+        },
+        "then": {
+          "maxLength": 5
+        },
+        "else": {
+          "pattern": "^x"
+        }
+      },
+      "else": {
+        "type": "integer"
+      }
+    }
+  }
+}

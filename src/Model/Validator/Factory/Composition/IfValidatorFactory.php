@@ -39,6 +39,7 @@ class IfValidatorFactory
         }
 
         $this->assertSingleBranchSchemasAreWellFormed($property, $propertySchema, ['if', 'then', 'else']);
+        $this->assertNoCompositionCycle($schemaProcessor, $schema, $property, $propertySchema);
 
         $json = $propertySchema->getJson();
 

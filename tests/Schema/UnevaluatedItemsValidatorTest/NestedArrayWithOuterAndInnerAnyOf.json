@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "anyOf": [
+            {
+              "items": [
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            {
+              "contains": {
+                "const": "x"
+              }
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ],
+      "anyOf": [
+        {
+          "contains": {
+            "const": 5
+          }
+        },
+        {
+          "contains": {
+            "const": 6
+          }
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

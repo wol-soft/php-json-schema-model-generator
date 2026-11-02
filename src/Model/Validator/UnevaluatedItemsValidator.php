@@ -25,6 +25,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
     private const NESTED_PROPERTY_NAME = 'unevaluated item';
 
     private readonly PropertyInterface $validationProperty;
+    private readonly string $variableSuffix;
 
     /**
      * @throws SchemaException
@@ -35,6 +36,13 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
     ) {
+        // The unevaluated item may be an array with unevaluatedItems itself, rendered inline into the closure of this
+        // validator: the error map of the inner validator must not be the error map of this validator. The schema of
+        // the array is unique along a chain of nested validators (the inner schema is part of the outer one), the name
+        // of the property is not (all unevaluated items are named alike). The location in a file was rejected: it
+        // changes the generated code of an unchanged schema whenever the file is moved.
+        $this->variableSuffix = '_' . md5(json_encode($propertiesStructure->getJson()));
+
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
             $schema,
@@ -51,10 +59,14 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
-            ['&$invalidItems'],
+            ["&\$invalidItems{$this->variableSuffix}"],
             [
+                'suffix' => $this->variableSuffix,
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
+                'validationMethod' => $schema->reserveMethodName(
+                    RenderHelper::extractedMethodNameCandidate($property, 'UnevaluatedItem'),
+                ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],
@@ -82,6 +94,6 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '$invalidItems = [];';
+        return "\$invalidItems{$this->variableSuffix} = [];";
     }
 }

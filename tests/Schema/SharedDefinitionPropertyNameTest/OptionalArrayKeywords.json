@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "definitions": {
+    "schemaTail": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    },
+    "closedPair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": false
+    },
+    "containing": {
+      "type": "array",
+      "contains": {
+        "type": "integer"
+      }
+    }
+  },
+  "properties": {
+    "schemaTailA": {
+      "$ref": "#/definitions/schemaTail"
+    },
+    "schemaTailB": {
+      "$ref": "#/definitions/schemaTail"
+    },
+    "closedPairA": {
+      "$ref": "#/definitions/closedPair"
+    },
+    "closedPairB": {
+      "$ref": "#/definitions/closedPair"
+    },
+    "containingA": {
+      "$ref": "#/definitions/containing"
+    },
+    "containingB": {
+      "$ref": "#/definitions/containing"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
+is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelData): bool {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -6,7 +6,7 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
 
     $unevaluatedIndices = $this->collectUnevaluatedIndices(
         $items,
-        '{{ arrayPropertyName }}',
+        '{{ escapedArrayPropertyName }}',
         {{ compositionSlotKeys }},
         {{ siblingTupleItemsCount }},
         {{ siblingCoversTail }},
@@ -22,24 +22,22 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
-            {% foreach validationProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 3) }}
-            {% endforeach %}
+            {{ viewHelper.renderExtractedValidators(validationProperty, schema, validationMethod, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {
-                    $invalidItems[$index] = $this->_errorRegistry->getErrors();
+                    $invalidItems{{ suffix }}[$index] = $this->_errorRegistry->getErrors();
                     continue;
                 }
             {% endif %}
 
             // The index validated against the unevaluatedItems subschema — record it so an
             // enclosing schema's unevaluatedItems accumulator can credit it.
-            $this->_evaluatedItemIndices['{{ arrayPropertyName }}'][$index] = true;
+            $this->_evaluatedItemIndices['{{ escapedArrayPropertyName }}'][$index] = true;
         } catch (\Exception $exception) {
-            isset($invalidItems[$index])
-                ? $invalidItems[$index][] = $exception
-                : $invalidItems[$index] = [$exception];
+            isset($invalidItems{{ suffix }}[$index])
+                ? $invalidItems{{ suffix }}[$index][] = $exception
+                : $invalidItems{{ suffix }}[$index] = [$exception];
         }
     }
 
@@ -47,9 +45,9 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    if (!empty($invalidItems)) {
+    if (!empty($invalidItems{{ suffix }})) {
         $this->_evaluatedItemIndices = $rollbackEvaluatedItemIndices;
     }
 
-    return !empty($invalidItems);
+    return !empty($invalidItems{{ suffix }});
 })($value)

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\UnresolvedPropertyException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
@@ -16,19 +17,12 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
 
-/**
- * Class PropertyProxy
- *
- * @package PHPModelGenerator\Model
- */
 class PropertyProxy extends AbstractProperty
 {
     private ?JsonSchema $overrideJsonSchema = null;
     private ?PhpAttribute $overrideJsonPointer = null;
 
     /**
-     * PropertyProxy constructor.
-     *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
      * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
@@ -50,7 +44,11 @@ class PropertyProxy extends AbstractProperty
      * the composition, or merged with a branch declaration) must not change the definition. A plain clone would keep
      * delegating every change to the shared property.
      *
-     * Only a resolved proxy can be detached, an unresolved one is returned as a plain clone.
+     * A proxy of a definition which is still being created (a recursive reference) has no property to copy yet. The
+     * copy is unresolved and takes its own copy of the property as soon as the proxy is resolved, changes to the copy
+     * have to wait for that moment (see onResolve()). Returning a plain clone for an unresolved proxy was rejected: the
+     * clone keeps delegating to the property of the definition, once it exists every change of the copy would change
+     * the definition.
      */
     public function detach(): static
     {
@@ -60,17 +58,30 @@ class PropertyProxy extends AbstractProperty
             $copy->definitionsCollection = new ResolvedDefinitionsCollection(
                 [$this->key => clone $this->getProperty()],
             );
+
+            return $copy;
         }
+
+        // The callbacks of the proxy belong to the proxy, they must not run again for the copy.
+        $copy->onResolveCallbacks = [];
+        $this->onResolve(function () use ($copy): void {
+            $copy->definitionsCollection = new ResolvedDefinitionsCollection(
+                [$copy->key => clone $this->getProperty()],
+            );
+            $copy->resolve();
+        });
 
         return $copy;
     }
 
     /**
      * Get the property out of the resolved definitions collection to proxy function calls
+     *
+     * @throws UnresolvedPropertyException If the definition is still being created (a recursive reference)
      */
     protected function getProperty(): PropertyInterface
     {
-        return $this->definitionsCollection->offsetGet($this->key);
+        return $this->definitionsCollection->offsetGet($this->key) ?? throw new UnresolvedPropertyException($this);
     }
 
     /**

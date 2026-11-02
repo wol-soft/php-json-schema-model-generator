@@ -9,14 +9,14 @@
 {% foreach schema.getProperties() as property %}
     {% if not property.isInternal() %}
         if (
-            array_key_exists('{{ property.getName() }}', $modelData) &&
-            $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute(true) }}
+            array_key_exists('{{ viewHelper.escapeSingleQuoted(property.getName()) }}', $modelData) &&
+            $modelData['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] !== $this->{{ property.getAttribute(true) }}
         ) {
             {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
             $updatedProperties['{{ property.getAttribute(true) }}'] = true;
             {% if dependencyValidation %}
-                $validatedProperties[] = '{{ property.getName() }}';
+                $validatedProperties[] = '{{ viewHelper.escapeSingleQuoted(property.getName()) }}';
             {% endif %}
             $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         }

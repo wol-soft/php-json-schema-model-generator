@@ -24,6 +24,7 @@ Generated interface:
     public function setExample($example): static;
     public function getExample();
 
+A ``not`` validates the values which are provided. An optional property which isn't provided is valid, the getter of the property returns ``null`` (the getter of a property with a type is nullable, like the getter of any other optional property). A value which is provided explicitly is validated, including ``null``: ``"not": {"type": "null"}`` rejects a provided ``null`` and a ``not`` which is satisfied by ``null`` (eg. ``"not": {"minimum": 5}``, a keyword which doesn't apply to ``null``) rejects it, too.
 
 Possible exceptions:
 
@@ -71,6 +72,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
 
     A ``"filter"`` on the items of an array inside the ``not`` schema is rejected with a ``SchemaException``: the schema
     only decides whether the value is valid and never transforms the stored value. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
+.. note::
+
+    A branch must not lead back to the schema it is a branch of without descending into the value (a ``$ref`` to the
+    schema itself or to a schema which composes it again): the schema would require itself for the very same value and
+    the generator rejects it with a ``SchemaException``. See
+    `A recursion has to descend into the value <../generic/references.html#a-recursion-has-to-descend-into-the-value>`__.
 
 Property and item evaluation propagation
 ----------------------------------------

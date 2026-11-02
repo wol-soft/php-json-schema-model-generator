@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": [
+              {
+                "type": "integer"
+              }
+            ],
+            "unevaluatedItems": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

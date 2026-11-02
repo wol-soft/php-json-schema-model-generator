@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "anything": {
+      "type": "array",
+      "items": [
+        true,
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "nothing": {
+      "type": "array",
+      "items": [false],
+      "unevaluatedItems": false
+    }
+  }
+}

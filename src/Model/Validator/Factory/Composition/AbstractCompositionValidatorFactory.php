@@ -15,11 +15,13 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Composition\CompositionCycleDetector;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeIntersection;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
@@ -100,6 +102,41 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 );
             }
         }
+    }
+
+    /**
+     * Reject a composition which leads back to the schema it composes without descending into the value: the schema
+     * requires itself for the very same value and the generated validation never terminates. Every composition
+     * validates all of its branches, so the cycle is rejected for any composition keyword (also for the branch of a
+     * not or an if/then/else) and for any chain of references and compositions, not only for a direct self reference.
+     *
+     * The walk starts at the schema of the composed property and covers all composition keywords of it, the first
+     * composition factory which processes the property reports the cycle.
+     *
+     * @throws SchemaException
+     */
+    protected function assertNoCompositionCycle(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $cycle = (new CompositionCycleDetector($schemaProcessor))
+            ->findCycle($propertySchema, $schema->getSchemaDictionary());
+
+        if ($cycle === []) {
+            return;
+        }
+
+        throw new SchemaException(
+            sprintf(
+                "Composition of property '%s' in file %s references itself without descending into the value: %s",
+                $property->getName(),
+                $propertySchema->getFile(),
+                implode(' -> ', array_map(static fn(string $location): string => "'$location'", $cycle)),
+            ),
+            $propertySchema,
+        );
     }
 
     /**
@@ -348,6 +385,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *                                                    inherited rather than author-declared
      *                                                    (see inheritPropertyType()) - excluded
      *                                                    from the vacuous-branch check below.
+     * @param bool             $requiredBranches         Whether the branches are built as required
+     *                                                    properties (a null value does not satisfy
+     *                                                    the type of a branch) although the property
+     *                                                    which owns the composition may be optional.
      *
      * @return CompositionPropertyDecorator[]
      *
@@ -360,6 +401,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         JsonSchema $propertySchema,
         bool $merged,
         array $injectedTypeBranchIndices = [],
+        bool $requiredBranches = false,
     ): array {
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
@@ -419,7 +461,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $schema,
                     $property->getName(),
                     $compositionSchema,
-                    $property->isRequired(),
+                    $requiredBranches || $property->isRequired(),
                 ),
             );
 
@@ -489,7 +531,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $presenceCheck = $property instanceof BaseProperty
             ? 'true'
-            : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+            : "array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData)";
 
         // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
