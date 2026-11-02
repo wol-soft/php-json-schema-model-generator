@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^d_": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "filter": [
+          {
+            "filter": "dateTime",
+            "outputFormat": "Ymd"
+          }
+        ]
+      }
+    }
+  }
+}

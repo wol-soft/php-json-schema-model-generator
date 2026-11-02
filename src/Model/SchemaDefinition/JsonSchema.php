@@ -86,6 +86,8 @@ class JsonSchema
      * @param string|null $rawSource The raw, undecoded text of $file, if the provider retained it. Populating this
      *                               enables SchemaException to report the line/column a validation error occurred
      *                               at; providers that don't have the raw text on hand may omit it.
+     *
+     * @throws SchemaException
      */
     public function __construct(
         private string $file,
@@ -93,12 +95,66 @@ class JsonSchema
         private string $pointer = '',
         private ?string $rawSource = null,
     ) {
+        $json = $this->normalizeTypeDeclaration($json);
+
         $this->schemaUri = $this->deriveSchemaUri($json);
         $this->json = $json;
 
-        if (isset($json['$id'])) {
-            $this->baseId = self::normalizeId((string) $json['$id']);
+        $declaredId = self::extractId($json);
+
+        if ($declaredId !== null) {
+            $this->baseId = self::normalizeId($declaredId);
         }
+    }
+
+    /**
+     * A `type` array is normalized to the equivalent form the rest of the pipeline understands:
+     * duplicate entries are dropped and a list that then holds exactly one entry collapses to that
+     * entry's scalar form, because `{"type": ["object"]}` and `{"type": "object"}` are the same
+     * schema per JSON Schema. Doing this once, here, is what keeps the routing
+     * (PropertyFactory::create() dispatching an array-valued type to the multi-type path),
+     * the gate (SchemaProcessor::processSchema() comparing `type` against the string 'object') and
+     * the classifier (ObjectShapeResolver, which normalizes on its own) agreeing by construction:
+     * previously the classifier accepted `["object"]` as a definite object while the routing and
+     * the gate refused it, producing either a misattributed "No nested schema for composed
+     * property" error or a silently skipped file.
+     *
+     * Only this node's own `type` is normalized, not the whole subtree. Every schema node the
+     * pipeline works with is wrapped in its own JsonSchema (via navigate() or withJson()) and is
+     * therefore covered, whereas a recursive walk would have to know which sub-nodes are schemas at
+     * all: rewriting every nested `type` blindly would corrupt schema-shaped data inside a
+     * `default`, `const`, `enum` or `examples` payload, and descending only through applicator
+     * keywords would mean hardcoding a draft's keyword set in a class that cannot consult the Draft
+     * (draft detection reads `$schema` off a JsonSchema, so the dependency runs the other way).
+     *
+     * The same reasoning bounds the one case where this could misfire: navigating into a non-schema
+     * node that happens to carry a `type` key of its own (a `default` value, say). No caller does
+     * that today - navigate() is used for `$ref` targets, definitions and property subschemas, all
+     * of which are schemas.
+     *
+     * @throws SchemaException
+     */
+    private function normalizeTypeDeclaration(array $json): array
+    {
+        if (!array_key_exists('type', $json) || !is_array($json['type'])) {
+            return $json;
+        }
+
+        // SORT_REGULAR rather than the default SORT_STRING: a malformed schema may list a non-scalar
+        // entry, which SORT_STRING would raise an "Array to string conversion" warning for before
+        // the pipeline's own type check gets to reject it with a message naming the actual defect.
+        $declaredTypes = array_values(array_unique($json['type'], SORT_REGULAR));
+
+        if ($declaredTypes === []) {
+            throw new SchemaException(
+                sprintf("Empty 'type' array in file '%s'", $this->file),
+                $this,
+            );
+        }
+
+        $json['type'] = count($declaredTypes) === 1 ? $declaredTypes[0] : $declaredTypes;
+
+        return $json;
     }
 
     /**
@@ -173,7 +229,28 @@ class JsonSchema
      */
     private function deriveSchemaUri(mixed $json): ?string
     {
-        return (is_array($json) ? $json['$schema'] ?? null : null) ?? $this->schemaUri;
+        return self::extractStringKeyword($json, '$schema') ?? $this->schemaUri;
+    }
+
+    /**
+     * The $id declared by the given node, or null if the node doesn't declare one.
+     */
+    public static function extractId(mixed $json): ?string
+    {
+        return self::extractStringKeyword($json, '$id');
+    }
+
+    /**
+     * Only a string value counts as the keyword. The node handed in is not necessarily a schema:
+     * navigating lands on keyword maps such as "properties" or "definitions", whose keys are
+     * user-chosen names, so a property named "$schema" or "$id" holds a property definition (an
+     * array) under that key. Checking only for the key's presence would misread that definition
+     * as the keyword, and tracking which keywords introduce a map instead would need a keyword
+     * table kept in sync with every draft.
+     */
+    private static function extractStringKeyword(mixed $json, string $keyword): ?string
+    {
+        return is_array($json) && is_string($json[$keyword] ?? null) ? $json[$keyword] : null;
     }
 
     /**
@@ -189,10 +266,13 @@ class JsonSchema
         );
     }
 
+    /**
+     * @throws SchemaException
+     */
     public function withJson(array $json): JsonSchema
     {
         $jsonSchema = clone $this;
-        $jsonSchema->json = $json;
+        $jsonSchema->json = $jsonSchema->normalizeTypeDeclaration($json);
         $jsonSchema->booleanValue = null;
         $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($json);
 
@@ -264,11 +344,14 @@ class JsonSchema
 
             $jsonSchema->json = $target;
 
-            if (isset($jsonSchema->json['$id'])) {
-                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            $declaredId = self::extractId($jsonSchema->json);
+
+            if ($declaredId !== null) {
+                $jsonSchema->baseId = self::normalizeId($declaredId);
             }
         }
 
+        $jsonSchema->json = $jsonSchema->normalizeTypeDeclaration($jsonSchema->json);
         $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($jsonSchema->json);
 
         return $jsonSchema;

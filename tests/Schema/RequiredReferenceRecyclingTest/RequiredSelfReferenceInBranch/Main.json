@@ -1,0 +1,27 @@
+{
+  "$id": "Main",
+  "definitions": {
+    "node": {
+      "$id": "#node",
+      "type": "object",
+      "properties": {
+        "next": {
+          "$ref": "#/definitions/node"
+        }
+      },
+      "required": [
+        "next"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "branch": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/node"
+        }
+      ]
+    }
+  }
+}

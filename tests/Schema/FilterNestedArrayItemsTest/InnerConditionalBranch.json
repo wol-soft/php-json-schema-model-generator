@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "if": {
+          "minItems": 2
+        },
+        "then": {
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          }
+        },
+        "else": {
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

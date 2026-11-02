@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        true,
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "blocked": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        false
+      ]
+    }
+  }
+}

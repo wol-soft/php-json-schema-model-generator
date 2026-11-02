@@ -1,0 +1,36 @@
+{
+  "$id": "Main",
+  "definitions": {
+    "node": {
+      "$id": "#node",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/node"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "first": {
+      "$ref": "#/definitions/node"
+    },
+    "second": {
+      "$ref": "#/definitions/node"
+    }
+  },
+  "required": [
+    "first",
+    "second"
+  ]
+}

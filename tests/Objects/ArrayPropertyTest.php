@@ -1154,4 +1154,21 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $accepted->setTags([new DateTime('2020-02-02')]);
         $this->assertEquals([new DateTime('2020-02-02')], $accepted->getTags());
     }
+
+    /**
+     * The filter of the items of a nested array lives one level deeper than the array property itself. The filter
+     * runs, its output is persisted and the serialization applies the serializer of the filter to each transformed
+     * item: without it the generic serialization turns each DateTime into an empty array.
+     */
+    public function testFilteredItemsOfNestedArraysAreSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayItemsWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => [['2020-10-10']]]);
+        $this->assertEquals([[new DateTime('2020-10-10')]], $object->getTags());
+        $this->assertSame(['tags' => [['20201010']]], $object->toArray());
+    }
 }

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "fooBar": {
+      "type": "string"
+    },
+    "foobar": {
+      "type": "string"
+    }
+  }
+}

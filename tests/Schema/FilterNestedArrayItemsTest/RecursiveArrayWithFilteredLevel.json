@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "definitions": {
+    "tree": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/tree"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "filter": [
+                {
+                  "filter": "dateTime",
+                  "outputFormat": "Ymd"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/tree"
+    }
+  }
+}

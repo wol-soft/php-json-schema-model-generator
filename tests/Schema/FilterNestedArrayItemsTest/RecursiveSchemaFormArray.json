@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/node"
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    },
+    "when": {
+      "type": "string",
+      "filter": [
+        {
+          "filter": "dateTime",
+          "outputFormat": "Ymd"
+        }
+      ]
+    }
+  }
+}

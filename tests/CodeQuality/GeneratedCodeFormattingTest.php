@@ -353,6 +353,28 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
     }
 
+    /**
+     * The serializers of filtered array items are generated as one method per nested array level and are called by
+     * the serializers of the array property and of the arrays held by additional and pattern properties. Covers
+     * nested schema-form and tuple-form items, a recursive array (a level which calls itself, combined with a guarded
+     * filter in the same slot) and the arrays held by pattern and additional properties.
+     */
+    public function testNestedFilteredArrayItemSerializersGenerateCodeMatchingTheCodingStandard(): void
+    {
+        $this->generateClassFromFile(
+            'NestedFilteredArrayItems.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors(true)
+                ->setSerialization(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
     public function testBuilderClassGeneratesCodeMatchingTheCodingStandard(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {

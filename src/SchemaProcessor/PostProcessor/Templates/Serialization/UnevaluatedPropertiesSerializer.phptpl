@@ -2,7 +2,11 @@ protected function _serializeUnevaluatedProperties(int $depth, array $except, bo
 {
     $serializedValues = [];
     foreach ($this->_unevaluatedProperties as $key => $value) {
-        $serializedValues[$key] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+        {% if entrySerializer.guard %}
+            $serializedValues[$key] = {{ entrySerializer.guard }} ? {{ entrySerializer.call }} : $value;
+        {% else %}
+            $serializedValues[$key] = {{ entrySerializer.call }};
+        {% endif %}
     }
 
     return (array) $this->_getSerializedValue($serializedValues, $depth, $except, $emptyObjectsAsStdClass);

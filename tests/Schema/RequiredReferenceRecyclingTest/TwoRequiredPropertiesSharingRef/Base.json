@@ -1,0 +1,16 @@
+{
+  "$id": "Base",
+  "type": "object",
+  "properties": {
+    "p": {
+      "$ref": "Shared.json"
+    },
+    "q": {
+      "$ref": "Shared.json"
+    }
+  },
+  "required": [
+    "p",
+    "q"
+  ]
+}

@@ -40,6 +40,20 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     // get the JSON pointer to the schema keyword that rejected the value
     public function getJsonPointer(): JsonPointer
 
+Type arrays which declare a single type
+---------------------------------------
+
+A type array which permits exactly one type is equivalent to declaring that type directly, and is
+handled as such - **["object"]** generates a class just like **"object"** does, and **["string"]**
+is type hinted and validated like **"string"** (including the single type wording of the type
+error, eg. *Invalid type for 'example': requires 'string', got '__TYPE__'*).
+
+Duplicate entries are removed before that equivalence is applied, so **["string", "string"]** is
+also handled like **"string"**.
+
+An empty type array permits no value at all. As no input could ever satisfy such a property it is
+rejected during the schema processing with a *PHPModelGenerator\\Exception\\SchemaException*.
+
 Additional validators
 ---------------------
 
