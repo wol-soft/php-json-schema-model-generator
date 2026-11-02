@@ -1,6 +1,9 @@
 {%if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
+{% if typeGuard %}
+    {{ typeGuard }} &&
+{% endif %}
 (function (&$value) use (
     &$modelData,
     &$ifException,

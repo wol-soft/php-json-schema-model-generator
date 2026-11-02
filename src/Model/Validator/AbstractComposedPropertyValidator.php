@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\Utils\TypeCheck;
 
 abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidator
 {
@@ -127,6 +128,33 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     public function isNotComposition(): bool
     {
         return $this->compositionProcessor === NotValidatorFactory::class;
+    }
+
+    /**
+     * The condition a value has to fulfil to be evaluated by the composition: the type check of the property passes.
+     *
+     * In error collection mode a failed type check reports its error and the validation of the property goes on. Every
+     * branch of a composition inherits the type of the property, so the composition would restate the very same type
+     * error as the failure of each of its branches. Stopping the validation of the property after a failed type check
+     * was rejected: it would also hide the errors of the keywords which don't depend on the type (enum, const), the
+     * scope is the compositions. In direct mode the type check throws before the composition is reached, no condition
+     * is rendered.
+     */
+    protected function buildTypeGuard(): string
+    {
+        if (!$this->generatorConfiguration->collectErrors()) {
+            return '';
+        }
+
+        $conditions = [];
+
+        foreach ($this->property->getValidators() as $validator) {
+            if ($validator->getValidator() instanceof TypeCheckInterface) {
+                $conditions[] = TypeCheck::buildPassingCondition($validator->getValidator()->getCheck());
+            }
+        }
+
+        return implode(' && ', $conditions);
     }
 
     /**

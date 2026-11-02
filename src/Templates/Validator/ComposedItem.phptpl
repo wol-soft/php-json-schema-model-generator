@@ -4,6 +4,9 @@
 {% if providedPropertyCheck %}
     {{ providedPropertyCheck }} &&
 {% endif %}
+{% if typeGuard %}
+    {{ typeGuard }} &&
+{% endif %}
 (function (&$value) use (
     &$modelData,
     &$modifiedModelData,

@@ -309,6 +309,8 @@ The exceptions are implemented in the php-json-schema-model-generator-production
 
 All collected exceptions from an ErrorRegistryException are accessible via the *getErrors* method. The collected errors are the specific exceptions extending the **PHPModelGenerator\\Exception\\ValidationException** which would be thrown directly if error collection is disabled. Each exception provides various specific details about the validation violation.
 
+A value which fails the type check of its property is reported with the type error. The `combined schemas <combinedSchemas/allOf.html>`__ (**allOf**, **anyOf**, **oneOf**, **not**, **if** / **then** / **else**) of the property are not evaluated for such a value: all of their branches inherit the type of the property and would only restate the type error. Keywords which don't depend on the type (e.g. **enum**, **const**) are still validated and reported.
+
 Every ``ValidationException`` carries a **JSON pointer** (see :rfc:`6901`) to the schema keyword
 that rejected the value:
 

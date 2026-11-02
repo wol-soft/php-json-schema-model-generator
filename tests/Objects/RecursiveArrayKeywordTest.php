@@ -644,22 +644,6 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
                       - Composition element #2: Failed
                         * No item in array 'tree' matches the 'contains' constraint
                     MSG,
-                    <<<'MSG'
-                    Invalid value for 'tree' declined by composition constraint
-                      Requires to match at least one composition element
-                      - Composition element #1: Failed
-                        * Invalid items in array 'tree':
-                          - invalid item #0
-                            * Invalid type for 'tree': requires 'array', got 'integer'
-                            * Invalid value for 'tree' declined by composition constraint
-                              Requires to match at least one composition element
-                              - Composition element #1: Failed
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                              - Composition element #2: Failed
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                      - Composition element #2: Failed
-                        * No item in array 'tree' matches the 'contains' constraint
-                    MSG,
                 ],
                 'oneOf' => [
                     'OneOfBranchWithItemsReferencingTheOwningDefinition.json',
@@ -706,27 +690,6 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
                           - invalid item #1
                             * Invalid type for 'tree': requires 'array', got 'integer'
                     MSG,
-                    <<<'MSG'
-                    Invalid value for 'tree' declined by conditional composition constraint
-                      - Condition: Failed
-                        * Array 'tree' must not contain more than 1 items
-                      - Conditional branch failed:
-                        * Invalid items in array 'tree':
-                          - invalid item #0
-                            * Invalid type for 'tree': requires 'array', got 'integer'
-                            * Invalid value for 'tree' declined by conditional composition constraint
-                              - Condition: Failed
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                              - Conditional branch failed:
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                          - invalid item #1
-                            * Invalid type for 'tree': requires 'array', got 'integer'
-                            * Invalid value for 'tree' declined by conditional composition constraint
-                              - Condition: Failed
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                              - Conditional branch failed:
-                                * Invalid type for 'tree': requires 'array', got 'integer'
-                    MSG,
                 ],
             ],
         );
@@ -735,10 +698,6 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     /**
      * A branch of every kind of composition validates the items against the definition which owns the composition.
      * The nested levels run the composition again, the value is rejected if a level violates it.
-     *
-     * With collected errors a level which received an item of the wrong type reports the violation of the type and,
-     * as the composition of the item is evaluated nevertheless, the failures of its branches. These messages are
-     * passed separately where they differ.
      *
      * @param array[] $validTrees
      * @param array[] $invalidTrees
@@ -753,7 +712,6 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
         string $exceptionClass,
         array $messageTree,
         string $message,
-        ?string $collectedMessage = null,
     ): void {
         $className = $this->generateClassFromFile($schemaFile, $configuration);
 
@@ -777,7 +735,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             $className,
             ['tree' => $messageTree],
             $this->getExpectedExceptionClass($configuration, $exceptionClass),
-            $configuration->collectErrors() ? $collectedMessage ?? $message : $message,
+            $message,
         );
     }
 
