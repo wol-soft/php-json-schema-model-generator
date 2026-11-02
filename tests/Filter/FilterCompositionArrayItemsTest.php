@@ -765,25 +765,21 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
             'not branch, definition owning the not keyword' => [
                 'NotBranchReachingItemFilterThroughOwningDefinition.json',
                 "a 'not' composition branch",
-                ['node', 'node'],
                 'tuple item #1 of array tree',
             ],
             'not branch, mutually referencing definitions' => [
                 'NotBranchReachingItemFilterThroughMutualDefinitions.json',
                 "a 'not' composition branch",
-                ['first', 'second'],
                 'tuple item #0 of array tree',
             ],
             'if condition, definition owning the if keyword' => [
                 'IfConditionReachingItemFilterThroughOwningDefinition.json',
                 "the 'if' condition of an 'if/then/else' composition",
-                ['node', 'node'],
                 'tuple item #1 of array tree',
             ],
             'if condition, mutually referencing definitions' => [
                 'IfConditionReachingItemFilterThroughMutualDefinitions.json',
                 "the 'if' condition of an 'if/then/else' composition",
-                ['first', 'second'],
                 'tuple item #0 of array tree',
             ],
         ];
@@ -792,43 +788,26 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
     /**
      * The filter is only reachable through a reference to a definition which is still being created when the branch
      * is processed. The branch must not be accepted because the reference can't be inspected yet: the rejection is
-     * raised once the definition is complete. As for every failure inside a referenced definition the references
-     * restate the failure, the cause stays available as previous exception.
-     *
-     * @param string[] $referencedDefinitions The definitions named by the restating exceptions, outermost first
+     * raised once the definition is complete. The failure is raised inside of the referenced definitions, the
+     * references don't restate it: the exception names the real cause.
      */
     #[DataProvider('itemFilterReachedThroughRecursionProvider')]
     public function testItemFilterReachedOnlyThroughARecursiveReferenceInValidationOnlyBranchThrowsSchemaException(
         string $schemaFile,
         string $expectedBranchDescription,
-        array $referencedDefinitions,
         string $expectedPropertyName,
     ): void {
         try {
             $this->generateClassFromFile($schemaFile);
         } catch (SchemaException $exception) {
-            $messages = [];
-
-            for ($current = $exception; $current !== null; $current = $current->getPrevious()) {
-                $messages[] = $current->getMessage();
-            }
-
-            $this->assertCount(3, $messages);
-
-            foreach ($referencedDefinitions as $index => $definition) {
-                $this->assertMatchesRegularExpression(
-                    '/^' . preg_quote("Unresolved Reference #/definitions/$definition in file ", '/') . '.+\.json$/',
-                    $messages[$index],
-                );
-            }
-
+            $this->assertNull($exception->getPrevious());
             $this->assertMatchesRegularExpression(
                 '/^' . preg_quote(
                     "A filter keyword inside the array items of $expectedBranchDescription is not supported"
                         . " for property '$expectedPropertyName' in file ",
                     '/',
                 ) . '.+\.json at line \d+, column \d+$/',
-                $messages[2],
+                $exception->getMessage(),
             );
 
             return;

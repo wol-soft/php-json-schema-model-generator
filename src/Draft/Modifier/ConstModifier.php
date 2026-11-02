@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonValue;
 use PHPModelGenerator\Utils\JsonValueCheck;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeConverter;
 
 class ConstModifier implements ModifierInterface
@@ -47,7 +48,7 @@ class ConstModifier implements ModifierInterface
             $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
                 => JsonValueCheck::notOneOf([$const, null]),
             default
-                => "array_key_exists('" . addslashes($property->getName()) . "', \$modelData) && "
+                => "array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData) && "
                     . JsonValueCheck::notEqualTo($const),
         };
 

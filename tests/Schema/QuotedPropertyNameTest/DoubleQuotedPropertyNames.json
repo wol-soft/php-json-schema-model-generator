@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "const \"x\"": {
+      "const": "x"
+    },
+    "not \"y\"": {
+      "not": {
+        "type": "string"
+      }
+    },
+    "denied \"z\"": false
+  }
+}

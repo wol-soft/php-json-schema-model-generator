@@ -102,7 +102,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         // value the not validates (`"not": {"type": "null"}` rejects it).
         $providedPropertyCheck = $property instanceof BaseProperty || $property->isRequired()
             ? ''
-            : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+            : "array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData)";
 
         $property->addValidator(
             (new ComposedPropertyValidator(
@@ -164,7 +164,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
 
         $absenceCheck = $property instanceof BaseProperty
             ? 'false'
-            : "!array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+            : "!array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData)";
 
         $branchProperty->onResolve(
             function () use ($branchProperty, $absenceCheck): void {

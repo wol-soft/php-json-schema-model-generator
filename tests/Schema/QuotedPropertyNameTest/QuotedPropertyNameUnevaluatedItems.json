@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "tags's": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "unevaluatedItems": false
+    },
+    "dates's": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "string",
+        "filter": "dateTime"
+      }
+    },
+    "filtered's": {
+      "type": "array",
+      "allOf": [
+        {
+          "items": {
+            "type": "string",
+            "filter": "dateTime"
+          }
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "string",
+        "filter": "dateTime"
+      }
+    }
+  }
+}

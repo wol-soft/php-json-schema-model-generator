@@ -25,7 +25,7 @@
     {% endif %}
 
     {% if compositionValidator.getSlotKey() %}
-        $slotKey = '{{ compositionValidator.getSlotKey() }}';
+        $slotKey = '{{ viewHelper.escapeSingleQuoted(compositionValidator.getSlotKey()) }}';
         $compositionEvaluatedIndices = [];
     {% endif %}
 
@@ -89,7 +89,7 @@
                             array_keys($modifiedModelData),
                             [
                                 {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                    '{{ affectedObjectProperty.getName() }}',
+                                    '{{ viewHelper.escapeSingleQuoted(affectedObjectProperty.getName()) }}',
                                 {% endforeach %}
                             ]
                         ){% if compositionProperty.dependsOnAddedKeys() %} &&
@@ -167,7 +167,7 @@
                         // A composition nested directly inside this branch's own JSON (no
                         // intervening object type, so no nested Schema of its own) tracked its
                         // claimed indices under its own slot — union them into this branch's set.
-                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ nestedCompositionSlotKey }}'] ?? [];
+                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ viewHelper.escapeSingleQuoted(nestedCompositionSlotKey) }}'] ?? [];
                     {% endforeach %}
                     {% if compositionProperty.getEvaluationScopeKey() %}
                         // The indices evaluated by the contains of this branch and by its own unevaluatedItems

@@ -101,6 +101,17 @@ class RenderHelper
     }
 
     /**
+     * Escape a value for the use inside of a single quoted string of the generated code. Only the backslash and the
+     * single quote are special in a single quoted string. addslashes() was rejected: it also escapes the double
+     * quote, which a single quoted string doesn't know: the backslash stays part of the string and the value changes
+     * (the key of a property named `say "hi"` would never be found in the provided data).
+     */
+    public static function escapeSingleQuoted(string $value): string
+    {
+        return addcslashes($value, "'\\");
+    }
+
+    /**
      * Generate code to handle a validation error
      */
     public function validationError(PropertyValidatorInterface $validator): string

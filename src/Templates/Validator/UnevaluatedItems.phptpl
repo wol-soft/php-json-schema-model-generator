@@ -6,7 +6,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
 
     $unevaluatedIndices = $this->collectUnevaluatedIndices(
         $items,
-        '{{ arrayPropertyName }}',
+        '{{ escapedArrayPropertyName }}',
         {{ compositionSlotKeys }},
         {{ siblingTupleItemsCount }},
         {{ siblingCoversTail }},
@@ -33,7 +33,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
 
             // The index validated against the unevaluatedItems subschema — record it so an
             // enclosing schema's unevaluatedItems accumulator can credit it.
-            $this->_evaluatedItemIndices['{{ arrayPropertyName }}'][$index] = true;
+            $this->_evaluatedItemIndices['{{ escapedArrayPropertyName }}'][$index] = true;
         } catch (\Exception $exception) {
             isset($invalidItems{{ suffix }}[$index])
                 ? $invalidItems{{ suffix }}[$index][] = $exception

@@ -655,4 +655,30 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
             MSG,
         );
     }
+
+    /**
+     * Known gap: an object property which is declared only inside the schema of a dependency is instantiated and
+     * validated although the property owning the dependency is absent. The dependency does not apply then and the
+     * value should be accepted as an unconstrained additional value, like the value of a property of any scalar type
+     * declared in the dependency schema is. The test pins the current behaviour; it must be updated together with the
+     * fix: the value is accepted for an absent owner and the nested class is only instantiated for a present owner.
+     */
+    public function testKnownGapObjectPropertyOfTheDependencySchemaIsValidatedIfTheDependencyDoesNotApply(): void
+    {
+        $className = $this->generateClassFromFile('ObjectPropertyDeclaredOnlyInTheDependencySchema.json');
+
+        // the dependency applies
+        $this->assertSame('s', (new $className(['a' => 's', 'b' => ['x' => 's']]))->getA());
+
+        // the owner of the dependency is absent, the dependency doesn't apply
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['b' => []],
+            NestedObjectException::class,
+            <<<'MSG'
+            Invalid nested object for property 'b':
+              - Missing required value for 'x'
+            MSG,
+        );
+    }
 }

@@ -141,7 +141,13 @@ class SchemaDefinition
             } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($entryKey);
                 unset($this->entriesInCreation[$key]);
-                throw $exception;
+
+                // The definition was found, creating its property failed. The failure names the real cause and must
+                // reach the caller unchanged: the reference resolution restates a failure to locate the definition
+                // ("Unresolved Reference") but not a fault in the definition. Restating every failure of a reference
+                // was rejected: the message of the real cause (eg. a rejected composition) is hidden behind a message
+                // which blames the reference and only available as previous exception.
+                throw $exception instanceof SchemaException ? $exception->markAsReferencedSchemaFailure() : $exception;
             }
         }
 

@@ -21,6 +21,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDe
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeIntersection;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
@@ -530,7 +531,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $presenceCheck = $property instanceof BaseProperty
             ? 'true'
-            : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+            : "array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData)";
 
         // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.

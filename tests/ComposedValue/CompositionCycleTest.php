@@ -22,8 +22,8 @@ class CompositionCycleTest extends AbstractPHPModelGeneratorTestCase
     protected const EXTERNAL_JSON_DIRECTORIES = ['../CompositionCycleTest_external'];
 
     /**
-     * The references of a definition restate a failure inside the definition, the cause stays available as the
-     * previous exception: every message but the innermost one is the restating "Unresolved Reference" message.
+     * The failure is raised inside of the definitions: the references to the definitions don't restate it, the
+     * exception names the real cause.
      */
     #[DataProvider('cycleProvider')]
     public function testCompositionWhichLeadsBackToItsOwnSchemaIsRejected(
@@ -34,25 +34,11 @@ class CompositionCycleTest extends AbstractPHPModelGeneratorTestCase
         try {
             $this->generateClassFromFile($schemaFile);
         } catch (SchemaException $exception) {
-            $restatingMessages = [];
-            $cause = $exception;
-
-            while ($cause->getPrevious() !== null) {
-                $restatingMessages[] = $cause->getMessage();
-                $cause = $cause->getPrevious();
-            }
-
-            foreach ($restatingMessages as $restatingMessage) {
-                $this->assertMatchesRegularExpression(
-                    '/^Unresolved Reference .+ in file .+\.json$/',
-                    $restatingMessage,
-                );
-            }
-
+            $this->assertNull($exception->getPrevious());
             $this->assertMatchesRegularExpression(
                 "/^Composition of property '$propertyNamePattern' in file .+\.json references itself without "
                     . "descending into the value: $cyclePattern at line \d+, column \d+$/",
-                $cause->getMessage(),
+                $exception->getMessage(),
             );
 
             return;

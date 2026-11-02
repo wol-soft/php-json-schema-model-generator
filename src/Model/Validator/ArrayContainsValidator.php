@@ -90,7 +90,9 @@ class ArrayContainsValidator extends PropertyTemplateValidator
     public function setTrackEvaluatedItems(): void
     {
         $this->templateValues['trackEvaluatedItems'] = true;
-        $this->templateValues['trackEvaluatedItemsProperty'] = $this->property->getName();
+        $this->templateValues['trackEvaluatedItemsProperty'] = RenderHelper::escapeSingleQuoted(
+            $this->property->getName(),
+        );
     }
 
     /**

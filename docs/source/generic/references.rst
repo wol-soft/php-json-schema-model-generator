@@ -204,7 +204,7 @@ references on the way back to it):
 
     Composition of property 'example' in file /path/to/schema.json references itself without descending into the value: '#/definitions/node' -> '#/definitions/node'
 
-The same applies if the way back leads through several definitions, files or compositions (``'#/definitions/first' -> '#/definitions/second' -> '#/definitions/first'``). A reference inside of ``items``, ``properties`` or ``contains`` is no cycle. The exception which is thrown to the caller of the generator is the exception raised for the reference to the definition (``Unresolved Reference #/definitions/node ...``), the message above is the message of its previous exception.
+The same applies if the way back leads through several definitions, files or compositions (``'#/definitions/first' -> '#/definitions/second' -> '#/definitions/first'``). A reference inside of ``items``, ``properties`` or ``contains`` is no cycle. The exception is thrown as it is, also if the composition is reached through a reference to a definition.
 
 Base Reference
 --------------

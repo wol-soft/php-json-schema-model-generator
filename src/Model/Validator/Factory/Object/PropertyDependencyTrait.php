@@ -59,7 +59,13 @@ trait PropertyDependencyTrait
         $dependencySchema = $schemaProcessor->processSchema(
             $dependencyJsonSchema,
             $schema->getClassPath(),
-            "{$schema->getClassName()}_{$property->getName()}_Dependency",
+            // The name of the property may contain characters which are not valid in the name of a class. Only these
+            // are removed, the class names of the dependencies of valid names are unchanged.
+            sprintf(
+                '%s_%s_Dependency',
+                $schema->getClassName(),
+                preg_replace('/[^A-Za-z0-9_]/', '', $property->getName()),
+            ),
             $schema->getSchemaDictionary(),
         );
 

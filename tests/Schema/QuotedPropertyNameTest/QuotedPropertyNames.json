@@ -1,0 +1,65 @@
+{
+  "type": "object",
+  "required": [
+    "it's"
+  ],
+  "properties": {
+    "it's": {
+      "type": "string"
+    },
+    "say \"hi\"": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3
+    },
+    "back\\slash": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "trailing\\": {
+      "type": "object",
+      "properties": {
+        "nested's": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "nested's"
+      ]
+    },
+    "mixed\\'\"": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "enum's": {
+      "enum": [
+        "a",
+        "b"
+      ]
+    },
+    "const \"x\"": {
+      "const": "x"
+    },
+    "not's": {
+      "not": {
+        "type": "string"
+      }
+    },
+    "multi \\ type": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

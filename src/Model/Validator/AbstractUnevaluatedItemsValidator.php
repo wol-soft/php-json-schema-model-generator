@@ -44,6 +44,7 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
             $templatePath,
             $extraTemplateValues + [
                 'arrayPropertyName' => $property->getName(),
+                'escapedArrayPropertyName' => RenderHelper::escapeSingleQuoted($property->getName()),
                 'compositionSlotKeys' => '[]',
                 'siblingTupleItemsCount' => $siblingTupleItemsCount,
                 'siblingCoversTail' => $siblingCoversTail ? 'true' : 'false',

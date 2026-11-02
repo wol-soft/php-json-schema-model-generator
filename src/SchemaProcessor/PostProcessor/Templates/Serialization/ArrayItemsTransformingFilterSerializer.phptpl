@@ -21,7 +21,7 @@
         foreach ($serialized as $index => $value) {
             {% if dynamicSerializer %}
                 // Indices validated by unevaluatedItems are serialized by its filter below.
-                if (array_key_exists($index, $this->_evaluatedItemIndices['{{ arrayPropertyName }}'] ?? [])) {
+                if (array_key_exists($index, $this->_evaluatedItemIndices['{{ viewHelper.escapeSingleQuoted(arrayPropertyName) }}'] ?? [])) {
                     continue;
                 }
             {% endif %}
@@ -58,7 +58,7 @@
     {% endforeach %}
 
     {% if dynamicSerializer %}
-        foreach (array_keys($this->_evaluatedItemIndices['{{ arrayPropertyName }}'] ?? []) as $index) {
+        foreach (array_keys($this->_evaluatedItemIndices['{{ viewHelper.escapeSingleQuoted(arrayPropertyName) }}'] ?? []) as $index) {
             {% if staticIndices %}
                 // Indices already handled by a static tuple filter above must not also run
                 // through the dynamic unevaluatedItems filter.

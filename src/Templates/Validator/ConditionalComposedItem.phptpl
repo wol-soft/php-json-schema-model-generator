@@ -13,7 +13,7 @@
     $originalModelData = $value;
 
     {% if compositionValidator.getSlotKey() %}
-        $slotKey = '{{ compositionValidator.getSlotKey() }}';
+        $slotKey = '{{ viewHelper.escapeSingleQuoted(compositionValidator.getSlotKey()) }}';
         $compositionEvaluatedIndices = [];
     {% endif %}
     {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}

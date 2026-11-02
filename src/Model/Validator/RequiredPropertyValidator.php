@@ -6,17 +6,10 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class RequiredPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class RequiredPropertyValidator extends PropertyValidator
 {
-    /**
-     * RequiredPropertyValidator constructor.
-     */
     public function __construct(PropertyInterface $property)
     {
         parent::__construct($property, '', RequiredValueException::class);
@@ -24,6 +17,8 @@ class RequiredPropertyValidator extends PropertyValidator
 
     public function getCheck(): string
     {
-        return "!array_key_exists('{$this->property->getName()}', \$modelData)";
+        $escapedName = RenderHelper::escapeSingleQuoted($this->property->getName());
+
+        return "!array_key_exists('$escapedName', \$modelData)";
     }
 }

@@ -408,6 +408,30 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * Known gap: the compositions of a property with more than one type are not credited to its unevaluatedItems (the
+     * validator of the array part does not find the compositions of the multi type property). The first branch is
+     * valid and evaluates every item, the value should be accepted like it is for the same property without a type.
+     * The test pins the current behaviour; it must be updated together with the fix. A sibling contains and tuple
+     * items of the same property are credited.
+     */
+    public function testKnownGapCompositionOfAMultiTypePropertyIsNotCreditedToTheUnevaluatedItems(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfOfAMultiTypePropertyWithUnevaluatedItemsFalse.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $this->assertSame('ab', (new $className(['tags' => 'ab']))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => ['a']],
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+        );
+    }
+
+    /**
      * A branch which succeeds hands the items it evaluated (its contains matched every item, its own
      * unevaluatedItems evaluated the rest) to the unevaluatedItems of the enclosing array. A branch which fails
      * evaluates nothing for the enclosing array: the items matched by the contains of a failed branch stay
