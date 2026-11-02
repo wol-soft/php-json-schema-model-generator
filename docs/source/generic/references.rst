@@ -165,6 +165,47 @@ Using an empty (or ``"#"``) ``$ref`` at a schema's own base level (see `Base Ref
 is rejected instead: it would ask the schema to be merged with itself, which has no fixed point
 to compute.
 
+A recursion has to descend into the value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A recursive reference validates a smaller value in each step: the items of an array (``items``,
+``additionalItems``, ``contains``, ...) or the properties of an object (``properties``,
+``additionalProperties``, ...). A schema which leads back to itself through references and compositions
+(``allOf``, ``anyOf``, ``oneOf``, ``not``, ``if`` / ``then`` / ``else``) alone asks the very same value to satisfy
+the schema again. The validation of such a schema could never finish, as every composition validates all of its
+branches. The generator rejects the schema with a ``SchemaException`` instead of generating a model which exhausts
+the memory:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "array",
+                "allOf": [
+                    {
+                        "$ref": "#/definitions/node"
+                    }
+                ]
+            }
+        },
+        "properties": {
+            "example": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+The exception message names the schemas of the cycle (the schema which is composed and the targets of the
+references on the way back to it):
+
+.. code-block:: none
+
+    Composition of property 'example' in file /path/to/schema.json references itself without descending into the value: '#/definitions/node' -> '#/definitions/node'
+
+The same applies if the way back leads through several definitions, files or compositions (``'#/definitions/first' -> '#/definitions/second' -> '#/definitions/first'``). A reference inside of ``items``, ``properties`` or ``contains`` is no cycle. The exception which is thrown to the caller of the generator is the exception raised for the reference to the definition (``Unresolved Reference #/definitions/node ...``), the message above is the message of its previous exception.
+
 Base Reference
 --------------
 

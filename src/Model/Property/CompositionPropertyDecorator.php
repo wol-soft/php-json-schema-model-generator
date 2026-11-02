@@ -8,6 +8,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedItemsValidator;
+use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
+use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
+use PHPModelGenerator\Model\Validator\ArrayItemValidator;
+use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
@@ -271,7 +276,9 @@ class CompositionPropertyDecorator extends PropertyProxy
 
         $items = $branchJson['items'] ?? null;
 
-        return $items === true || (is_array($items) && ($items === [] || !array_is_list($items)));
+        return $items === true
+            || (is_array($items) && ($items === [] || !array_is_list($items)))
+            || $this->getBranchValidatorsOfType(ArrayItemValidator::class) !== [];
     }
 
     /**
@@ -281,12 +288,13 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getBranchTupleItemsCount(): int
     {
         $items = $this->jsonSchema->getJson()['items'] ?? null;
+        $tupleItemsCount = is_array($items) && array_is_list($items) ? count($items) : 0;
 
-        if (!is_array($items) || $items === [] || !array_is_list($items)) {
-            return 0;
+        foreach ($this->getBranchValidatorsOfType(ArrayTupleValidator::class) as $tupleValidator) {
+            $tupleItemsCount = max($tupleItemsCount, count($tupleValidator->getTupleProperties()));
         }
 
-        return count($items);
+        return $tupleItemsCount;
     }
 
     /**
@@ -298,8 +306,8 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         $branchJson = $this->jsonSchema->getJson();
 
-        return array_key_exists('additionalItems', $branchJson)
-            && $branchJson['additionalItems'] !== false;
+        return (array_key_exists('additionalItems', $branchJson) && $branchJson['additionalItems'] !== false)
+            || $this->getBranchValidatorsOfType(AdditionalItemsValidator::class) !== [];
     }
 
     /**
@@ -309,7 +317,8 @@ class CompositionPropertyDecorator extends PropertyProxy
      */
     public function branchHasContains(): bool
     {
-        return array_key_exists('contains', $this->jsonSchema->getJson());
+        return array_key_exists('contains', $this->jsonSchema->getJson())
+            || $this->getBranchValidatorsOfType(ArrayContainsValidator::class) !== [];
     }
 
     /**
@@ -326,13 +335,41 @@ class CompositionPropertyDecorator extends PropertyProxy
         $hasArrayApplicator = array_key_exists('items', $branchJson)
             || array_key_exists('additionalItems', $branchJson)
             || array_key_exists('contains', $branchJson)
-            || ($branchJson['unevaluatedItems'] ?? null) === true;
+            || ($branchJson['unevaluatedItems'] ?? null) === true
+            || $this->getBranchTupleItemsCount() > 0
+            || $this->branchClaimsAllIndices()
+            || $this->branchHasNonFalseAdditionalItems()
+            || $this->branchHasContains();
 
         $hasObjectApplicator = array_key_exists('properties', $branchJson)
             || array_key_exists('additionalProperties', $branchJson)
             || array_key_exists('patternProperties', $branchJson);
 
         return $hasArrayApplicator && !$hasObjectApplicator;
+    }
+
+    /**
+     * The validators of the wrapped property of the given type. A branch which references a definition carries the
+     * array keywords of the definition (contains, items, ...) as validators of its property only: the JSON of the
+     * branch is the reference with the keywords next to it.
+     *
+     * @template T of PropertyValidatorInterface
+     *
+     * @param class-string<T> $validatorClass
+     *
+     * @return T[]
+     */
+    private function getBranchValidatorsOfType(string $validatorClass): array
+    {
+        $validators = [];
+
+        foreach ($this->getWrappedProperty()->getValidators() as $propertyValidator) {
+            if ($propertyValidator->getValidator() instanceof $validatorClass) {
+                $validators[] = $propertyValidator->getValidator();
+            }
+        }
+
+        return $validators;
     }
 
     /**
@@ -363,15 +400,43 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
+     * The PHP literal of the key which holds the indices the unevaluatedItems keyword of this branch evaluates, null
+     * if the branch has no unevaluatedItems validator of its own (also if the keyword is declared by the definition
+     * the branch references).
+     *
+     * The key is the name of the array property and shared with the enclosing array, which validates the very same
+     * value. The branch is validated in an evaluation scope of its own, see ComposedItem.phptpl: the indices which
+     * the contains and the nested compositions of the branch evaluate are only credited to the enclosing array if the
+     * branch succeeds. Crediting them directly was rejected: a branch which fails would leave its credits behind and
+     * the unevaluatedItems of the enclosing array (or of a sibling branch) would accept items no succeeding branch
+     * evaluated.
+     */
+    public function getEvaluationScopeKey(): ?string
+    {
+        foreach ($this->getWrappedProperty()->getValidators() as $propertyValidator) {
+            $validator = $propertyValidator->getValidator();
+
+            if ($validator instanceof AbstractUnevaluatedItemsValidator) {
+                return var_export($validator->getArrayPropertyName(), true);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * True when the composition template must build an evaluated-index set for this branch —
-     * either from the branch's own direct array applicators ({@see branchIsArrayKind()}) or
-     * from a composition nested inside the branch ({@see getNestedCompositionSlotKeys()}).
-     * Combines both into one boolean because the template engine's conditional expressions do
-     * not support parenthesised boolean grouping.
+     * either from the branch's own direct array applicators ({@see branchIsArrayKind()}), from
+     * a composition nested inside the branch ({@see getNestedCompositionSlotKeys()}) or from the
+     * unevaluatedItems keyword of the branch itself ({@see getEvaluationScopeKey()}).
+     * Combines all of them into one boolean because the template engine's conditional expressions
+     * do not support parenthesised boolean grouping.
      */
     public function needsEvaluatedIndexAggregation(): bool
     {
-        return $this->branchIsArrayKind() || $this->getNestedCompositionSlotKeys() !== [];
+        return $this->branchIsArrayKind()
+            || $this->getNestedCompositionSlotKeys() !== []
+            || $this->getEvaluationScopeKey() !== null;
     }
 
     /**

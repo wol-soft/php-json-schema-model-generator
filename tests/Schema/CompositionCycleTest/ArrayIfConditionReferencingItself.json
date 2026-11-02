@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "if": {
+        "$ref": "#/definitions/node"
+      },
+      "then": {
+        "maxItems": 1
+      }
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

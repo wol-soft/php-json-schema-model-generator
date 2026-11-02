@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Composition\CompositionCycleDetector;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
@@ -100,6 +101,41 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 );
             }
         }
+    }
+
+    /**
+     * Reject a composition which leads back to the schema it composes without descending into the value: the schema
+     * requires itself for the very same value and the generated validation never terminates. Every composition
+     * validates all of its branches, so the cycle is rejected for any composition keyword (also for the branch of a
+     * not or an if/then/else) and for any chain of references and compositions, not only for a direct self reference.
+     *
+     * The walk starts at the schema of the composed property and covers all composition keywords of it, the first
+     * composition factory which processes the property reports the cycle.
+     *
+     * @throws SchemaException
+     */
+    protected function assertNoCompositionCycle(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $cycle = (new CompositionCycleDetector($schemaProcessor))
+            ->findCycle($propertySchema, $schema->getSchemaDictionary());
+
+        if ($cycle === []) {
+            return;
+        }
+
+        throw new SchemaException(
+            sprintf(
+                "Composition of property '%s' in file %s references itself without descending into the value: %s",
+                $property->getName(),
+                $propertySchema->getFile(),
+                implode(' -> ', array_map(static fn(string $location): string => "'$location'", $cycle)),
+            ),
+            $propertySchema,
+        );
     }
 
     /**

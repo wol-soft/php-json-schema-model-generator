@@ -46,6 +46,20 @@
             $shouldTrack = true;
         {% endif %}
 
+        {% if compositionProperty.getEvaluationScopeKey() %}
+            {#
+                The branch evaluates its own items in a scope of its own: it starts with an empty set, a branch which
+                fails leaves the set of the enclosing array as it found it and a branch which succeeds adds the
+                indices it evaluated to it (the serialization of a filtered unevaluatedItems reads them). The set is
+                shared by the name of the array property, the credits of a branch which fails (its contains matched,
+                then another keyword rejected the value) would stay behind and the unevaluatedItems of the enclosing
+                array would accept items no succeeding branch evaluated. A not branch never adds its indices: a not
+                contributes no annotations.
+            #}
+            $savedBranchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
+            $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] = [];
+        {% endif %}
+
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 {% if compositionProperty.dependsOnUndeclaredValues() %}
@@ -127,7 +141,8 @@
             {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
-                if ($shouldTrack) {
+                {# A value which is no array (the property may hold a string as well) has no items to credit #}
+                if ($shouldTrack && is_array($originalModelData)) {
                     {% if compositionProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
@@ -154,6 +169,10 @@
                         // claimed indices under its own slot — union them into this branch's set.
                         $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ nestedCompositionSlotKey }}'] ?? [];
                     {% endforeach %}
+                    {% if compositionProperty.getEvaluationScopeKey() %}
+                        // The indices evaluated by the contains of this branch and by its own unevaluatedItems
+                        $compositionEvaluatedIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
+                    {% endif %}
                 }
             {% endif %}
             {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
@@ -172,6 +191,9 @@
                         );
                     {% endif %}
                 }
+            {% endif %}
+            {% if compositionProperty.getEvaluationScopeKey() and not compositionValidator.isNotComposition() %}
+                $savedBranchEvaluatedItemIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
@@ -201,7 +223,13 @@
             {% endif %}
 
             $succeededCompositionElements--;
+        {% if compositionProperty.getEvaluationScopeKey() %}
+        } finally {
+            $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] = $savedBranchEvaluatedItemIndices;
         }
+        {% else %}
+        }
+        {% endif %}
 
         {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
             // Restore composition evaluations so any annotations written by the not-branch body

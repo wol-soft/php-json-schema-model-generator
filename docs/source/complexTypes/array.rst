@@ -459,6 +459,36 @@ covered by a branch that ended up succeeding is credited, and an index covered o
 that failed is not. Compositions nested inside a branch contribute their own successful branches
 the same way, to any depth.
 
+A composition branch may declare ``unevaluatedItems`` itself. It constrains the indices which the keywords of
+the branch did not evaluate: the ``items``, ``additionalItems`` and ``contains`` of the branch and the compositions
+nested in the branch (also if the branch is a ``$ref`` to a definition which declares them). The keywords of the
+enclosing schema and of the sibling branches don't count for it. A successful branch hands the indices it evaluated
+to the ``unevaluatedItems`` of the enclosing schema, a branch which fails credits nothing, also not the indices
+its ``contains`` matched:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "allOf": [
+                    {
+                        "contains": {
+                            "type": "string"
+                        },
+                        "unevaluatedItems": false
+                    }
+                ]
+            }
+        }
+    }
+
+``["a", "b"]`` is valid, ``["a", 1]`` is rejected: the integer is not matched by the ``contains`` of the branch, so
+the ``unevaluatedItems`` of the branch rejects the index ``1``.
+
 A property subschema that declares array applicators but omits ``type: array`` is treated as an
 array property: the keywords apply whenever the provided value is an array, and a value of any
 other type passes through unchanged.

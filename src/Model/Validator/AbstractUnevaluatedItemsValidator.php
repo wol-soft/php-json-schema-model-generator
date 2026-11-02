@@ -74,6 +74,14 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
         return [count($items), $coversTail];
     }
 
+    /**
+     * The key of the evaluated indices of the array: the name of the property which owns the validator
+     */
+    public function getArrayPropertyName(): string
+    {
+        return $this->templateValues['arrayPropertyName'];
+    }
+
     public function getCheck(): string
     {
         $slotKeys = [];

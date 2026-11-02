@@ -1008,7 +1008,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Two schema files whose ROOT compositions reference each other must still generate.
+     * Two schema files whose ROOT compositions require each other can't be generated.
      *
      * SchemaProcessor::checkObjectRepresentability() classifies the root before any property is
      * processed, and that classification peeks through `$ref` chains - for a cross-file reference
@@ -1016,63 +1016,76 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * target eagerly. The peek therefore re-enters the SchemaProcessor, which
      * ObjectShapeResolver's own $visitedReferences cycle guard cannot see: it is local to one
      * classify() call. Only the file-path registration performed before the check stops the
-     * mutual references from recursing until the stack is exhausted.
+     * mutual references from recursing until the stack is exhausted, the rejection of the cycle
+     * relies on the same registration.
      *
-     * Neither file declares any property, so the pair is deliberately degenerate - what is being
-     * asserted is that generation terminates and yields one class per file.
+     * Neither file declares any property, so the pair is deliberately degenerate: each file is
+     * nothing but the other one. Although an allOf of objects is flattened into one class per file
+     * and the pair would construct, the schema requires itself for the very same value and is
+     * rejected like every other composition which leads back to its own schema without descending
+     * into the value.
+     *
+     * The file which is processed first processes the other file eagerly, the cycle is reported for the
+     * second file: the property is named after the class of the reporting file, the cycle starts and ends at
+     * that file.
      *
      * @throws FileSystemException
      * @throws RenderException
-     * @throws SchemaException
      */
-    public function testMutuallyReferencingRootCompositionsGenerateWithoutRecursingInfinitely(): void
+    public function testMutuallyReferencingRootCompositionsAreRejected(): void
     {
         $namespace = 'MutuallyReferencingRootCompositions';
-        $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
 
-        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
-        $aClass = "\\{$namespacePrefix}\\A";
-        $bClass = "\\{$namespacePrefix}\\B";
+        try {
+            $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
+        } catch (SchemaException $exception) {
+            $this->assertMatchesRegularExpression(
+                "~^Composition of property '(?<reporting>[AB])' in file .+/(?P=reporting)\\.json references itself "
+                    . "without descending into the value: '\\#' -> '.+/(?!(?P=reporting))[AB]\\.json\\#' -> '\\#' "
+                    . "at line \\d+, column \\d+$~",
+                $exception->getMessage(),
+            );
 
-        $this->assertInstanceOf($aClass, new $aClass([]));
-        $this->assertInstanceOf($bClass, new $bClass([]));
+            return;
+        }
+
+        $this->fail('Expected a SchemaException for the allOf compositions which require each other');
     }
 
     /**
-     * The `anyOf`/`oneOf` analogue of the `allOf` case above does NOT terminate, unlike that
-     * one. `allOf` branches referencing each other get flattened into one class per file at
-     * generation time (`RefResolver`'s `hasComposedPropertyValidator()` +
-     * `SchemaProcessor::transferComposedPropertiesToSchema()` merge a referenced allOf's
-     * properties/validators directly into the referencing schema, since allOf requires every
-     * branch simultaneously) - confirmed by inspecting the allOf fixture's own generated output:
-     * `A`'s constructor never references `B` at all, only two classes exist in total.
+     * The `anyOf`/`oneOf` analogue of the `allOf` case above can't be generated. `allOf` branches
+     * referencing each other get flattened into one class per file at generation time (`RefResolver`'s
+     * `hasComposedPropertyValidator()` + `SchemaProcessor::transferComposedPropertiesToSchema()` merge a
+     * referenced allOf's properties/validators directly into the referencing schema, since allOf requires
+     * every branch simultaneously). `anyOf`/`oneOf` can't use the same trick: only one branch must hold, so
+     * each branch stays an independently instantiable class, and testing a mutually-referencing branch means
+     * actually constructing the referenced class. Constructing `A` would try the second `anyOf` branch (a
+     * full `B`), which tries *its* second branch (a full `A`), forever - the compositions require each other
+     * for the very same value, there is no base case. The generator rejects the cycle instead of generating a
+     * model which overflows the stack on construction.
      *
-     * `anyOf`/`oneOf` cannot use the same trick: only one branch must hold, so each branch stays
-     * an independently instantiable class, and testing a mutually-referencing branch means
-     * actually constructing the referenced class. Constructing `A` here tries the second `anyOf`
-     * branch (a full `B`), which tries *its* second branch (a full `A`), forever - no base case.
-     * Confirmed via direct reproduction: generation succeeds (two classes plus their branch
-     * companions), but `new $aClass([])` stack-overflows (Xdebug's own infinite-loop guard
-     * catches it at ~512 frames).
-     *
-     * Deferred - a real fix is a design decision (reject the mutual reference at generation
-     * time, which would refuse a legitimately useful "recursive polymorphic node" schema shape
-     * unlike the tautological allOf case, vs. runtime cycle memoization), not a mechanical one.
-     * Marked incomplete rather than attempting construction, to avoid burning ~512 stack frames
-     * through Xdebug on every suite run for a known, already-diagnosed failure.
+     * The file which is processed first processes the other file eagerly, the cycle is reported for the
+     * second file: the property is named after the class of the reporting file, the cycle starts and ends at
+     * that file.
      */
-    public function testMutuallyReferencingAnyOfRootCompositionsDoesNotYetTerminate(): void
+    public function testMutuallyReferencingAnyOfRootCompositionsAreRejected(): void
     {
         $namespace = 'MutuallyReferencingAnyOfRootCompositions';
-        $this->generateDirectory('MutuallyReferencingAnyOfRootCompositions', $this->directoryConfig($namespace));
 
-        $this->markTestIncomplete(
-            'Generation succeeds, but constructing an instance recurses indefinitely - a '
-            . 'mutually-referencing anyOf/oneOf composition has no base case for runtime '
-            . 'branch-matching, unlike allOf (which flattens at generation time instead). '
-            . 'Deferred: a real fix needs a design decision (reject the mutual reference at '
-            . 'generation time vs. runtime cycle memoization).',
-        );
+        try {
+            $this->generateDirectory('MutuallyReferencingAnyOfRootCompositions', $this->directoryConfig($namespace));
+        } catch (SchemaException $exception) {
+            $this->assertMatchesRegularExpression(
+                "~^Composition of property '(?<reporting>[AB])' in file .+/(?P=reporting)\\.json references itself "
+                    . "without descending into the value: '\\#' -> '.+/(?!(?P=reporting))[AB]\\.json\\#' -> '\\#' "
+                    . "at line \\d+, column \\d+$~",
+                $exception->getMessage(),
+            );
+
+            return;
+        }
+
+        $this->fail('Expected a SchemaException for the anyOf compositions which require each other');
     }
 
     /**

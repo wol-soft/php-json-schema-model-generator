@@ -13,9 +13,11 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
@@ -437,21 +439,23 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return [false, false];
         }
 
-        // Composition activation and sibling crediting are only relevant when the property
-        // itself carries an unevaluatedItems check that reads those annotations. A branch-only
-        // unevaluatedItems validates within its own branch and needs no outer crediting.
+        $this->activatedCompositions = [];
+
+        // Composition activation and sibling crediting of the property itself are only relevant when the property
+        // carries an unevaluatedItems check that reads those annotations. A branch-only unevaluatedItems validates
+        // within its own branch and needs no outer crediting, but it still evaluates the items of the contains and
+        // of the compositions of its own branch.
         if (!$hasDirectUnevaluatedItems) {
-            return [true, false];
+            return [true, $this->activateBranchEvaluation($arrayProperty, [])];
         }
 
         // A direct-sibling `contains` credits its matched indices to the property's evaluated
         // set so the sibling unevaluatedItems check sees them as evaluated.
         $this->enableDirectSiblingContainsTracking($arrayProperty);
 
-        $this->activatedCompositions = [];
         $compositionActivated = false;
 
-        foreach ($arrayProperty->getOrderedValidators() as $validator) {
+        foreach ($this->getSourceValidators($arrayProperty) as $validator) {
             if ($validator instanceof AbstractComposedPropertyValidator) {
                 $this->activateArrayComposition($validator, $arrayProperty);
                 $compositionActivated = true;
@@ -459,6 +463,78 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         return [true, $compositionActivated];
+    }
+
+    /**
+     * The validator objects of the property. The ordered validators of a PropertyProxy are clones which are created on
+     * every call: a flag set on a clone is invisible at render time. The validators of the proxy are the validator
+     * objects of the property it stands for, in the order of their priority like getOrderedValidators().
+     *
+     * @return PropertyValidatorInterface[]
+     */
+    private function getSourceValidators(PropertyInterface $property): array
+    {
+        $validators = $property->getValidators();
+
+        usort(
+            $validators,
+            static fn(Validator $validator, Validator $comparedValidator): int =>
+                $validator->getPriority() <=> $comparedValidator->getPriority(),
+        );
+
+        return array_map(
+            static fn(Validator $validator): PropertyValidatorInterface => $validator->getValidator(),
+            $validators,
+        );
+    }
+
+    /**
+     * Activates the evaluation of the branches of the compositions of the property which carry an unevaluatedItems
+     * keyword: such a branch evaluates the items of its own contains and of the compositions nested in the branch.
+     * The walk covers the compositions nested in the branches.
+     *
+     * @param array<string, true> $seen Locations of the properties already visited, a self-referencing composition
+     *                                  must not be walked endlessly. Keyed on file and pointer instead of the object
+     *                                  identity: the wrapped property is not guaranteed to be stable.
+     *
+     * @return bool Whether a composition was activated: the model requires the field of the compositions then
+     */
+    private function activateBranchEvaluation(PropertyInterface $property, array $seen): bool
+    {
+        $propertyKey = $property->getJsonSchema()->getFile() . '#' . $property->getJsonSchema()->getPointer();
+
+        if (isset($seen[$propertyKey])) {
+            return false;
+        }
+
+        $seen[$propertyKey] = true;
+        $compositionActivated = false;
+
+        foreach ($this->getSourceValidators($property) as $validator) {
+            if (!$validator instanceof AbstractComposedPropertyValidator) {
+                continue;
+            }
+
+            foreach ($validator->getComposedProperties() as $composedProperty) {
+                $wrappedProperty = $composedProperty->getWrappedProperty();
+
+                if ($composedProperty->getEvaluationScopeKey() !== null) {
+                    $this->enableDirectSiblingContainsTracking($wrappedProperty);
+
+                    foreach ($this->getSourceValidators($wrappedProperty) as $branchValidator) {
+                        if ($branchValidator instanceof AbstractComposedPropertyValidator) {
+                            $this->activateArrayComposition($branchValidator, $wrappedProperty);
+                            $compositionActivated = true;
+                        }
+                    }
+                }
+
+                $compositionActivated = $this->activateBranchEvaluation($wrappedProperty, $seen)
+                    || $compositionActivated;
+            }
+        }
+
+        return $compositionActivated;
     }
 
     /**
@@ -499,7 +575,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                if (array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())) {
+                // The validator is looked up as well: the branch may be a reference to a definition which declares
+                // the keyword, which is not part of the JSON of the branch.
+                if (
+                    array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())
+                    || $composedProperty->getEvaluationScopeKey() !== null
+                ) {
                     return $seen[$propertyKey] = true;
                 }
 
@@ -521,7 +602,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      */
     private function enableDirectSiblingContainsTracking(PropertyInterface $property): void
     {
-        foreach ($property->getOrderedValidators() as $validator) {
+        foreach ($this->getSourceValidators($property) as $validator) {
             if ($validator instanceof ArrayContainsValidator) {
                 $validator->setTrackEvaluatedItems();
             }
@@ -563,10 +644,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         CompositionPropertyDecorator $composedProperty,
         PropertyInterface $parentProperty,
     ): void {
-        // Iterate the wrapped property's validators directly. The decorator's
-        // getOrderedValidators() returns fresh withProperty() clones every call, so a
+        // Iterate the source validators of the wrapped property. The decorator's
+        // getOrderedValidators() (and the one of a proxy) returns fresh withProperty() clones every call, so a
         // mutation on those clones would be invisible at render time.
-        foreach ($composedProperty->getWrappedProperty()->getOrderedValidators() as $validator) {
+        $evaluatesItsOwnItems = $composedProperty->getEvaluationScopeKey() !== null;
+
+        foreach ($this->getSourceValidators($composedProperty->getWrappedProperty()) as $validator) {
             if ($validator instanceof AbstractComposedPropertyValidator) {
                 $this->activateArrayComposition($validator, $parentProperty);
                 continue;
@@ -574,6 +657,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
             if ($validator instanceof ArrayContainsValidator) {
                 $validator->setTrackBranchMatches(true);
+
+                // The unevaluatedItems of the branch itself sees the matched items too, see
+                // enableDirectSiblingContainsTracking()
+                if ($evaluatesItsOwnItems) {
+                    $validator->setTrackEvaluatedItems();
+                }
             }
         }
     }

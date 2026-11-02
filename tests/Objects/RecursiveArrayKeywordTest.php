@@ -452,6 +452,54 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The branch which references the owning definition inside of its items is evaluated on every level: it is
+     * rejected as a whole if an item isn't a valid node, and the contains and the compositions of the referenced node
+     * evaluate the items of the node itself. A node is valid if it is a string or an array which contains 'k' and
+     * holds only nodes in the items of the first branch (the second branch accepts every array, but evaluates no
+     * item). The items of the nested nodes aren't evaluated by the enclosing level and vice versa.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsFalseOfANodeWithContainsAndAnyOfBranchEvaluatesEveryLevelOnItsOwn(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ContainsAndAnyOfBranchWithItemsReferencingTheOwningDefinitionAndUnevaluatedItemsFalse.json',
+            $configuration,
+        );
+
+        foreach (['k', ['k'], ['k', 'x'], ['k', ['k']], ['k', ['k', ['k']]], ['k', ['k'], 'x', ['x', 'k']]] as $tree) {
+            $this->assertSame($tree, (new $className(['tree' => $tree]))->getTree());
+        }
+
+        // no item matches contains, the first branch is valid and evaluates the item: unevaluatedItems has nothing
+        // to report
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['a']],
+            $this->getExpectedExceptionClass($configuration, ContainsException::class),
+            "No item in array 'tree' matches the 'contains' constraint",
+        );
+
+        // the second item is no node (it doesn't contain 'k'): the first branch fails and the second branch
+        // evaluates no item
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['k', ['a']]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
+        );
+
+        // the same on the second level: the item of the nested node isn't a node
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['k', ['k', ['a']]]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
+        );
+    }
+
+    /**
      * The not branch validates the items against the definition which owns the not keyword. A level is valid unless
      * it holds items and every one of them is a valid level itself, so the result alternates with the depth of the
      * nesting: [] is valid, [[]] is not, [[[]]] is again.

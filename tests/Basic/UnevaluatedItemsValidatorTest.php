@@ -830,43 +830,6 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Regression guard for three independent, previously-infinite recursions on the same
-     * self-referencing shape - `{type: array, allOf: [{$ref: "#/definitions/recursive"}],
-     * unevaluatedItems: false}`, where the $ref resolves back to the same schema:
-     *
-     *   - The activation walk in `UnevaluatedPropertiesPostProcessor::activateArrayComposition()`
-     *     - guarded by `$activatedCompositions`. Verified by hand: removing the guard and
-     *     running this fixture aborts with "Xdebug has detected a possible infinite loop... a
-     *     stack depth of '512' frames", frames pointing at `activateArrayComposition` /
-     *     `activateValidatorsInBranch`.
-     *   - `CompositionTypeHintDecorator::getTypeHint()`, which recurses into the composed
-     *     branch's wrapped property - itself, on this fixture - with no cycle protection.
-     *     Fixed by a per-instance recursion-depth guard mirroring `ArrayTypeHintDecorator`'s
-     *     existing pattern for the analogous array-composition cycle.
-     *   - `UnevaluatedPropertiesPostProcessor::propertyHasBranchUnevaluatedItems()`, which
-     *     recurses into `getWrappedProperty()` whenever a branch has no nested `Schema` (true
-     *     for every array-typed branch) - also unguarded, only surfaced once the other two were
-     *     fixed. Fixed with a `$seen` map keyed on file+pointer, mirroring `needsActivation()`'s
-     *     own guard; keyed on the string location rather than object identity because
-     *     `getOrderedValidators()` returns fresh clones on every call, so the wrapped property
-     *     instance isn't guaranteed stable across recursive calls.
-     *
-     * Generation now completes. Constructing an instance of the generated class still crashes
-     * with a stack overflow - the schema means "this array must recurse into a composition
-     * requiring itself, unconditionally", a degenerate constraint with no base case (unlike the
-     * `items: {$ref: "#"}` shape, which recurses into progressively smaller array *elements*
-     * and terminates correctly - verified separately, not affected by this). Tracked as its own,
-     * deeper, runtime issue: see the implementation plan for the fix options considered
-     * (rejecting the degenerate shape at generation time vs. runtime cycle memoization).
-     */
-    public function testSelfReferencingArrayCompositionDoesNotRecurseIndefinitely(): void
-    {
-        $className = $this->generateClassFromFile('SelfReferencingArrayComposition.json');
-
-        $this->assertNotEmpty($className);
-    }
-
-    /**
      * A composition (`oneOf`) nested inside a composition branch (`allOf`) on an array-typed
      * property, with `unevaluatedItems` declared only on the innermost branch and nowhere at
      * the outer property level, used to crash construction with `Error: Call to undefined

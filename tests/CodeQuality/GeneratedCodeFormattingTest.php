@@ -420,6 +420,28 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
     }
 
+    /**
+     * The validators of a composition branch which carries an unevaluatedItems keyword are rendered in an evaluation
+     * scope with a try/finally block. Covers the branches of allOf, anyOf, oneOf, not and the condition, then and else
+     * branches of a conditional, and a composition nested in such a branch, with and without collected errors.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testEvaluationScopeOfCompositionBranchesGeneratesCodeMatchingTheCodingStandard(
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            'BranchEvaluationScopes.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
     public static function collectErrorsDataProvider(): array
     {
         return [

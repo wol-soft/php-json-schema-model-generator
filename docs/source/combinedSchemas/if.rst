@@ -238,6 +238,13 @@ While the branch is active the declared type is still enforced. A property which
     are transformed while the branch is the active one. A filter on the items of the ``if`` condition is rejected with a
     ``SchemaException``: the condition only selects the branch and never transforms the stored value. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
 
+.. note::
+
+    A branch must not lead back to the schema it is a branch of without descending into the value (a ``$ref`` to the
+    schema itself or to a schema which composes it again): the schema would require itself for the very same value and
+    the generator rejects it with a ``SchemaException``. See
+    `A recursion has to descend into the value <../generic/references.html#a-recursion-has-to-descend-into-the-value>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 
