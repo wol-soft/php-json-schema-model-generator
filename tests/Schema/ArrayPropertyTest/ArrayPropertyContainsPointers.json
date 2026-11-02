@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "plain": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      }
+    },
+    "counted": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "minContains": 2,
+      "maxContains": 3
+    }
+  }
+}

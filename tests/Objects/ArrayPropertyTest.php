@@ -6,8 +6,11 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use Closure;
 use DateTime;
+use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\MaxContainsException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
+use PHPModelGenerator\Exception\Arrays\MinContainsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -19,6 +22,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -681,6 +685,51 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'mixed string with other strings' => [[' ', '123', 'AvBd', 'm-M']],
             ],
         );
+    }
+
+    /**
+     * Every validation exception carries the pointer to the schema keyword which rejected the value: the contains
+     * keyword and the keywords which limit the amount of contained items are no exception.
+     *
+     * @param class-string<ValidationException> $exceptionClass
+     */
+    #[DataProvider('containsPointerDataProvider')]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testContainsExceptionsCarryThePointerOfTheKeyword(
+        array $input,
+        string $exceptionClass,
+        string $expectedPointer,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ArrayPropertyContainsPointers.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $exception = $this->catchException(static fn() => new $className($input));
+
+        $this->assertInstanceOf($exceptionClass, $exception);
+        $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
+    }
+
+    public static function containsPointerDataProvider(): array
+    {
+        return [
+            'contains' => [
+                ['plain' => [1]],
+                ContainsException::class,
+                '/properties/plain/contains',
+            ],
+            'minContains' => [
+                ['counted' => ['a']],
+                MinContainsException::class,
+                '/properties/counted/minContains',
+            ],
+            'maxContains' => [
+                ['counted' => ['a', 'b', 'c', 'd']],
+                MaxContainsException::class,
+                '/properties/counted/maxContains',
+            ],
+        ];
     }
 
     #[DataProvider('invalidArrayContainsDataProvider')]

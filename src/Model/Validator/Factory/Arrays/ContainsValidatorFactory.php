@@ -72,14 +72,14 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             (array_key_exists('minContains', $json) || array_key_exists('maxContains', $json));
 
         $property->addValidator(
-            new ArrayContainsValidator(
+            (new ArrayContainsValidator(
                 $property,
                 $nestedProperty,
                 $schema,
                 $schemaProcessor->getGeneratorConfiguration(),
                 $countMatches,
                 ($json['minContains'] ?? 1) === 0,
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/contains'),
         );
 
         if (!$countMatches) {
@@ -99,12 +99,12 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             }
 
             $property->addValidator(
-                new PropertyValidator(
+                (new PropertyValidator(
                     $property,
                     "is_array(\$value) && \$containsMatches < {$json['minContains']}",
                     MinContainsException::class,
                     [$json['minContains'], '&$containsMatches'],
-                ),
+                ))->withJsonPointer($propertySchema->getPointer() . '/minContains'),
             );
         }
 
@@ -121,12 +121,12 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             }
 
             $property->addValidator(
-                new PropertyValidator(
+                (new PropertyValidator(
                     $property,
                     "is_array(\$value) && \$containsMatches > {$json['maxContains']}",
                     MaxContainsException::class,
                     [$json['maxContains'], '&$containsMatches'],
-                ),
+                ))->withJsonPointer($propertySchema->getPointer() . '/maxContains'),
             );
         }
 
