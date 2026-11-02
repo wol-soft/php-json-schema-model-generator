@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -75,7 +76,8 @@ class CompositionPropertyDecorator extends PropertyProxy
      * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
      * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
      * patternProperties, propertyNames, a nested composition, unevaluatedProperties, ...) and the dependencies of its
-     * properties. A true
+     * properties. The enum, the const and the filter of the branch are validators of the wrapped property, not of the
+     * nested schema: they compare or transform the provided data as a whole, any key may change their result. A true
      * branch has no validators, no update can change its result. Any other branch without a nested schema depends on
      * the value of every key, its validators are unknown.
      *
@@ -100,7 +102,11 @@ class CompositionPropertyDecorator extends PropertyProxy
         // The post-composition validators (unevaluatedProperties) of the branch validate the keys the branch doesn't
         // evaluate, they depend on every key.
         $dependency = ObjectUpdateDependency::ofValidators(
-            [...$nestedSchema->getBaseValidators(), ...$nestedSchema->getPostCompositionValidators()],
+            [
+                ...$nestedSchema->getBaseValidators(),
+                ...$nestedSchema->getPostCompositionValidators(),
+                ...$this->getValidatorsOfTheWholeValue(),
+            ],
             $key,
         );
 
@@ -121,6 +127,30 @@ class CompositionPropertyDecorator extends PropertyProxy
         }
 
         return $dependency;
+    }
+
+    /**
+     * The validators of the wrapped property which validate the provided data as a whole (enum, const, filters). The
+     * type check and the instance check only look at the kind of the value: no update of a key can change them.
+     * Listing the validators which compare the data (EnumValidator, the const validator, FilterValidator) was rejected:
+     * the const validator is a plain PropertyValidator which can't be told apart by its class, and a validator which
+     * isn't known here must depend on every key like any validator which doesn't describe its dependency.
+     *
+     * @return PropertyValidatorInterface[]
+     */
+    private function getValidatorsOfTheWholeValue(): array
+    {
+        $validators = [];
+
+        foreach ($this->getWrappedProperty()->getValidators() as $wrapper) {
+            $validator = $wrapper->getValidator();
+
+            if (!$validator instanceof TypeCheckInterface && !$validator instanceof InstanceOfValidator) {
+                $validators[] = $validator;
+            }
+        }
+
+        return $validators;
     }
 
     /**
