@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -22,6 +23,42 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
 {
+    // -------------------------------------------------------------------------
+    // Type inherited by a composition branch which is a $ref (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * A composition branch inherits the type of its property, which makes the type a sibling of the $ref of the
+     * branch. The keywords of the referenced definition are validated nevertheless: the contains of the definition
+     * was dropped, a value without a string was accepted by the first branch.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testContainsOfAReferencedDefinitionIsValidatedInACompositionBranchOfATypedProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefBranchWithContains.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // valid by the contains of the definition, and valid by the maxItems of the second branch
+        $this->assertSame(['a', 1, 2], (new $className(['tags' => ['a', 1, 2]]))->getTags());
+        $this->assertSame([1], (new $className(['tags' => [1]]))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => [1, 2]],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * No item in array 'tags' matches the 'contains' constraint
+              - Composition element #2: Failed
+                * Array 'tags' must not contain more than 1 items
+            MSG,
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Property-level object×object merge (Draft 2019-09+)
     // -------------------------------------------------------------------------

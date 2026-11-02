@@ -1,0 +1,22 @@
+{
+  "definitions": {
+    "pair": {
+      "type": "array",
+      "minItems": 2
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/pair"
+        },
+        {
+          "maxItems": 0
+        }
+      ]
+    }
+  }
+}
