@@ -73,8 +73,8 @@ The accessors stay ``mixed`` — an `anyOf` does not guarantee that a matching v
 
 * Company.php
 * Company_Ceo.php
-* Company_Branch91970cbb844ec1beb624eaa26295bd8d.php
-* Company_Branchc51f76a84e24113bdb256d8bab180156.php
+* Company_Ceo91970cbb844ec1beb624eaa26295bd8d.php
+* Company_Ceoc51f76a84e24113bdb256d8bab180156.php
 
 .. code-block:: php
 

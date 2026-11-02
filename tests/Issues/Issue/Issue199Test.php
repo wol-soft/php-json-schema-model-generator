@@ -70,6 +70,50 @@ class Issue199Test extends AbstractIssueTestCase
     }
 
     /**
+     * The branches of a composition below a property keep the name of that property in their class
+     * name ("<root>_Order<md5><uniqid>"), exactly like the branches of a composition declared
+     * directly on the property, and the name doesn't grow with the nesting depth. A branch which
+     * carries a title is named by its title and not by the property.
+     */
+    public function testClassNamesOfNestedBranchesBelowAPropertyContainThePropertyName(): void
+    {
+        $className = $this->generateClassFromFile('PropertyNestedAllOf.json');
+        $classNames = $this->getGeneratedClassNames();
+
+        $uniqid = '[0-9a-f]{13}';
+        $root = preg_quote($className, '/');
+        $expectedPatterns = [
+            "/^{$root}$/",
+            "/^{$root}_Order$uniqid$/",
+            "/^{$root}_Order[0-9a-f]{32}$uniqid$/",
+            "/^{$root}_Leaf$uniqid$/",
+        ];
+
+        $matchedPatterns = [];
+        foreach ($classNames as $generatedClassName) {
+            foreach ($expectedPatterns as $index => $pattern) {
+                if (preg_match($pattern, $generatedClassName)) {
+                    $matchedPatterns[$index] = ($matchedPatterns[$index] ?? 0) + 1;
+                    continue 2;
+                }
+            }
+
+            $this->fail("Unexpected class name $generatedClassName");
+        }
+
+        // root class, the class of the property, four untitled branches and the titled branch
+        ksort($matchedPatterns);
+        $this->assertSame([0 => 1, 1 => 1, 2 => 4, 3 => 1], $matchedPatterns);
+        $this->assertLessThanOrEqual(self::MAX_CLASS_NAME_LENGTH, max($this->getGeneratedClassNameLengths()));
+
+        $object = new $className(['order' => ['name' => 'Hannes']]);
+        $this->assertSame('Hannes', $object->getOrder()->getName());
+
+        $this->expectException(ValidationException::class);
+        new $className(['order' => []]);
+    }
+
+    /**
      * Every class except the root class is a branch class named "<root>_Branch<md5><uniqid>".
      *
      * @param string[] $classNames
