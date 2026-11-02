@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Utils\ResolvableTrait;
@@ -80,6 +81,11 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     public function getProvidedValueCode(): string
     {
         return self::VALIDATED_VALUE_CODE;
+    }
+
+    public function validatesGeneratedClass(): bool
+    {
+        return $this->property instanceof BaseProperty;
     }
 
     /**

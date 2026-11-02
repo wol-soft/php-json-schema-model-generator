@@ -32,6 +32,14 @@ interface PropertyValidatorInterface extends ResolvableInterface
     public function getProvidedValueCode(): string;
 
     /**
+     * Whether the validator validates the generated class itself (a validator of the base property of a schema, eg.
+     * minProperties or the composition of an object) instead of a value of the data. The name of the property which
+     * its exception receives is the name of the generated class: a label for the message text, no name inside of the
+     * validated data.
+     */
+    public function validatesGeneratedClass(): bool;
+
+    /**
      * Get the source code which is required to set up the validator (eg. initialize variables)
      */
     public function getValidatorSetUp(): string;

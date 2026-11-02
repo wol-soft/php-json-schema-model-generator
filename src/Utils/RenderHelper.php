@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\PropertyValidationMethod;
@@ -120,6 +121,17 @@ class RenderHelper
                 $exceptionParams,
             )
             : sprintf('new \%s(%s, ...%s)', $validator->getExceptionClass(), $providedValue, $exceptionParams);
+
+        // The validators of a generated class itself receive the name of the class as property name. The exception
+        // is marked, otherwise the class name becomes a segment of its instance pointer (and of the pointers of the
+        // exceptions nested below it). An exception which isn't a ValidationException of the library (the exception
+        // of a custom validator) has no instance pointer and doesn't provide the marker.
+        if (
+            $validator->validatesGeneratedClass()
+            && is_subclass_of($validator->getExceptionClass(), ValidationException::class)
+        ) {
+            $exceptionConstructor = "($exceptionConstructor)->withPlaceholderPropertyName()";
+        }
 
         if ($this->generatorConfiguration->collectErrors()) {
             return "\$this->_errorRegistry->addError($exceptionConstructor);";

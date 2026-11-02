@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
@@ -217,7 +218,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['minProperties'])) {
             $minPropertyValidator = (new PropertyValidator(
-                new Property($schema->getClassName(), null, $schema->getJsonSchema()),
+                new BaseProperty($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
                     '($updatedPropertiesCount = count($this->_rawModelDataInput) - 1) < %d',
                     $json['minProperties'],

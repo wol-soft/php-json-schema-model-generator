@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -38,7 +39,10 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         $json = $propertiesStructure->getJson();
 
         parent::__construct(
-            new Property($propertyName ?? $compositionScope->getClassName(), null, $propertiesStructure),
+            // Without a property name the validator validates the generated class itself
+            $propertyName === null
+                ? new BaseProperty($compositionScope->getClassName(), null, $propertiesStructure)
+                : new Property($propertyName, null, $propertiesStructure),
             $templatePath,
             $extraTemplateValues + [
                 'declaredPropertyNames' => RenderHelper::varExportArray(

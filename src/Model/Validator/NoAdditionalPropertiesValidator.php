@@ -8,11 +8,6 @@ use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class NoAdditionalPropertiesValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class NoAdditionalPropertiesValidator extends PropertyTemplateValidator implements
     ObjectUpdateDependentValidatorInterface
 {

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "b": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "b"
+      ]
+    }
+  ]
+}
