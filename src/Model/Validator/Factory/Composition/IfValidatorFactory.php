@@ -122,7 +122,7 @@ class IfValidatorFactory
                 $propertyFactory->create(
                     $schemaProcessor,
                     $schema,
-                    $property->getName(),
+                    $this->getBranchPropertyName($property),
                     $compositionSchema,
                     $property->isRequired(),
                 ),
