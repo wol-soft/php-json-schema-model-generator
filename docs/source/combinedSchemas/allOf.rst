@@ -97,12 +97,12 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
       object.
 
     An empty ``{}`` branch, and a branch carrying only annotation keywords such as ``example``,
-    behave identically to ``true`` at runtime — they impose no constraint either. They are also
-    warned about, but only where the branch does not inherit a ``type`` from the enclosing schema:
-    a branch that declares no ``type`` of its own inherits the outer one, which counts as a
-    constraint and suppresses the warning. Since a schema root always has ``"type": "object"``
-    applied to it, an empty branch in a root-level composition does not currently warn, while a
-    ``true`` branch there does (boolean branches are not subject to the inheritance).
+    behave identically to ``true`` at runtime — they impose no constraint either, and they are
+    warned about in the same way. A ``type`` which a branch inherits from the enclosing schema (a
+    schema root always has ``"type": "object"`` applied to it) is not a constraint of the branch
+    itself, so it doesn't suppress the warning; only a ``type`` declared by the branch does. A branch
+    consisting of a ``$ref`` is judged by the schema it references and only warned about if that schema
+    matches any value as well.
 
 .. note::
 
@@ -113,6 +113,15 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     the intersection of all declared types across branches. See
     `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation and a contrast
     with ``anyOf``/``oneOf`` union widening.
+
+.. note::
+
+    A branch which declares no ``type`` inherits the ``type`` of its schema (a schema root always has
+    ``"type": "object"`` applied to it) and has to be satisfiable together with it. An ``enum`` or ``const`` of
+    the branch which lists no value of the inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema)
+    can never hold. As every ``allOf`` branch has to hold, the schema is unsatisfiable and the generator throws a
+    ``SchemaException`` at generation time. The branches of the other composition keywords are only dead in this
+    case, so the generator emits a warning for them instead.
 
 .. note::
 

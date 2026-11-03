@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "definitions": {
+    "yes": true
+  },
+  "properties": {
+    "notAnything": {
+      "not": {
+        "$ref": "#/definitions/yes"
+      }
+    }
+  }
+}

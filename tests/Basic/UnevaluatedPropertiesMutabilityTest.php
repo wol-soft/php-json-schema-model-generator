@@ -111,11 +111,6 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
      */
     public function testSetterRerunsCompositionForKeysConstrainedOnlyThroughBranchInternals(): void
     {
-        $compositionMessage = <<<'MSG'
-            Invalid value for '%s' declined by composition constraint
-              Requires to match all composition elements but matched 0 elements
-            MSG;
-
         $patternClassName = $this->generateClassFromFile(
             'BranchPatternPropertiesConstrainsDeclaredKey.json',
             $this->defaultConfig(),
@@ -129,7 +124,17 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $patternObject->setXA('not-an-integer');
             $this->fail('Expected setXA to be rejected by the branch patternProperties');
         } catch (AllOfException $exception) {
-            $this->assertSame(sprintf($compositionMessage, $patternClassName), $exception->getMessage());
+            $this->assertMessageMatchesTemplate(
+                <<<MSG
+                Invalid value for '$patternClassName' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains invalid pattern properties
+                      - invalid property 'x-a' matching pattern '^x-'
+                        * Invalid type for 'pattern property': requires 'int', got 'string'
+                MSG,
+                $exception->getMessage(),
+            );
         }
         $this->assertSame(['x-a' => 5], $patternObject->meta()->rawInput());
         $rebuiltPatternObject = new $patternClassName($patternObject->meta()->rawInput());
@@ -148,7 +153,18 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $nestedObject->setN('not-an-integer');
             $this->fail('Expected setN to be rejected by the nested branch composition');
         } catch (AllOfException $exception) {
-            $this->assertSame(sprintf($compositionMessage, $nestedClassName), $exception->getMessage());
+            $this->assertMessageMatchesTemplate(
+                <<<MSG
+                Invalid value for '$nestedClassName' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid value for '%class%' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid type for 'n': requires 'int', got 'string'
+                MSG,
+                $exception->getMessage(),
+            );
         }
         $this->assertSame(['n' => 5], $nestedObject->meta()->rawInput());
         $rebuiltNestedObject = new $nestedClassName($nestedObject->meta()->rawInput());
@@ -264,16 +280,19 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
 
         $className = $this->generateClassFromFile('AllOfBranchDeniesUnevaluatedKeys.json', $this->defaultConfig());
 
-        $expectedMessage = <<<MSG
-            Invalid value for '{$className}' declined by composition constraint
-              Requires to match all composition elements but matched 0 elements
-            MSG;
-
         try {
             new $className(['kind' => 'a', 'extra' => 1]);
             $this->fail('Expected the constructor to reject the key the branch does not evaluate');
         } catch (AllOfException $exception) {
-            $this->assertSame($expectedMessage, $exception->getMessage());
+            $this->assertMessageMatchesTemplate(
+                <<<MSG
+                Invalid value for '$className' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains not allowed unevaluated properties ['extra']
+                MSG,
+                $exception->getMessage(),
+            );
         }
 
         $object = new $className(['kind' => 'a']);
@@ -282,7 +301,15 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $object->populate(['extra' => 1]);
             $this->fail('Expected populate to reject the key the branch does not evaluate');
         } catch (AllOfException $exception) {
-            $this->assertSame($expectedMessage, $exception->getMessage());
+            $this->assertMessageMatchesTemplate(
+                <<<MSG
+                Invalid value for '$className' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains not allowed unevaluated properties ['extra']
+                MSG,
+                $exception->getMessage(),
+            );
         }
 
         $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());

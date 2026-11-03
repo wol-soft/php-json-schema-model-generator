@@ -1,0 +1,12 @@
+{
+  "not": {
+    "required": [
+      "forbidden"
+    ]
+  },
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  }
+}

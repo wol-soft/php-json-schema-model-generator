@@ -17,6 +17,7 @@ use PHPModelGenerator\Draft\Modifier\ModifierInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\BaseProperty;
@@ -29,6 +30,7 @@ use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
@@ -57,6 +59,17 @@ class PropertyFactory
         bool $required = false,
         bool $isArrayItem = false,
     ): PropertyInterface {
+        if ($propertySchema->isBooleanSchema()) {
+            return $this->createBooleanSchemaProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $isArrayItem,
+            );
+        }
+
         $json      = $propertySchema->getJson();
         $producers = $schemaProcessor->getGeneratorConfiguration()
             ->getBuiltDraft($propertySchema)
@@ -166,6 +179,55 @@ class PropertyFactory
     }
 
     /**
+     * Create the property of a boolean schema, which arrives here from a `$ref` to a boolean-valued definition (the
+     * keyword which holds an inline boolean interprets it itself, before a property is requested for it).
+     *
+     * `true` is the empty schema. `false` is the empty schema plus a validator which rejects every value. Like the type
+     * check, the validator spares the null which implicit null treats as an absent value: the validators of an optional
+     * property run for it as well, and an absent property must not be rejected. The DeniedPropertyException is the one
+     * the inline `false` of a composition branch and of a `properties` entry throws as well.
+     *
+     * Building `false` as the schema {"not": true} was rejected: the not composition guards its check with the presence
+     * of the property in the model data, which is wrong for a property that is shared by every site referencing the
+     * definition. As the branch of a composition of the schema root that check looks for a key named like the class and
+     * the branch would never reject.
+     *
+     * @throws SchemaException
+     */
+    private function createBooleanSchemaProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+        bool $isArrayItem,
+    ): PropertyInterface {
+        $property = $this->create(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema->withJson([]),
+            $required,
+            $isArrayItem,
+        );
+
+        if (!$propertySchema->getBooleanValue()) {
+            $allowImplicitNull = $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
+                && !$property->isRequired();
+
+            $property->addValidator(
+                (new PropertyValidator(
+                    $property,
+                    $allowImplicitNull ? '$value !== null' : 'true',
+                    DeniedPropertyException::class,
+                ))->withJsonPointer($propertySchema->getPointer()),
+            );
+        }
+
+        return $property;
+    }
+
+    /**
      * Re-route a composition-only schema that the composition itself guarantees to be an
      * object (e.g. an allOf of object branches, possibly multiple $ref levels deep)
      * through the object path, so it becomes a genuine nested class with instantiation and
@@ -254,11 +316,20 @@ class PropertyFactory
             return null;
         }
 
-        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-            "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                . " 'required') without a 'type' declaration and does not constrain non-object values",
-            ['property' => $propertyName],
-        );
+        // Nothing is implied where an enclosing schema asserts the object, see JsonSchema::isObjectAssertedByContext():
+        // the schema is represented the same way, but there is no non-object value which could pass unnoticed.
+        if (!$propertySchema->isObjectAssertedByContext()) {
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Property '{property}' at '{pointer}' in file '{file}' carries object-constraining keywords"
+                    . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain"
+                    . ' non-object values',
+                [
+                    'property' => $propertyName,
+                    'pointer' => $propertySchema->getPointer(),
+                    'file' => $propertySchema->getFile(),
+                ],
+            );
+        }
 
         $objectJson = $json;
         $objectJson['type'] = 'object';
@@ -454,11 +525,13 @@ class PropertyFactory
             )
             : null;
 
+        // The siblings apply to the value of the reference here, so a sibling which declares the object type asserts an
+        // object for the definition behind the reference as well. Draft 07 ignores the siblings and never gets here.
         $refProperty = array_values($producers)[0]->produce(
             $schemaProcessor,
             $schema,
             $propertyName,
-            $propertySchema,
+            $siblingSchema->assertsObject() ? $propertySchema->withObjectAssertedByContext() : $propertySchema,
             $required,
             $isArrayItem,
         );
@@ -1385,7 +1458,10 @@ class PropertyFactory
         // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
         // returns all types, which would incorrectly apply type-specific modifiers.
         $coveredTypes = $type === 'any'
-            ? array_filter($builtDraft->getCoveredTypes('any'), static fn($t) => $t->getType() === 'any')
+            ? array_filter(
+                $builtDraft->getCoveredTypes('any'),
+                static fn($coveredType) => $coveredType->getType() === 'any',
+            )
             : $builtDraft->getCoveredTypes($type);
 
         foreach ($coveredTypes as $coveredType) {

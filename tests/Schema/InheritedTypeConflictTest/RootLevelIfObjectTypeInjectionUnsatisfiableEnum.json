@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "enum": [
+      1,
+      2,
+      3
+    ]
+  },
+  "then": {
+    "const": 4
+  },
+  "else": {
+    "const": "text"
+  }
+}

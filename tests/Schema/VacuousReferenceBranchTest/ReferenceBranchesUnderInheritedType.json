@@ -1,0 +1,110 @@
+{
+  "type": "object",
+  "definitions": {
+    "text": {
+      "type": "string",
+      "minLength": 2
+    },
+    "chainToText": {
+      "$ref": "#/definitions/text"
+    },
+    "chainOfTwoToText": {
+      "$ref": "#/definitions/chainToText"
+    }
+  },
+  "properties": {
+    "allOfObjectParentReferenceSecond": {
+      "type": "object",
+      "allOf": [
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+        }
+      ]
+    },
+    "anyOfObjectParentReferenceFirst": {
+      "type": "object",
+      "anyOf": [
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "oneOfObjectParentReferenceSecond": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+        }
+      ]
+    },
+    "allOfUntypedParentReferenceFirst": {
+      "allOf": [
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "anyOfStringParentReferenceSecond": {
+      "type": "string",
+      "anyOf": [
+        {
+          "maxLength": 5
+        },
+        {
+          "$ref": "#/definitions/text"
+        }
+      ]
+    },
+    "oneOfStringParentReferenceSecond": {
+      "type": "string",
+      "oneOf": [
+        {
+          "maxLength": 5
+        },
+        {
+          "$ref": "#/definitions/text"
+        }
+      ]
+    },
+    "referenceChainToConstrainedDefinitionUnderStringParent": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/chainOfTwoToText"
+        },
+        {
+          "maxLength": 5
+        }
+      ]
+    }
+  }
+}

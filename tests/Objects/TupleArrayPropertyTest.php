@@ -12,15 +12,9 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
-use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class TupleArrayPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -480,20 +474,70 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A boolean schema is a valid entry of a tuple-form `items` list, but the tuple validator only handles
-     * schema objects: the generation fails with an uncaught TypeError instead of generating a class.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as boolean entries are
-     * supported, the test then has to assert the generated behaviour (`true` accepts every value at the index,
-     * `false` rejects every value).
+     * A boolean schema is a valid entry of a tuple-form `items` list: `true` accepts every value at its index,
+     * `false` rejects every value at its index while the entries at the other indices are still validated.
      */
-    public function testKnownGapBooleanSchemaInTupleItemsCrashesTheGenerator(): void
+    public function testBooleanSchemasInTupleItemsAcceptOrRejectEveryValueAtTheirIndex(): void
     {
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage(
-            'Cannot assign true to property PHPModelGenerator\Model\SchemaDefinition\JsonSchema::$json of type array',
-        );
+        $className = $this->generateClassFromFile('TupleWithBooleanSchema.json');
 
-        $this->generateClassFromFile('TupleWithBooleanSchema.json');
+        // `true` at index 0: any value is accepted, the entry at index 1 is still validated
+        foreach ([42, 'text', null, ['nested' => true], 1.5] as $acceptedValue) {
+            $object = new $className(['tags' => [$acceptedValue, 'tag']]);
+            $this->assertSame([$acceptedValue, 'tag'], $object->getTags());
+        }
+
+        $this->assertSame([], (new $className(['tags' => []]))->getTags());
+
+        try {
+            new $className(['tags' => [42, 13]]);
+            $this->fail('Expected the string entry behind the `true` entry to be validated');
+        } catch (InvalidTupleException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid tuple item in array 'tags':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tags': requires 'string', got 'integer'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+
+        // `false` at index 1: the array may hold at most the entry at index 0
+        $object = new $className(['blocked' => ['only']]);
+        $this->assertSame(['only'], $object->getBlocked());
+
+        $this->assertSame([], (new $className(['blocked' => []]))->getBlocked());
+
+        foreach ([42, 'text', null] as $rejectedValue) {
+            try {
+                new $className(['blocked' => ['first', $rejectedValue]]);
+                $this->fail('Expected a value at the `false` entry to be rejected');
+            } catch (InvalidTupleException $exception) {
+                $this->assertSame(
+                    <<<ERROR
+                    Invalid tuple item in array 'blocked':
+                      - invalid tuple #2
+                        * Value for 'tuple item #1 of array blocked' is not allowed
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
+
+        // the entry at index 0 of `blocked` is still validated
+        try {
+            new $className(['blocked' => [42]]);
+            $this->fail('Expected the string entry in front of the `false` entry to be validated');
+        } catch (InvalidTupleException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid tuple item in array 'blocked':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array blocked': requires 'string', got 'integer'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 }

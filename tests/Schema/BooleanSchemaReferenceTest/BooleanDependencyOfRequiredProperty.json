@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "forbidden": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "forbidden"
+  ],
+  "dependencies": {
+    "forbidden": false
+  }
+}

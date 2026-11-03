@@ -1,0 +1,9 @@
+{
+  "definitions": {
+    "text": {
+      "type": "string",
+      "minLength": 2
+    },
+    "anything": {}
+  }
+}

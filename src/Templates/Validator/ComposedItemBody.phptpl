@@ -29,14 +29,16 @@
     }
 {% endif %}
 
-{% if not generatorConfiguration.collectErrors() and not isMutableBaseValidator %}
+{% if not generatorConfiguration.collectErrors() %}
     {#
         Mirror the collect-errors path: every branch - not just failing ones - must contribute an
         entry to $compositionErrorCollection so InvalidComposedValueException::getErrorMessage()
         numbers elements by their real schema position instead of by position among failures. A
         branch reaching this point ran to completion without throwing, so it is valid; an empty
         ErrorRegistryException renders as "Valid". The failing counterpart is appended in the
-        catch block in ComposedItem.phptpl.
+        catch block in ComposedItem.phptpl. A branch of a mutable base validator which is answered
+        from the validation state instead of being evaluated skips this body: ComposedItem.phptpl
+        appends its entry where the state is read.
     #}
     $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
 {% endif %}
