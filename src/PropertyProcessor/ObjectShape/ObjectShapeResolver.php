@@ -30,35 +30,10 @@ use TypeError;
  *
  * The set of object-describing keywords is derived from the injected Draft's own object Type
  * registrations (see the constructor), so a custom Draft that adds, removes, or renames
- * object-constraining keywords via addValidator()/addModifier() is picked up automatically -
- * with one documented exception: UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS hardcodes 'dependencies'
- * for Draft 7, since that keyword is consumed through a side channel with no Draft-level
- * registration to derive it from. See that constant's docblock for what a custom Draft would
- * need to do differently.
+ * object-constraining keywords via addValidator()/addModifier() is picked up automatically.
  */
 class ObjectShapeResolver
 {
-    /**
-     * 'dependencies' constrains object values (a dependency on a property forces its target to
-     * exist) but, unlike every other keyword below, is never registered on the Draft's object
-     * Type via addValidator(): PropertiesValidatorFactory and RequiredValidatorFactory each read
-     * $json['dependencies'][$propertyName] as a side channel instead (see
-     * PropertyDependencyTrait), so it never appears in Type::getModifiers() and must be listed
-     * explicitly - the same reason AbstractCompositionValidatorFactory::
-     * MODIFIER_ONLY_VALIDATION_KEYWORDS lists keywords addModifier() hides from the registry.
-     *
-     * This list is Draft-7-specific, unlike the rest of $objectDescribingKeywords, which is
-     * derived from the injected Draft and therefore adapts automatically to a custom Draft. A
-     * Draft that splits 'dependencies' into 'dependentSchemas'/'dependentRequired' (as later
-     * JSON Schema drafts do) - or that reads some other keyword through an equivalent side
-     * channel invisible to Type::getModifiers() - would need its own entry here; this constant
-     * is not derived from the Draft because PropertyDependencyTrait's side-channel reads have no
-     * Draft-level registration to derive it from (see the class docblock on ObjectShapeResolver
-     * for why a general mechanism was not built for this: no second Draft exists in this repo to
-     * generalize against).
-     */
-    private const array UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS = ['dependencies'];
-
     /** @var string[] every keyword whose presence (without a `type` declaration) makes a schema ObjectDescribing */
     private readonly array $objectDescribingKeywords;
 
@@ -96,10 +71,7 @@ class ObjectShapeResolver
         $objectType = $draft->hasType('object') ? $draft->getTypes()['object'] : null;
         $registeredKeywords = $objectType !== null ? array_keys($objectType->getModifiers()) : [];
 
-        $this->objectDescribingKeywords = array_merge(
-            array_values(array_filter($registeredKeywords, 'is_string')),
-            self::UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS,
-        );
+        $this->objectDescribingKeywords = array_values(array_filter($registeredKeywords, 'is_string'));
 
         // Read the draft's own `$ref` producer rather than hardcoding a sibling policy, so the
         // classification always agrees with what the generator will actually do (see

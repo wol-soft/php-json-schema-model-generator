@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x_": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "x_card": [
+      "x_address"
+    ]
+  }
+}

@@ -105,7 +105,6 @@ class RefResolver implements PropertyProducerInterface
                     $propertyName,
                     implode('/', $path),
                     $required,
-                    $propertySchema->getJson()['_dependencies'] ?? null,
                     $isArrayItem,
                 );
 

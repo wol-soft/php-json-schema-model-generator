@@ -61,7 +61,6 @@ class SchemaDefinition
         string $propertyName,
         string $path,
         bool $required,
-        ?array $dependencies = null,
         bool $isArrayItem = false,
     ): PropertyInterface {
         $jsonSchema = $this->source->navigate($path);
@@ -79,7 +78,7 @@ class SchemaDefinition
         // and whichever wired isArrayItem=true would silently flip the other's getter to non-nullable. Confirmed via
         // a $ref used both as `items` of an array and as a plain optional property: gating changed the optional
         // property's generated getter from `?Item` to the incorrect `Item`.
-        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
+        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0']);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point

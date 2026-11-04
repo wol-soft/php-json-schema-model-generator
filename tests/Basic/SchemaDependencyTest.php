@@ -6,21 +6,17 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
-use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 
-/**
- * Class SchemaDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
-#[ApplicableDrafts]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validSchemaDependencyDataProvider')]
@@ -420,6 +416,38 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
+     * silently dropped instead of being enforced — the schema-form variant of
+     * testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced in PropertyDependencyTest.
+     *
+     * Also asserts that the trigger property and the properties declared inside the dependency
+     * subschema are both synthesised onto the generated class and accessible via their accessors,
+     * even though neither appears in the schema's top-level `properties` block.
+     */
+    public function testSchemaDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('UndeclaredTriggerSchemaDependency.json');
+
+        // Valid: no trigger present, dependency not enforced; both synthesised properties readable
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and dependency satisfied; both accessors return correct values
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but required dependent property absent
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
      * A filter of a property inside a dependency schema runs inside the dependency schema (the validators of the
      * property see the filtered value), the base model keeps the value as provided. Consistent with the condition of
      * an if/then/else. A property which should be filtered has to be declared in the main schema.
@@ -500,5 +528,98 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertNull($object->getCreditCard());
+    }
+
+    /**
+     * When a schema-form dependency trigger is absent from the root `properties` block and its
+     * subschema declares properties that are already present — either in root `properties` or via
+     * a composition branch — the trigger is synthesised as mixed while each subschema property is
+     * merged with its pre-existing declaration (same path as allOf property merging) rather than
+     * being introduced anew. Covers root-property merging (billing_address) and composition
+     * merging (name via allOf).
+     */
+    public function testSchemaDependencySubschemaPropertiesMergeWithPreExistingDeclarations(): void
+    {
+        $className = $this->generateClassFromFile('NarrowedTargetSchemaDependency.json');
+
+        // Valid: no trigger; all properties readable with their declared types
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+        $this->assertNull($object->getName());
+
+        // Valid: trigger present and both required properties satisfied
+        $object = new $className(['credit_card' => 'any', 'billing_address' => 'addr', 'name' => 'John']);
+        $this->assertSame('any', $object->getCreditCard());
+        $this->assertSame('addr', $object->getBillingAddress());
+        $this->assertSame('John', $object->getName());
+
+        // Invalid: trigger present but required properties absent
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+        );
+
+        new $className(['credit_card' => 'any']);
+    }
+
+    /**
+     * When a dep-subschema declares a property whose type contradicts the type already declared
+     * for that property in the root schema, generation must fail with SchemaException. The
+     * contradiction is unsatisfiable: the root schema constrains billing_address to integer while
+     * the dependency subschema for credit_card constrains it to string.
+     */
+    public function testSchemaDependencyConflictingPropertyTypeThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $conflictPattern = "/^Property 'billing_address' is defined with conflicting types"
+            . " between the dependency schema for 'credit_card' and the base schema in file /";
+        $this->expectExceptionMessageMatches($conflictPattern);
+
+        $this->generateClassFromFile('ConflictingSchemaDependency.json');
+    }
+
+    /**
+     * With `additionalProperties: false` an undeclared trigger can never be part of the input, so its schema
+     * dependency is skipped (including the properties of the dependency schema) and a warning is logged.
+     */
+    public function testUndeclaredSchemaDependencyTriggerIsSkippedWithWarningWhenAdditionalPropertiesIsFalse(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'UndeclaredTriggerSchemaDependencyNoAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $warnings = array_filter(
+            $recordingLogger->getEntries(),
+            static fn(array $entry): bool => $entry['level'] === 'warning',
+        );
+        $this->assertCount(1, $warnings);
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $warnings,
+                'warning',
+                "Dependencies on '{trigger}' in class '{class}' can never apply: {reason}",
+                [
+                    'trigger' => 'credit_card',
+                    'reason' => 'additionalProperties: false rejects the undeclared key',
+                ],
+            ),
+        );
+
+        $this->assertFalse(method_exists($className, 'getCreditCard'));
+        $this->assertFalse(method_exists($className, 'getBillingAddress'));
+
+        $object = new $className(['name' => 'John']);
+        $this->assertSame('John', $object->getName());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['credit_card' => 12345],
+            AdditionalPropertiesException::class,
+            "Provided JSON for '%class%' contains not allowed additional properties ['credit_card']",
+        );
     }
 }
