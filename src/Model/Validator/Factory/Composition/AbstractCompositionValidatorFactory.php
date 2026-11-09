@@ -20,6 +20,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDe
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\BranchNameResolver;
 use PHPModelGenerator\Utils\TypeIntersection;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
@@ -33,6 +34,34 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * treat a branch containing only e.g. {"const": "foo"} as vacuous.
      */
     private const array MODIFIER_ONLY_VALIDATION_KEYWORDS = ['type', 'const'];
+
+    /**
+     * The name handed to the property factory for the branches of a composition. The class name
+     * generation derives the class name of a branch which has no explicit name (title, $id, ...)
+     * from it.
+     *
+     * The root property of a schema is named like the class of the schema. Passing that name on
+     * would make the name of a branch class contain the name of its parent class, and the branch
+     * classes nested one level deeper would again contain the name of the branch class: the length
+     * of the class names (and file names) would grow with every level of nesting until the file name
+     * exceeds the limit of the file system. Renaming the root property was rejected: its name is
+     * part of the exception messages of the object level validators. Only the name used for the
+     * branches is therefore replaced; the composition and the exception messages keep the name of
+     * the root property.
+     *
+     * The replacement is the key of the property or definition the schema lives in, taken from the
+     * JSON pointer (see BranchNameResolver), so the branches of a nested object are named like the
+     * branches of a composition declared directly on that property. Using a fixed name for every
+     * branch was rejected: it discards the property name which makes the class names readable.
+     * A property inside of a schema keeps its own name, the length of a property name is bounded
+     * by the schema.
+     */
+    protected function getBranchPropertyName(PropertyInterface $property): string
+    {
+        return $property instanceof BaseProperty
+            ? BranchNameResolver::resolve($property->getJsonSchema()->getPointer())
+            : $property->getName();
+    }
 
     /**
      * Emit a generation-time warning for always-unsatisfiable composition schemas.
@@ -443,7 +472,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 $propertyFactory->create(
                     $schemaProcessor,
                     $schema,
-                    $property->getName(),
+                    $this->getBranchPropertyName($property),
                     $compositionSchema,
                     $property->isRequired(),
                 ),
