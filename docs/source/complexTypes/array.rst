@@ -526,6 +526,11 @@ warning, and skips ``unevaluatedItems`` entirely:
   and evaluates every index past the tuple length (a schema additionally validates it) — every
   index is again claimed. A tail value is accepted or rejected by ``additionalItems`` alone; a
   skipped ``unevaluatedItems`` schema never takes part in the decision.
+- ``items`` behind a ``prefixItems`` tuple (Draft 2020-12) is the same pair under the new spelling:
+  ``items: false`` rejects every index past the tuple, ``items: true`` or ``items: {schema}``
+  accepts and evaluates it. Behind a tuple ``items`` only governs the tail, so the warning names
+  the pair (``sibling prefixItems tuple plus items: ...``) instead of describing ``items`` as if it
+  covered every index.
 
 Unlike ``additionalProperties`` on objects, the
 `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no
