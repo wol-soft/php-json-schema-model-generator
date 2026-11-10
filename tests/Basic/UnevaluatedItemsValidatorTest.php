@@ -440,6 +440,57 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * The Draft 2020-12 spelling of the tuple shapes: `prefixItems` carries the tuple and `items` the entries behind
+     * it. With a tuple present `items` governs only the tail, so the reason must name the pair rather than
+     * describe `items` as if it covered every index — index 0 is evaluated by the tuple, not rejected or claimed by
+     * `items`.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function prefixItemsDeadCodeProvider(): array
+    {
+        return [
+            'prefixItems tuple with items: {schema}' => [
+                'PrefixItemsWithTailItems.json',
+                'sibling prefixItems tuple plus items: {schema} already validates every tail index past the tuple',
+            ],
+            'prefixItems tuple with items: false' => [
+                'PrefixItemsWithTailItemsFalse.json',
+                'sibling prefixItems tuple plus items: false rejects every tail index past the tuple',
+            ],
+            'prefixItems tuple with items: true' => [
+                'PrefixItemsWithTailItemsTrue.json',
+                'sibling prefixItems tuple plus items: true already claims every tail index past the tuple',
+            ],
+        ];
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('prefixItemsDeadCodeProvider')]
+    public function testPrefixItemsDeadCodeShapesWarnWithThePairTheyForm(string $schemaFile, string $reason): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags', 'reason' => $reason],
+            ),
+            'Expected a warning naming the tuple and its trailing keyword as the reason for the dead keyword',
+        );
+
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
     #[DataProvider('deadCodeProvider')]
     public function testDeadCodeShapesWarn(string $schemaFile, string $reason): void
     {
@@ -1502,7 +1553,11 @@ MSG,
                 $logger->getEntries(),
                 'warning',
                 'unevaluatedItems on {class}::{property} is dead code — {reason}',
-                ['property' => 'tags'],
+                [
+                    'property' => 'tags',
+                    'reason' => 'sibling prefixItems tuple plus items: {schema} already validates every tail index'
+                        . ' past the tuple',
+                ],
             ),
             'The tuple plus its trailing-entry schema claim every index.',
         );
