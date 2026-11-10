@@ -423,10 +423,11 @@ class Schema
 
     /**
      * The validators which validate (and, once switched to collecting, store) the additional properties against a
-     * schema. Only these write the `_additionalProperties` field, which is why whether it is declared follows from
-     * this list and not from the `additionalProperties` keyword of the schema's own JSON: a base-level `$ref`
-     * transfers the referenced schema's validators, so one can run on a class whose own JSON never mentions the
-     * keyword.
+     * schema. Together with the validator which stores them for a schema without one
+     * (UpdateAdditionalPropertiesValidator) these are what writes the `_additionalProperties` field. Whether the
+     * field is declared therefore follows from the validators and not from the `additionalProperties` keyword of
+     * the schema's own JSON alone: a base-level `$ref` transfers the referenced schema's validators, so one can run
+     * on a class whose own JSON never mentions the keyword.
      *
      * The transferred instance is the one the referenced schema owns and keeps its state (collecting, and the names
      * the referenced schema declares). Cloning it for the referencing class was rejected: its template values hold a
@@ -805,8 +806,11 @@ class Schema
     }
 
     /**
-     * Adding the same trait twice would render two identical `use` statements in the class body,
-     * which is a fatal error rather than a no-op, so registration is idempotent.
+     * Registration is idempotent: a trait can be requested through more than one activation path,
+     * a schema's own activation and the branch-class activation of an enclosing schema. Duplicate
+     * trait use is legal PHP, so this is about the generated file's readability and the coding
+     * standard run over it, not about avoiding an error. Do NOT remove the guard as unnecessary on
+     * the grounds that PHP tolerates the duplicate: the class would render the trait twice.
      */
     public function addTrait(string $trait): self
     {
