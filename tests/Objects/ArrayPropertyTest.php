@@ -1179,6 +1179,120 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Values `prefixItems` must not have: the 2020-12 meta-schema types it as a non-empty array of schemas. Each row
+     * is the JSON as written and the value as the exception renders it.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function malformedPrefixItemsDataProvider(): array
+    {
+        return [
+            // a single schema where a list of schemas is required; read as the schema form of `items` before
+            'a single schema' => ['{"type": "string"}', "array (  'type' => 'string',)"],
+            'boolean false' => ['false', 'false'],
+            'boolean true' => ['true', 'true'],
+            'integer' => ['42', '42'],
+            'string' => ['"tuple"', "'tuple'"],
+        ];
+    }
+
+    /**
+     * A `prefixItems` which is not a list of schemas is invalid input on every draft which knows the keyword. It was
+     * silently read as the schema form of `items` instead, which validated every entry against it and dropped the
+     * sibling `items` the author wrote, and next to `unevaluatedItems: false` it generated a class rejecting every
+     * non-empty array. The fixture carries both siblings, so every shape is rejected with the same message whichever
+     * of them used to hide it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('malformedPrefixItemsDataProvider')]
+    public function testMalformedPrefixItemsThrowsSchemaException(string $jsonValue, string $renderedValue): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote("Invalid prefixItems $renderedValue for property 'tags' in file ", '/')
+                . '\S+ at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFileTemplate('PrefixItemsValue.json', [$jsonValue], null, false);
+    }
+
+    /**
+     * Before Draft 2020-12 `prefixItems` is an unknown keyword which must be ignored whatever its value, so the same
+     * shapes which are rejected on 2020-12 neither throw here nor change the meaning of `items`.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('malformedPrefixItemsDataProvider')]
+    public function testMalformedPrefixItemsIsIgnoredBeforeDraft202012(string $jsonValue): void
+    {
+        $className = $this->generateClassFromFileTemplate('PrefixItemsValue.json', [$jsonValue], null, false);
+
+        $instance = new $className(['tags' => [1, 2]]);
+        $this->assertSame(['tags' => [1, 2]], $instance->meta()->rawInput());
+
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage("Invalid items in array 'tags'");
+
+        new $className(['tags' => ['a']]);
+    }
+
+    /**
+     * `json_decode(..., true)` renders `[]` and `{}` as the same empty array. Neither spelling is a tuple (a
+     * non-empty list is required, and an object is not a list), so the value is read as a tuple without entries:
+     * nothing is validated by position and `items` governs every entry. Treating it as the schema form of `items`
+     * instead made the sibling `items` disappear.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function emptyPrefixItemsDataProvider(): array
+    {
+        return [
+            'empty list' => ['[]'],
+            'empty object' => ['{}'],
+        ];
+    }
+
+    /**
+     * A scalar is neither a boolean, a schema nor a list of schemas. It crashed the generator with a TypeError from
+     * inside the schema navigation instead of reporting the invalid schema.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function scalarItemsDataProvider(): array
+    {
+        return [
+            'integer' => ['42', '42'],
+            'string' => ['"schema"', "'schema'"],
+        ];
+    }
+
+    #[DataProvider('scalarItemsDataProvider')]
+    public function testScalarItemsThrowsSchemaException(string $jsonValue, string $renderedValue): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote("Invalid items $renderedValue for property 'tags' in file ", '/')
+                . '\S+ at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFileTemplate('ItemsValue.json', [$jsonValue], null, false);
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('emptyPrefixItemsDataProvider')]
+    public function testEmptyPrefixItemsLeavesEveryEntryToItems(string $jsonValue): void
+    {
+        $className = $this->generateClassFromFileTemplate('PrefixItemsValue.json', [$jsonValue], null, false);
+
+        $instance = new $className(['tags' => [1, 2]]);
+        $this->assertSame(['tags' => [1, 2]], $instance->meta()->rawInput());
+
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage("Invalid items in array 'tags'");
+
+        new $className(['tags' => ['a']]);
+    }
+
+    /**
      * The filter of the items of a nested array lives one level deeper than the array property itself. The filter
      * runs, its output is persisted and the serialization applies the serializer of the filter to each transformed
      * item: without it the generic serialization turns each DateTime into an empty array.

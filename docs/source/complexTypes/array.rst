@@ -394,6 +394,11 @@ Index 0 is validated against the ``prefixItems`` entry and counted as evaluated;
 element raises an ``UnevaluatedItemsException``. Adding ``"items": {"type": "integer"}`` alongside
 ``prefixItems`` instead validates every element from index 1 on, leaving nothing unevaluated.
 
+``prefixItems`` must be a list of schemas. Any other value (a single schema, a boolean, a scalar) is
+invalid and rejected with a ``SchemaException`` when the model is generated; a scalar ``items`` is
+rejected the same way. An empty ``prefixItems`` is read as a tuple without entries, so ``items``
+validates every element.
+
 On Draft 7 and Draft 2019-09 ``prefixItems`` is not a known keyword and is ignored, so ``items``
 keeps its own meaning there and still validates every element. Being ignored also means it
 evaluates no index: the schema above rejects ``["a"]`` on Draft 2019-09, where nothing evaluates
