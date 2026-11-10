@@ -444,6 +444,12 @@ never credited, and one declared by a branch that won always is. This makes the 
 for enforcing "no leftovers" at the outermost schema level while individual branches are free to
 declare their own properties.
 
+A ``$ref`` to a schema which declares an ``additionalProperties`` other than ``false`` claims every
+remaining key, exactly as the keyword does on the schema itself: the referenced schema evaluates
+what it declares through ``properties`` and everything else through ``additionalProperties``, so
+nothing is left for ``unevaluatedProperties`` to reject. The keys are still validated against the
+``additionalProperties`` of the referenced schema.
+
 .. note::
 
     ``dependencies`` in its schema form contributes only while its trigger property is present. In

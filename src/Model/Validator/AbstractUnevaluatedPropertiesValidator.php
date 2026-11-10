@@ -43,6 +43,7 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
                 'pcrePatterns' => '[]',
                 'hasDependentAllKeysClaim' => false,
                 'dependentAllKeysTriggerKeys' => '[]',
+                'claimsEveryKey' => false,
             ],
             $exceptionClass,
             $exceptionParams,
@@ -93,6 +94,10 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         $this->templateValues['dependentAllKeysTriggerKeys'] = RenderHelper::varExportArray(
             array_fill_keys($allKeysTriggerKeys, true),
         );
+
+        // A referenced schema with a non-false `additionalProperties` claims every key whatever the instance
+        // holds, unlike the dependent claim above, which depends on its trigger being present.
+        $this->templateValues['claimsEveryKey'] = $this->compositionScope->claimsEveryKeyThroughReference();
 
         $this->templateValues['compositionValidatorKeys'] = RenderHelper::varExportArray(
             $this->compositionScope->getCompositionValidatorKeys(),

@@ -650,8 +650,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
                 // A non-false additionalProperties claims every key the schema did not otherwise
                 // evaluate, so nothing is left to compute — the whole instance is covered. Only a
-                // branch that succeeded is ever queried, so its claim definitely applied.
-                if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
+                // branch that succeeded is ever queried, so its claim definitely applied. The claim
+                // may also have arrived through a `$ref` to a schema declaring it.
+                if (
+                    (isset($json['additionalProperties']) && $json['additionalProperties'] !== false)
+                    || $this->nestedSchema->claimsEveryKeyThroughReference()
+                ) {
                     return implode("\n", [
                         '#[Internal]',
                         'public function _getEvaluatedProperties(): array',

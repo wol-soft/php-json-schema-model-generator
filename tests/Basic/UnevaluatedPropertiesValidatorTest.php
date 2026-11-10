@@ -84,6 +84,32 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 'NotBranchContributesNothing.json',
                 ['foo' => 'hello'],
             ],
+            // The referenced schema's additionalProperties evaluates every key it does not declare itself, so the
+            // keys `b` (the sibling's) and `zz` are evaluated at the referencing schema.
+            'sibling $ref to additionalProperties schema claims every key' => [
+                'SiblingRefAdditionalPropertiesUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 's'],
+            ],
+            'sibling $ref to additionalProperties true claims every key' => [
+                'SiblingRefAdditionalPropertiesTrueUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 5],
+            ],
+            // The schema form of the keyword (which requires an integer) validates only keys nothing evaluated:
+            // the string `zz` is claimed by the referenced additionalProperties, so it must not reach it.
+            'sibling $ref to additionalProperties claims the keys of an unevaluatedProperties schema' => [
+                'SiblingRefAdditionalPropertiesSchemaFormUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 's'],
+            ],
+            // Only `inner` declares additionalProperties; the claim travels through `middle` to the root.
+            'chained $ref carries the additionalProperties claim' => [
+                'ChainedSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'c' => 'z', 'zz' => 's'],
+            ],
+            // The merged class of a property-level reference is assembled by a different path.
+            'property-level $ref carries the additionalProperties claim' => [
+                'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['inner' => ['a' => 'x', 'b' => 'y', 'zz' => 's']],
+            ],
         ];
     }
 
@@ -156,6 +182,20 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 ['foo' => 'hello', 'forbidden' => 'string-value'],
                 UnevaluatedPropertiesException::class,
                 $notAllowed('forbidden'),
+            ],
+            // Crediting the key must not lift the validation of the referenced schema's additionalProperties.
+            'adopted additionalProperties still validates the keys it claims' => [
+                'SiblingRefAdditionalPropertiesUnevaluated.json',
+                ['zz' => 5],
+                InvalidAdditionalPropertiesException::class,
+                "/^Provided JSON for '.*' contains invalid additional properties\n/",
+            ],
+            'adopted additionalProperties of a property-level $ref still validates the keys it claims' => [
+                'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['inner' => ['zz' => 5]],
+                NestedObjectException::class,
+                "/^Invalid nested object for property 'inner':\n  - Provided JSON for '.*' contains invalid additional"
+                    . ' properties\n/',
             ],
         ];
     }
@@ -1529,6 +1569,33 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             "Provided JSON for '{$className}' contains not allowed unevaluated properties ['c']",
         );
         new $className(['a' => 'x', 'c' => 'y']);
+    }
+
+    /**
+     * A `$ref` to a schema declaring a non-false `additionalProperties` claims every key: the referenced schema
+     * evaluates what it declares through `properties` and everything else through `additionalProperties`. The
+     * crediting must not lift the validation, in either error mode: `zz` still has to satisfy the referenced
+     * schema's `additionalProperties`.
+     */
+    public function testSiblingRefAdditionalPropertiesClaimHoldsInCollectErrorsMode(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SiblingRefAdditionalPropertiesUnevaluated.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $input = ['a' => 'x', 'b' => 'y', 'zz' => 's'];
+        $this->assertSame($input, (new $className($input))->meta()->rawInput());
+
+        try {
+            new $className(['zz' => 5]);
+            $this->fail('A key violating the referenced additionalProperties must be rejected');
+        } catch (ErrorRegistryException $registry) {
+            $errors = $registry->getErrors();
+
+            $this->assertCount(1, $errors);
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $errors[0]);
+        }
     }
 
     /**

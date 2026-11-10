@@ -74,6 +74,8 @@ class Schema
     /** @var array<string, true> Used as a set; see addUnconditionallyEvaluatedPropertyPattern() */
     private array $unconditionallyEvaluatedPropertyPatterns = [];
 
+    private bool $claimsEveryKeyThroughReference = false;
+
     /**
      * @var array<string, array{names: string[], claimsEveryKey: bool}>
      *      Keyed by the trigger property name; see addDependentEvaluatedProperties()
@@ -551,7 +553,27 @@ class Schema
             $this->addUnconditionallyEvaluatedPropertyPattern($pattern);
         }
 
+        // A non-false `additionalProperties` evaluates every key the referenced schema does not declare itself,
+        // which together with its `properties` is every key of the instance — a claim of the same kind as the one
+        // of a dependent subschema, and one no name list can express.
+        if (
+            (isset($referencedJson['additionalProperties']) && $referencedJson['additionalProperties'] !== false)
+            || $referencedSchema->claimsEveryKeyThroughReference()
+        ) {
+            $this->claimsEveryKeyThroughReference = true;
+        }
+
         return $this;
+    }
+
+    /**
+     * Whether a referenced schema (directly or further down a chain of references) declares a non-false
+     * `additionalProperties`, so that this schema evaluates every key of its instance. Rendered as an unconditional
+     * short-circuit by the unevaluatedProperties check and by `_getEvaluatedProperties()`.
+     */
+    public function claimsEveryKeyThroughReference(): bool
+    {
+        return $this->claimsEveryKeyThroughReference;
     }
 
     /**
