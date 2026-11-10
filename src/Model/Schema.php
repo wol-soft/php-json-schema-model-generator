@@ -82,6 +82,9 @@ class Schema
      */
     private array $dependentEvaluatedProperties = [];
 
+    /** @var array<int, array{trigger: string, keywords: string[]}> See addDependentContributionShortfall() */
+    private array $dependentContributionShortfalls = [];
+
     /**
      * Maps the lowercased attribute → raw property name and attribute; used to detect property-vs-property
      * collisions
@@ -612,6 +615,70 @@ class Schema
     public function getDependentEvaluatedProperties(): array
     {
         return $this->dependentEvaluatedProperties;
+    }
+
+    /**
+     * The names of the dependent subschemas by their trigger property, for the triggers which have any. Both places
+     * which render the dependent contribution (the unevaluatedProperties check and a branch class's
+     * `_getEvaluatedProperties()`) read it from here, so they agree on what is credited.
+     *
+     * @return array<string, string[]>
+     */
+    public function getDependentEvaluatedNamesByTrigger(): array
+    {
+        return array_map(
+            static fn(array $dependency): array => $dependency['names'],
+            array_filter(
+                $this->dependentEvaluatedProperties,
+                static fn(array $dependency): bool => $dependency['names'] !== [],
+            ),
+        );
+    }
+
+    /**
+     * The trigger properties whose dependent subschema claims every remaining key (a non-false
+     * `additionalProperties`), which only holds while the trigger is present.
+     *
+     * @return string[]
+     */
+    public function getDependentAllKeysTriggerNames(): array
+    {
+        return array_map(
+            strval(...),
+            array_keys(array_filter(
+                $this->dependentEvaluatedProperties,
+                static fn(array $dependency): bool => $dependency['claimsEveryKey'],
+            )),
+        );
+    }
+
+    /**
+     * Records that a dependent subschema evaluates properties through keywords the dependent contribution cannot
+     * credit (see addDependentEvaluatedProperties()). Reported by the post processor once it knows whether an
+     * unevaluatedProperties accumulator consults this schema; the schema itself cannot know yet, since a composition
+     * branch gets its accumulator from the schema it belongs to.
+     *
+     * @param string[] $keywords
+     */
+    public function addDependentContributionShortfall(string $triggerPropertyName, array $keywords): self
+    {
+        $this->dependentContributionShortfalls[] = ['trigger' => $triggerPropertyName, 'keywords' => $keywords];
+
+        return $this;
+    }
+
+    /**
+     * Hands out the recorded shortfalls and forgets them, so each is reported once however many enclosing schemas
+     * reach this schema.
+     *
+     * @return array<int, array{trigger: string, keywords: string[]}>
+     */
+    public function takeDependentContributionShortfalls(): array
+    {
+        $shortfalls = $this->dependentContributionShortfalls;
+        $this->dependentContributionShortfalls = [];
+
+        return $shortfalls;
     }
 
     /**

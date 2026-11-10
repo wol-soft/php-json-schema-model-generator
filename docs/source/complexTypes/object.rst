@@ -477,6 +477,10 @@ nothing is left for ``unevaluatedProperties`` to reject. The keys are still vali
             "unevaluatedProperties": false
         }
 
+    A ``dependencies`` written inside a composition branch contributes the same way: while the
+    branch succeeds and its trigger property is present, the names of its dependent subschema are
+    evaluated.
+
     Only the names the dependent subschema declares directly under its own ``properties`` count.
     Names it reaches through a composition (``allOf``, ``anyOf``, ``oneOf``, ``if``) or a ``$ref``
     are not credited, and neither are keys matched by its ``patternProperties``. The generator emits

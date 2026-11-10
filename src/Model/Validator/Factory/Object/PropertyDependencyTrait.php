@@ -79,7 +79,7 @@ trait PropertyDependencyTrait
             isset($json['additionalProperties']) && $json['additionalProperties'] !== false,
         );
 
-        $this->warnIfDependentContributionIsIncomplete($schemaProcessor, $schema, $property, $json);
+        $this->recordDependentContributionShortfall($schema, $property, $json);
     }
 
     /**
@@ -93,27 +93,25 @@ trait PropertyDependencyTrait
      * by reading their outcome back at runtime: the dependency validator runs during the trigger
      * property's validation pass, which is *after* the post-composition phase where
      * unevaluatedProperties evaluates, so no dependency result exists yet when the accumulator is
-     * built. Harvesting the
-     * nested names statically instead is only sound for a conjunctive `allOf`; for `anyOf`,
-     * `oneOf` and `if`/`then`/`else` it would credit branches that never ran — the exact
-     * over-crediting the branch classes' runtime slots exist to avoid. So the shortfall is
-     * reported rather than papered over: the effect is over-rejection of a spec-valid instance,
-     * which is loud at runtime, and the warning names where it comes from.
+     * built. Harvesting the nested names statically instead is only sound for a conjunctive
+     * `allOf`; for `anyOf`, `oneOf` and `if`/`then`/`else` it would credit branches that never
+     * ran — the exact over-crediting the branch classes' runtime slots exist to avoid. So the
+     * shortfall is reported rather than papered over: the effect is over-rejection of a spec-valid
+     * instance, which is loud at runtime, and the warning names where it comes from.
+     *
+     * Only recorded here. Whether an accumulator consults this schema is not known yet — a
+     * composition branch gets its accumulator from the schema it belongs to, and the draft decides
+     * whether `unevaluatedProperties` exists at all — so UnevaluatedPropertiesPostProcessor reports
+     * it once it does. Deciding by the schema's own `unevaluatedProperties` key at this point missed
+     * every branch and warned on drafts which ignore the keyword.
      *
      * @param array<string, mixed> $dependentJson The dependent subschema as written
      */
-    private function warnIfDependentContributionIsIncomplete(
-        SchemaProcessor $schemaProcessor,
+    private function recordDependentContributionShortfall(
         Schema $schema,
         PropertyInterface $property,
         array $dependentJson,
     ): void {
-        $unevaluatedProperties = $schema->getJsonSchema()->getJson()['unevaluatedProperties'] ?? true;
-
-        if ($unevaluatedProperties === true) {
-            return;
-        }
-
         $uncreditedKeywords = array_values(array_filter(
             ['allOf', 'anyOf', 'oneOf', 'if', '$ref'],
             static fn(string $keyword): bool => array_key_exists($keyword, $dependentJson),
@@ -125,20 +123,9 @@ trait PropertyDependencyTrait
             $uncreditedKeywords[] = 'patternProperties';
         }
 
-        if ($uncreditedKeywords === []) {
-            return;
+        if ($uncreditedKeywords !== []) {
+            $schema->addDependentContributionShortfall($property->getName(), $uncreditedKeywords);
         }
-
-        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-            "The dependent schema of '{property}' on {class} evaluates properties through {keywords},"
-                . ' which unevaluatedProperties cannot credit — those keys are reported as'
-                . ' unevaluated even when the dependent schema evaluates them',
-            [
-                'property' => $property->getName(),
-                'class' => $schema->getClassName(),
-                'keywords' => implode(', ', $uncreditedKeywords),
-            ],
-        );
     }
 
     /**

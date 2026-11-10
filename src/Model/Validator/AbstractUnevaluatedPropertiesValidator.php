@@ -60,9 +60,8 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         // afterwards, and a conjunctive `$ref` merges the referenced schema's names in only once
         // that reference resolves. By the time getCheck() runs the schema is fully assembled.
         $json = $this->property->getJsonSchema()->getJson();
-        $dependent = $this->compositionScope->getDependentEvaluatedProperties();
 
-        $this->templateValues['declaredPropertyNames'] = $this->buildNameListExpression(
+        $this->templateValues['declaredPropertyNames'] = self::buildNameListExpression(
             RenderHelper::varExportArray(
                 array_values(array_unique(array_merge(
                     array_map(strval(...), array_keys($json['properties'] ?? [])),
@@ -70,8 +69,8 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
                 ))),
             ),
             array_map(
-                static fn(array $dependency): string => RenderHelper::varExportArray($dependency['names']),
-                array_filter($dependent, static fn(array $dependency): bool => $dependency['names'] !== []),
+                RenderHelper::varExportArray(...),
+                $this->compositionScope->getDependentEvaluatedNamesByTrigger(),
             ),
         );
         // No trigger-dependent patterns here, unlike the names above: a pattern match is credited
@@ -87,9 +86,7 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         // A dependent subschema declaring a non-false `additionalProperties` claims every
         // remaining key rather than a set of names, so while its trigger is present nothing can be
         // unevaluated at all. Rendered as a guard in front of the call instead of a name list.
-        $allKeysTriggerKeys = array_keys(
-            array_filter($dependent, static fn(array $dependency): bool => $dependency['claimsEveryKey']),
-        );
+        $allKeysTriggerKeys = $this->compositionScope->getDependentAllKeysTriggerNames();
         $this->templateValues['hasDependentAllKeysClaim'] = $allKeysTriggerKeys !== [];
         $this->templateValues['dependentAllKeysTriggerKeys'] = RenderHelper::varExportArray(
             array_fill_keys($allKeysTriggerKeys, true),
@@ -114,10 +111,17 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
      * `array_intersect_key` performs the presence test for every trigger at once, keeping the
      * emitted expression flat regardless of how many dependencies the schema declares.
      *
+     * Public and static because a branch class's `_getEvaluatedProperties()` renders the same
+     * expression against its own copy of the input, and both have to agree on what is credited.
+     *
      * @param array<string, string> $dependentListsByTriggerKey Trigger name => PHP array literal
+     * @param string                $dataVariable               The array whose keys are the present properties
      */
-    private function buildNameListExpression(string $staticList, array $dependentListsByTriggerKey): string
-    {
+    public static function buildNameListExpression(
+        string $staticList,
+        array $dependentListsByTriggerKey,
+        string $dataVariable = '$modelData',
+    ): string {
         if ($dependentListsByTriggerKey === []) {
             return $staticList;
         }
@@ -128,9 +132,10 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         }
 
         return sprintf(
-            'array_merge(%s, ...array_values(array_intersect_key([%s], $modelData)))',
+            'array_merge(%s, ...array_values(array_intersect_key([%s], %s)))',
             $staticList,
             implode(', ', $literalEntries),
+            $dataVariable,
         );
     }
 }

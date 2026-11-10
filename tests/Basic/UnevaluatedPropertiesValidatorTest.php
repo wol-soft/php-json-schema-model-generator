@@ -110,6 +110,27 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
                 ['inner' => ['a' => 'x', 'b' => 'y', 'zz' => 's']],
             ],
+            // `dependencies` written inside a composition branch contributes exactly as it does on the schema
+            // itself: the trigger `kind` is present, so the dependent subschema's `extra` is evaluated.
+            'branch-level dependencies credit the dependent names' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            'dependencies of a branch of a branch credit the dependent names' => [
+                'BranchOfBranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            // The first anyOf branch succeeds, so its dependent subschema applies.
+            'dependencies of a succeeding anyOf branch credit the dependent names' => [
+                'FailingBranchDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            // A dependent subschema with a non-false additionalProperties claims every remaining key while its
+            // trigger is present.
+            'branch-level dependent additionalProperties claims every key while the trigger is present' => [
+                'BranchLevelDependenciesAdditionalPropertiesUnevaluated.json',
+                ['kind' => 'a', 'zz' => 's'],
+            ],
         ];
     }
 
@@ -189,6 +210,40 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 ['zz' => 5],
                 InvalidAdditionalPropertiesException::class,
                 "/^Provided JSON for '.*' contains invalid additional properties\n/",
+            ],
+            // The trigger is absent, so the branch's dependent subschema never applies and `extra` stays unevaluated.
+            'branch-level dependent name without its trigger stays unevaluated' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['extra' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('extra'),
+            ],
+            'branch-level dependencies credit only what the dependent subschema declares' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'stray' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('stray'),
+            ],
+            'branch-level dependent additionalProperties claims nothing without its trigger' => [
+                'BranchLevelDependenciesAdditionalPropertiesUnevaluated.json',
+                ['zz' => 's'],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('zz'),
+            ],
+            'dependent name without its trigger stays unevaluated in a branch of a branch' => [
+                'BranchOfBranchLevelDependenciesUnevaluated.json',
+                ['extra' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('extra'),
+            ],
+            // The first anyOf branch fails (`kind` is not "a"), so its dependent subschema is not evaluated and
+            // must credit nothing: `kind` (declared only by the failed branch) and `extra` stay unevaluated,
+            // `other` is claimed by the second branch.
+            'dependencies of a failing anyOf branch credit nothing' => [
+                'FailingBranchDependenciesUnevaluated.json',
+                ['kind' => 'b', 'other' => 'x', 'extra' => 1],
+                UnevaluatedPropertiesException::class,
+                "/^Provided JSON for '.*' contains not allowed unevaluated properties \['kind', 'extra'\]$/",
             ],
             'adopted additionalProperties of a property-level $ref still validates the keys it claims' => [
                 'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
@@ -1870,6 +1925,78 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             "Provided JSON for '{$className}' contains not allowed unevaluated properties ['"
                 . implode("', '", $unevaluatedKeys) . "']",
             $exception->getMessage(),
+        );
+    }
+
+    /**
+     * The shortfall is reported where an accumulator actually consults the schema, not where the schema happens to
+     * spell the keyword. The dependent subschema of a composition *branch* is consulted by the `unevaluatedProperties`
+     * of the schema the branch belongs to, so the warning has to appear there as well — silently over-rejecting the
+     * same JSON written on the schema itself would be inconsistent.
+     *
+     * A schema which no accumulator consults gets no warning: nothing can over-reject there.
+     */
+    public function testDependencyShortfallIsReportedWhereAnAccumulatorConsultsTheSchema(): void
+    {
+        $branchLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'BranchLevelDependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($branchLogger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $branchLogger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'kind', 'keywords' => 'allOf'],
+            ),
+            'The branch-level dependent subschema is consulted by the enclosing unevaluatedProperties.',
+        );
+
+        $unconsultedLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'DependencyReachingThroughCompositionWithoutUnevaluated.json',
+            (new GeneratorConfiguration())->setLogger($unconsultedLogger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $unconsultedLogger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+            ),
+            'No unevaluatedProperties consults this schema, so nothing can over-reject.',
+        );
+    }
+
+    /**
+     * Draft 7 does not know `unevaluatedProperties`, so it produces no validator there and the dependency shortfall
+     * cannot over-reject anything: the warning is noise on a draft which ignores the keyword.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testDependencyShortfallIsNotReportedOnDraftsWithoutUnevaluatedProperties(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'DependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+            ),
+            'unevaluatedProperties is unknown on this draft, so the shortfall must not be reported.',
         );
     }
 

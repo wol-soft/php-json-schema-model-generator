@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
@@ -81,7 +82,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         // render() runs, ensures every branch class carries _getEvaluatedProperties() regardless
         // of whether the outer or inner schema was processed first. RenderQueue::execute runs
         // process() over every job before render() begins.
-        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema);
+        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema, $generatorConfiguration);
+
+        // The schema's own accumulator consults what its dependent subschemas declare. A schema which merely
+        // activates because a branch or a property further down uses an unevaluated keyword has no accumulator
+        // of its own, so it keeps its shortfalls until an enclosing schema reaches it as a branch.
+        $ownUnevaluatedProperties = $schema->getJsonSchema()->getJson()['unevaluatedProperties'] ?? true;
+        if ($ownUnevaluatedProperties !== true) {
+            $this->reportDependentContributionShortfalls($schema, $generatorConfiguration);
+        }
 
         // The trait carries collectUnevaluatedKeys(), which every generated unevaluatedProperties
         // validator calls regardless of whether the schema also has composition validators. It
@@ -598,8 +607,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * `hasMethod()` doubles as the already-activated marker, so a branch class shared between
      * several enclosing schemas is set up exactly once.
      */
-    private function addGetEvaluatedPropertiesToNestedBranchSchemas(Schema $schema): void
-    {
+    private function addGetEvaluatedPropertiesToNestedBranchSchemas(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
         foreach ($schema->getBaseValidators() as $baseValidator) {
             if (!$baseValidator instanceof AbstractComposedPropertyValidator) {
                 continue;
@@ -617,6 +628,9 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     $this->buildGetEvaluatedPropertiesMethod($nestedSchema),
                 );
 
+                // The enclosing schema's accumulator now consults this branch class.
+                $this->reportDependentContributionShortfalls($nestedSchema, $generatorConfiguration);
+
                 // Only a branch class that has compositions of its own needs the trait: its own
                 // branches call collectEvaluatedProperties() from it when they write their slots.
                 // A branch class without compositions would just carry an unused trait and import.
@@ -624,8 +638,44 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     $nestedSchema->addTrait(CompositionEvaluationTrait::class);
                 }
 
-                $this->addGetEvaluatedPropertiesToNestedBranchSchemas($nestedSchema);
+                $this->addGetEvaluatedPropertiesToNestedBranchSchemas($nestedSchema, $generatorConfiguration);
             }
+        }
+    }
+
+    /**
+     * Reports what the dependent subschemas of a schema evaluate through keywords the dependent contribution cannot
+     * credit (see PropertyDependencyTrait::recordDependentContributionShortfall()). Called once an
+     * unevaluatedProperties accumulator is known to consult the schema, and only where the draft knows the keyword:
+     * on a draft which ignores it no validator exists and nothing can over-reject.
+     *
+     * The shortfalls are taken either way, so a schema reached from several enclosing schemas reports once.
+     */
+    private function reportDependentContributionShortfalls(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $shortfalls = $schema->takeDependentContributionShortfalls();
+
+        if (
+            $shortfalls === []
+            || $generatorConfiguration->getBuiltDraft($schema->getJsonSchema())
+                ->getTypesForKeyword('unevaluatedProperties') === []
+        ) {
+            return;
+        }
+
+        foreach ($shortfalls as $shortfall) {
+            $generatorConfiguration->getLogger()->warning(
+                "The dependent schema of '{property}' on {class} evaluates properties through {keywords},"
+                    . ' which unevaluatedProperties cannot credit — those keys are reported as'
+                    . ' unevaluated even when the dependent schema evaluates them',
+                [
+                    'property' => $shortfall['trigger'],
+                    'class' => $schema->getClassName(),
+                    'keywords' => implode(', ', $shortfall['keywords']),
+                ],
+            );
         }
     }
 
@@ -680,17 +730,47 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 // process() before the first render(), so by now the nested schema's final field
                 // set is known. Emitting a runtime property_exists() guard instead would leave
                 // generated code probing for a field the generator already knows is absent.
+                // The dependent subschemas of the branch apply while their trigger is present, the same
+                // trigger-guarded contribution the unevaluatedProperties check of a schema renders.
+                $declaredNamesExpression = AbstractUnevaluatedPropertiesValidator::buildNameListExpression(
+                    RenderHelper::varExportArray($declaredPropertyNames),
+                    array_map(
+                        RenderHelper::varExportArray(...),
+                        $this->nestedSchema->getDependentEvaluatedNamesByTrigger(),
+                    ),
+                    '$this->_rawModelDataInput',
+                );
+
                 $lines = [
                     '#[Internal]',
                     'public function _getEvaluatedProperties(): array',
                     '{',
+                ];
+
+                // A dependent subschema declaring a non-false additionalProperties claims every
+                // remaining key, but only while its trigger is present.
+                $allKeysTriggerNames = $this->nestedSchema->getDependentAllKeysTriggerNames();
+                if ($allKeysTriggerNames !== []) {
+                    array_push(
+                        $lines,
+                        '    if (array_intersect_key('
+                            . RenderHelper::varExportArray(array_fill_keys($allKeysTriggerNames, true))
+                            . ', $this->_rawModelDataInput)) {',
+                        '        return array_keys($this->_rawModelDataInput);',
+                        '    }',
+                        '',
+                    );
+                }
+
+                array_push(
+                    $lines,
                     '    $evaluated = [];',
-                    '    foreach (' . RenderHelper::varExportArray($declaredPropertyNames) . ' as $declaredName) {',
+                    '    foreach (' . $declaredNamesExpression . ' as $declaredName) {',
                     '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
                     '            $evaluated[$declaredName] = true;',
                     '        }',
                     '    }',
-                ];
+                );
 
                 if ($this->declaresInternalProperty('patternProperties')) {
                     // Keys matched by this schema's own patternProperties (with passing values) are
