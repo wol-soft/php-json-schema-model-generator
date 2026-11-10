@@ -297,12 +297,3 @@ schema root, on a property, or inside a composition branch, and the names a refe
 a further reference travel on with it. Self-referential ``$ref`` chains are handled without
 infinite recursion: the generator terminates the walk when it revisits a schema it has already
 processed.
-
-.. note::
-
-    One shortfall: a key matched by ``patternProperties`` is credited only when the pattern's own
-    validator reached the referencing class, and that validator currently stops at the first hop.
-    A single reference to a schema declaring ``patternProperties`` therefore credits its matches,
-    while a *chain* of references through an intermediate that declares siblings of its own does
-    not — such a key is reported as unevaluated. Declare the pattern on the schema that needs it,
-    or reference it directly, to avoid this.

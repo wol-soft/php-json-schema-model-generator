@@ -1567,38 +1567,34 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
      * which only holds if each link passes on what it adopted from the link below it rather than
      * just what it declares itself — `a` and the `^p_` pattern reach the root only through
      * `middle`, which declares neither.
+     *
+     * A pattern is only credited once the validator that matched it has recorded the key, so the
+     * chain has to carry `inner`'s pattern validator along as well, together with the field it
+     * writes.
      */
     public function testChainedSiblingRefsCarryEveryAdoptedNameAndPattern(): void
     {
         $className = $this->generateClassFromFile('ChainedSiblingRefUnevaluated.json');
 
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_patternProperties'),
+            'The field the transferred pattern validator writes must be declared on the class.',
+        );
+
         $accepted = ['a' => 'x', 'b' => 'y', 'c' => 'z'];
         $instance = new $className($accepted);
         $this->assertSame($accepted, $instance->meta()->rawInput());
 
-        try {
-            new $className(['d' => 'stray']);
-            $this->fail('A name no link in the chain declares must stay unevaluated');
-        } catch (UnevaluatedPropertiesException $exception) {
-            $this->assertSame(['d'], $exception->getUnevaluatedProperties());
-        }
+        // `a` is adopted from `inner` through `middle`, `p_1` is matched by the pattern of `inner`.
+        $acceptedWithPattern = ['a' => 'x', 'p_1' => 'w'];
+        $instance = new $className($acceptedWithPattern);
+        $this->assertSame($acceptedWithPattern, $instance->meta()->rawInput());
 
-        // `^p_` reaches the accumulator's pattern list (the generated collectUnevaluatedKeys call
-        // receives it), but a pattern is only credited once the validator that matched it has
-        // recorded the key, and that validator never arrives: a chained reference transfers the
-        // referenced schema's *properties* but not its base validators, so `inner`'s pattern
-        // validator stops short of this class and `_patternProperties` is never declared on it.
-        // A single-hop reference does carry it — see
-        // testSiblingRefContributesEvaluatedPatternProperties. The shortfall belongs to reference
-        // merging rather than to this keyword (it drops every object-level validator the inner
-        // schema declares, not just pattern ones), so it is asserted here as it currently behaves
-        // instead of being hidden by a fixture that omits the pattern: when the transfer is fixed,
-        // this assertion fails and says so.
         $this->expectException(UnevaluatedPropertiesException::class);
         $this->expectExceptionMessage(
-            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['p_1']",
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['d']",
         );
-        new $className(['a' => 'x', 'p_1' => 'w']);
+        new $className(['d' => 'stray']);
     }
 
     /**

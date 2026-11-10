@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
+use PHPModelGenerator\Exception\Object\MinPropertiesException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -12,6 +17,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Tests for property-level $ref + sibling merge behavior.
@@ -248,5 +254,162 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
 
         // 'street' is still required (from the ref) even when siblings are ignored.
         new $className(['address' => ['city' => 'Berlin']]);
+    }
+
+    // -------------------------------------------------------------------------
+    // The referenced schema's object-level validators survive the merge (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * A chain of references in which the middle link adds siblings of its own: the root references `middle`, which
+     * references `inner`. `middle` is built through the sibling merge, and the root's base-level reference only passes
+     * on what `middle` carries. Every object-level constraint of `inner` (here its `patternProperties` and its
+     * `minProperties`) has to survive that, as it does for a single-hop reference; both were silently dropped, so an
+     * instance violating them was accepted.
+     *
+     * The class name inside the messages carries a run-specific suffix.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testChainedRefRetainsTheObjectConstraintsOfTheInnerSchema(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ChainedRefObjectConstraints.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $accepted = ['p_1' => 'ok', 'a' => 'x'];
+        $this->assertSame($accepted, (new $className($accepted))->meta()->rawInput());
+
+        try {
+            new $className(['p_1' => 123, 'a' => 'x']);
+            $this->fail('A value violating the pattern of the inner schema must be rejected');
+        } catch (InvalidPatternPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'MSG'
+                /^Provided JSON for '\S+' contains invalid pattern properties
+                  - invalid property 'p_1' matching pattern '\^p_'
+                    \* Invalid type for 'pattern property': requires 'string', got 'integer'$/
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->expectException(MinPropertiesException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Provided object for '\S+' must not contain less than 2 properties$/",
+        );
+
+        new $className(['a' => 'x']);
+    }
+
+    /**
+     * The composition of the referenced schema is one of its base validators too. Reached through a property-level
+     * reference with a sibling `properties`, the merged class lost it: without the `allOf` branch requiring `x` an
+     * object lacking `x` was accepted.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelRefToCompositionRetainsTheCompositionAfterTheMerge(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefToCompositionWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $accepted = ['nested' => ['x' => 'a', 'y' => 's']];
+        $this->assertSame($accepted, (new $className($accepted))->meta()->rawInput());
+
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessageMatches(<<<'MSG'
+        /^Invalid nested object for property 'nested':
+          - Invalid value for '\S+' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                \* Missing required value for 'x'$/
+        MSG);
+
+        new $className(['nested' => ['y' => 's']]);
+    }
+
+    /**
+     * Inputs for the two reference paths, with the exception each must raise (null: accepted). The referenced schema
+     * constrains its `patternProperties`, `additionalProperties`, `minProperties` and `propertyNames`.
+     *
+     * @return array<string, array{array<string, mixed>, class-string<ValidationException>|null}>
+     */
+    public static function objectConstraintInputProvider(): array
+    {
+        return [
+            // satisfies every constraint of the referenced schema
+            'valid declared property and pattern match' => [['a' => 'x', 'p_1' => 'ok'], null],
+            // the referenced schema requires two properties
+            'too few properties' => [['a' => 'x'], MinPropertiesException::class],
+            // `p_1` matches `^p_`, whose schema requires a string
+            'pattern value violates its schema' => [
+                ['a' => 'x', 'p_1' => 123],
+                InvalidPatternPropertiesException::class,
+            ],
+            // an additional property has to be an integer
+            'additional property violates its schema' => [
+                ['a' => 'x', 'zz' => 'notint'],
+                InvalidAdditionalPropertiesException::class,
+            ],
+            'additional property satisfies its schema' => [['a' => 'x', 'zz' => 5], null],
+            // property names have to match `^[a-z_0-9]+$`
+            'property name violates the pattern' => [
+                ['a' => 'x', 'BAD-NAME' => 5],
+                InvalidPropertyNamesException::class,
+            ],
+            // `c` is declared by the referencing schema only. The `additionalProperties` of the referenced schema
+            // does not know it, so by the spec it is an additional property there and has to be an integer.
+            'property declared by the sibling is additional for the referenced schema' => [
+                ['c' => 'y', 'a' => 'x'],
+                InvalidAdditionalPropertiesException::class,
+            ],
+        ];
+    }
+
+    /**
+     * A base-level `$ref` with a sibling `properties` and the same combination on a property are two assembly paths
+     * for the same keyword combination, so they must produce identical outcomes for the same instance. The property
+     * level path transferred only the properties of the referenced schema and accepted every input below, whichever
+     * constraint it violated.
+     *
+     * Each validator transferred from the referenced schema renders once into the merged class.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testBaseLevelAndPropertyLevelRefWithSiblingsApplyTheSameObjectConstraints(): void
+    {
+        $configuration = (new GeneratorConfiguration())->setCollectErrors(false);
+
+        $baseLevelClass = $this->generateClassFromFile('RefObjectConstraintsBaseLevel.json', $configuration);
+        $propertyLevelClass = $this->generateClassFromFile('RefObjectConstraintsPropertyLevel.json', $configuration);
+
+        foreach (self::objectConstraintInputProvider() as $label => [$input, $expectedException]) {
+            $baseLevelException = $this->catchException(static fn(): object => new $baseLevelClass($input));
+            $propertyLevelException = $this->catchException(
+                static fn(): object => new $propertyLevelClass(['nested' => $input]),
+            );
+
+            if ($expectedException === null) {
+                $this->assertNull($baseLevelException, "Base level path must accept: $label");
+                $this->assertNull($propertyLevelException, "Property level path must accept: $label");
+
+                continue;
+            }
+
+            $this->assertInstanceOf($expectedException, $baseLevelException, "Base level path: $label");
+            $this->assertInstanceOf(NestedObjectException::class, $propertyLevelException, "Property level: $label");
+            $this->assertInstanceOf(
+                $expectedException,
+                $propertyLevelException->getNestedException(),
+                "Property level path: $label",
+            );
+        }
+
+        $mergedClass = (new $propertyLevelClass(['nested' => ['a' => 'x', 'p_1' => 'ok']]))->getNested()::class;
+        $mergedSource = file_get_contents((new ReflectionClass($mergedClass))->getFileName());
+
+        $this->assertSame(1, substr_count($mergedSource, '\'/$defs/inner/patternProperties/^p_/type\''));
+        $this->assertSame(1, substr_count($mergedSource, '\'/$defs/inner/additionalProperties/type\''));
     }
 }

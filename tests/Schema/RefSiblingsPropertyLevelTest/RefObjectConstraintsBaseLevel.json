@@ -1,0 +1,31 @@
+{
+  "$defs": {
+    "inner": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^p_": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "minProperties": 2,
+      "propertyNames": {
+        "pattern": "^[a-z_0-9]+$"
+      }
+    }
+  },
+  "type": "object",
+  "$ref": "#/$defs/inner",
+  "properties": {
+    "c": {
+      "type": "string"
+    }
+  }
+}
