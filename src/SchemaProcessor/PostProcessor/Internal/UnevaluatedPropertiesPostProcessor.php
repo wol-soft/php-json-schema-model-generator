@@ -726,19 +726,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     $this->nestedSchema->getUnconditionallyEvaluatedPropertyNames(),
                 )));
 
-                // Both fields are added by post processors, and RenderQueue::execute() runs every
-                // process() before the first render(), so by now the nested schema's final field
-                // set is known. Emitting a runtime property_exists() guard instead would leave
-                // generated code probing for a field the generator already knows is absent.
                 // The dependent subschemas of the branch apply while their trigger is present, the same
                 // trigger-guarded contribution the unevaluatedProperties check of a schema renders.
-                $declaredNamesExpression = AbstractUnevaluatedPropertiesValidator::buildNameListExpression(
-                    RenderHelper::varExportArray($declaredPropertyNames),
-                    array_map(
-                        RenderHelper::varExportArray(...),
-                        $this->nestedSchema->getDependentEvaluatedNamesByTrigger(),
-                    ),
-                    '$this->_rawModelDataInput',
+                $dependentNameLists = array_map(
+                    RenderHelper::varExportArray(...),
+                    $this->nestedSchema->getDependentEvaluatedNamesByTrigger(),
                 );
 
                 $lines = [
@@ -762,22 +754,37 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     );
                 }
 
-                array_push(
-                    $lines,
-                    '    $evaluated = [];',
-                    '    foreach (' . $declaredNamesExpression . ' as $declaredName) {',
-                    '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
-                    '            $evaluated[$declaredName] = true;',
-                    '        }',
-                    '    }',
-                );
+                // Only the blocks which can add to the accumulator are emitted. A loop over a name list the
+                // generator already knows to be empty is dead code, and a branch class without any block
+                // contributes nothing at all, which is then said directly instead of computing an empty list
+                // through an empty accumulator.
+                $contributions = [];
 
+                if ($declaredPropertyNames !== [] || $dependentNameLists !== []) {
+                    array_push(
+                        $contributions,
+                        '    foreach (' . AbstractUnevaluatedPropertiesValidator::buildNameListExpression(
+                            RenderHelper::varExportArray($declaredPropertyNames),
+                            $dependentNameLists,
+                            '$this->_rawModelDataInput',
+                        ) . ' as $declaredName) {',
+                        '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
+                        '            $evaluated[$declaredName] = true;',
+                        '        }',
+                        '    }',
+                    );
+                }
+
+                // Both fields are added by post processors, and RenderQueue::execute() runs every
+                // process() before the first render(), so by now the nested schema's final field
+                // set is known. Emitting a runtime property_exists() guard instead would leave
+                // generated code probing for a field the generator already knows is absent.
                 if ($this->declaresInternalProperty('patternProperties')) {
                     // Keys matched by this schema's own patternProperties (with passing values) are
                     // evaluated too, so an enclosing schema must see them. Only the keys matter
                     // (the result is array_keys($evaluated)), so the maps are unioned.
                     array_push(
-                        $lines,
+                        $contributions,
                         '    foreach ($this->_patternProperties as $patternMatches) {',
                         '        $evaluated += $patternMatches;',
                         '    }',
@@ -787,11 +794,23 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 if ($this->declaresInternalProperty('evaluatedPropertyKeys')) {
                     // Keys evaluated by this schema's own unevaluatedProperties: {schema} validator
                     // are tracked so an enclosing schema can see them.
-                    $lines[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
+                    $contributions[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
                 }
 
-                array_push($lines, ...$this->renderCompositionContribution());
-                array_push($lines, '', '    return array_keys($evaluated);', '}');
+                array_push($contributions, ...$this->renderCompositionContribution());
+
+                if ($contributions === []) {
+                    $lines[] = '    return [];';
+                } else {
+                    $lines = array_merge(
+                        $lines,
+                        ['    $evaluated = [];'],
+                        $contributions,
+                        ['', '    return array_keys($evaluated);'],
+                    );
+                }
+
+                $lines[] = '}';
 
                 return implode("\n", $lines);
             }

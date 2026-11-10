@@ -598,6 +598,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertStringNotContainsString('property_exists', $patternOnlySource);
         $this->assertStringContainsString('$this->_patternProperties', $patternOnlySource);
         $this->assertStringNotContainsString('_evaluatedPropertyKeys', $patternOnlySource);
+        // The branch declares no property names, so there is nothing to loop over.
+        $this->assertStringNotContainsString('foreach ([] as', $patternOnlySource);
 
         $evaluatedKeysClassName = $this->generateClassFromFile('NestedUnevaluatedInBranchPropagatesClaims.json');
         $evaluatedKeysSource = $this->getEvaluatedPropertiesMethodSource(
@@ -607,6 +609,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertStringNotContainsString('property_exists', $evaluatedKeysSource);
         $this->assertStringNotContainsString('_patternProperties', $evaluatedKeysSource);
         $this->assertStringContainsString('$this->_evaluatedPropertyKeys', $evaluatedKeysSource);
+        $this->assertStringNotContainsString('foreach ([] as', $evaluatedKeysSource);
 
         $bothClassName = $this->generateClassFromFile('BranchWithPatternAndUnevaluatedSchema.json');
         $bothSource = $this->getEvaluatedPropertiesMethodSource($this->resolveNestedClassName($bothClassName));
@@ -622,6 +625,30 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A branch class which declares no property names, no pattern, no evaluated keys and no composition of its own can
+     * contribute nothing statically, so its method is `return [];`: the empty accumulator, the loop over an empty
+     * list and the conversion of the accumulator back into a list are dead code around it. Only the parts of the
+     * method which can contribute are emitted for every other shape, see the test above.
+     */
+    public function testEvaluatedPropertiesMethodOfABranchContributingNothingIsAnEmptyList(): void
+    {
+        $className = $this->generateClassFromFile('BranchContributingNothingStatically.json');
+
+        $source = $this->getEvaluatedPropertiesMethodSource($this->resolveNestedClassName($className));
+
+        $this->assertStringContainsString('return [];', $source);
+        $this->assertStringNotContainsString('foreach', $source);
+        $this->assertStringNotContainsString('$evaluated', $source);
+
+        // The branch evaluates nothing by itself, so the enclosing keyword rejects every key of an accepted value.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['a']",
+        );
+        new $className(['a' => 1]);
+    }
+
+    /**
      * @return string the source of `_getEvaluatedProperties()` as rendered into the nested class
      */
     private function getEvaluatedPropertiesMethodSource(string $nestedClassName): string
@@ -633,7 +660,10 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertSame(
             1,
             preg_match(
-                '/function _getEvaluatedProperties\(\): array.*?return array_keys\(\$evaluated\);/s',
+                '/function _getEvaluatedProperties\(\): array
+    \{.*?
+    }
+/s',
                 $source,
                 $matches,
             ),

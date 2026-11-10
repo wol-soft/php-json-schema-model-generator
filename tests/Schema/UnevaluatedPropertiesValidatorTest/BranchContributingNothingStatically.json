@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    {
+      "type": "object",
+      "minProperties": 1
+    }
+  ]
+}
