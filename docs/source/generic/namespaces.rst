@@ -62,4 +62,6 @@ The detection is not bound to namespace limits so a nested object which occurs i
 Consequently the class generated to `Response\Register.php` may use classes from the `Request` namespace.
 A duplicated class is not linked to an already generated class if it's a primary object. The detection only links nested classes.
 
+Two nested objects are only linked when they are identical in every keyword which changes the generated class. A nested object which additionally declares ``unevaluatedProperties`` gets a class of its own, whereas schemas which only differ in e.g. their ``title`` or ``description`` are linked to the first generated class.
+
 Two nested schemas are detected as identical if they only differ in the order of a list whose order doesn't change their meaning: the types of a ``type`` list, the property names of ``required``, the values of an ``enum`` and the properties required by a property dependency. Every other list keeps its order: schemas with a different order of their ``filter`` list, of the items of a tuple or of composition branches are generated as different classes.
