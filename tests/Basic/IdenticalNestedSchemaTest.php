@@ -458,6 +458,56 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * KNOWN DEFECT, pinned on purpose. The signature of a nested schema hashes a relative `$ref` as the bare string,
+     * but `#/definitions/d` names a different schema in every file. The nested schema `p` is textually identical in
+     * AStrictDefinition.json and BLooseDefinition.json, only the definition it points to differs, so the second is
+     * redirected to the class of the first and validated against a definition from another file.
+     *
+     * Spec-wise BLooseDefinition accepts `{"p": {"optional": "x"}}`; it is rejected here for a missing `must`, which
+     * only the other file's definition requires. This test pins that wrong outcome so the gap stays visible until it
+     * is fixed: when it is, the redirect notice disappears, the instance is accepted and this test fails — flip the
+     * assertions to the spec outcome then.
+     */
+    public function testKnownDefectNestedSchemasWithIdenticalRefTextButDifferentDefinitionsShareOneClass(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateDirectory(
+            'NestedRefsWithDifferentDefinitions',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('NestedRefsWithDifferentDefinitions')
+                ->setLogger($logger)
+                ->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'notice',
+                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+                ['class' => 'BLooseDefinition_P', 'redirectClass' => 'AStrictDefinition_P'],
+            ),
+            'The nested schema of the second file is redirected to the class of the first.',
+        );
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+
+        $strict = new ("\\{$namespacePrefix}\\AStrictDefinition")(['p' => ['must' => 'x']]);
+        $this->assertSame(['p' => ['must' => 'x']], $strict->meta()->rawInput());
+
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessage(<<<MSG
+        Invalid nested object for property 'p':
+          - Invalid value for 'AStrictDefinition_P' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                * Missing required value for 'must'
+        MSG);
+
+        new ("\\{$namespacePrefix}\\BLooseDefinition")(['p' => ['optional' => 'x']]);
+    }
+
+    /**
      * @param array<string, string> $context Narrows the check to the redirect of one class. Needed where the compared
      *                                       schemas legitimately share identical inner classes, which are redirected
      *                                       to one class as intended.

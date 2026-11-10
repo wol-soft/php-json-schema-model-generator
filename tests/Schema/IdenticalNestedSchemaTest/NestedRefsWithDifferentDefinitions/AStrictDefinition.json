@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/d"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "d": {
+      "type": "object",
+      "required": [
+        "must"
+      ],
+      "properties": {
+        "must": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
