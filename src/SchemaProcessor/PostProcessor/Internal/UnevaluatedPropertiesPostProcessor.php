@@ -189,6 +189,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $composedProperties[$index]->getBranchSchema(),
                 $contextName,
                 $index,
+                $draft,
             );
             $this->assertKeywordNotUnsupported(
                 $branchJson,
@@ -197,6 +198,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $composedProperties[$index]->getBranchSchema(),
                 $contextName,
                 $index,
+                $draft,
             );
         }
     }
@@ -270,11 +272,17 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         JsonSchema $branchSchema,
         string $contextName,
         int $branchIndex,
+        Draft $draft,
     ): void {
+        // A keyword the draft does not register is ignored by the generated class altogether
+        // (Draft 7 knows neither unevaluated keyword), so the branch computes no "unevaluated" set
+        // that could be wrong. Rejecting it would turn an ignorable keyword into a generation
+        // failure.
         if (
             !array_key_exists($keyword, $branchJson)
             || $branchJson[$keyword] === true
             || !$somethingElseClaims
+            || $draft->getTypesForKeyword($keyword) === []
         ) {
             return;
         }

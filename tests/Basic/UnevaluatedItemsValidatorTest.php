@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
@@ -1642,5 +1643,28 @@ MSG,
 
         $instance = new $className(['tags' => []]);
         $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
+    /**
+     * Draft 7 does not know `unevaluatedItems`, so a composition branch carrying it is inert
+     * there. The down-propagation guard exists to stop a branch from computing a wrong
+     * "unevaluated" set — on a draft that evaluates nothing there is no set to get wrong, and
+     * rejecting the schema turns an ignorable keyword into a generation failure. The guard must
+     * therefore only ask about keywords the draft registers.
+     *
+     * `items` must keep validating next to the inert branch.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testUnknownBranchUnevaluatedItemsBesideSiblingItemsGeneratesOnDraft07(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedItemsBesideItems.json');
+
+        $instance = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $instance->meta()->rawInput());
+
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage("Invalid items in array 'tags'");
+
+        new $className(['tags' => [1]]);
     }
 }

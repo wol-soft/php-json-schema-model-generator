@@ -710,6 +710,24 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * Draft 7 does not know `unevaluatedProperties`, so a composition branch carrying it is inert
+     * there. The down-propagation guard exists to stop a branch from computing a wrong
+     * "unevaluated" set — on a draft that evaluates nothing there is no set to get wrong, and
+     * rejecting the schema turns an ignorable keyword into a generation failure. The guard must
+     * therefore only ask about keywords the draft registers; on the drafts that do register it the
+     * same schema is still rejected (see testUnsupportedDownPropagationThrowsAcrossCompositionKeywords).
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testUnknownBranchUnevaluatedPropertiesBesideSiblingPropertiesGeneratesOnDraft07(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedPropertiesBesideProperties.json');
+
+        // The keyword is ignored, so a key declared nowhere is not unevaluated-rejected.
+        $instance = new $className(['a' => 'x', 'zz' => 1]);
+        $this->assertSame(['a' => 'x', 'zz' => 1], $instance->meta()->rawInput());
+    }
+
+    /**
      * Keys matched by a successful branch's `patternProperties` (with passing values) are
      * evaluated by that branch and must be credited to the outer accumulator — also when the
      * branch renders as a nested class rather than being merged or inlined. Two assertions on
