@@ -331,6 +331,84 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * One definition used as a class of its own (`plain`) and, next to that, merged with sibling properties
+     * (`nested`). The merge transfers the composition validator of the definition onto the merged class, so one
+     * validator instance is rendered into two classes. The helper method it needs was registered on whichever class
+     * was post-processed last, and the class of the plain usage called a method it did not define: its first valid
+     * value ended in an Error.
+     *
+     * The class name inside the messages carries a run-specific suffix.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testReferencedCompositionStaysUsableAsAClassWhenItIsAlsoMergedWithSiblings(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefToCompositionPlainAndMerged.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $plain = ['plain' => ['x' => 'a']];
+        $this->assertSame($plain, (new $className($plain))->meta()->rawInput());
+
+        $merged = ['nested' => ['x' => 'a', 'y' => 'b']];
+        $this->assertSame($merged, (new $className($merged))->meta()->rawInput());
+
+        try {
+            new $className(['nested' => ['y' => 'b']]);
+            $this->fail('The merged class has to enforce the composition of the referenced schema');
+        } catch (NestedObjectException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'MSG'
+                /^Invalid nested object for property 'nested':
+                  - Invalid value for '\S+' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        \* Missing required value for 'x'$/
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessageMatches(<<<'MSG'
+        /^Invalid nested object for property 'plain':
+          - Invalid value for '\S+' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                \* Missing required value for 'x'$/
+        MSG);
+
+        new $className(['plain' => ['y' => 'b']]);
+    }
+
+    /**
+     * The base-level reference transfers the composition validator onto the referencing class in the same way, so
+     * the same definition used as a class of its own next to it hit the same missing helper method.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testReferencedCompositionStaysUsableAsAClassWhenTheRootReferencesItToo(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefToCompositionPlainAndBaseLevel.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $accepted = ['x' => 'a', 'plain' => ['x' => 'b']];
+        $this->assertSame($accepted, (new $className($accepted))->meta()->rawInput());
+
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessageMatches(<<<'MSG'
+        /^Invalid nested object for property 'plain':
+          - Invalid value for '\S+' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                \* Missing required value for 'x'$/
+        MSG);
+
+        new $className(['x' => 'a', 'plain' => ['y' => 'b']]);
+    }
+
+    /**
      * Inputs for the two reference paths, with the exception each must raise (null: accepted). The referenced schema
      * constrains its `patternProperties`, `additionalProperties`, `minProperties` and `propertyNames`.
      *
