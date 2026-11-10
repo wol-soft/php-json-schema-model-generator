@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
@@ -13,6 +14,7 @@ use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Utils\ArrayItemFilterScope;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class CompositionPropertyDecorator extends PropertyProxy
@@ -31,11 +33,20 @@ class CompositionPropertyDecorator extends PropertyProxy
 
     private ?bool $filtersArrayItems = null;
 
+    private ?ArrayItemsCoverage $itemsCoverage = null;
+
     /**
+     * @param Draft $draft The draft the branch is evaluated under; decides which keywords of the
+     *                     branch's JSON mean anything (`prefixItems` is only a tuple from Draft 2020-12 on)
+     *
      * @throws SchemaException
      */
-    public function __construct(string $propertyName, JsonSchema $jsonSchema, PropertyInterface $property)
-    {
+    public function __construct(
+        string $propertyName,
+        JsonSchema $jsonSchema,
+        PropertyInterface $property,
+        private readonly Draft $draft,
+    ) {
         parent::__construct(
             $propertyName,
             $jsonSchema,
@@ -280,39 +291,30 @@ class CompositionPropertyDecorator extends PropertyProxy
      */
     public function getBranchTupleItemsCount(): int
     {
-        $branchJson = $this->jsonSchema->getJson();
-        // Draft 2020-12 spells the tuple `prefixItems`; on earlier drafts that key is unknown
-        // and `items` keeps the tuple role, so reading prefixItems first is correct for both.
-        $items = $branchJson['prefixItems'] ?? $branchJson['items'] ?? null;
-
-        if (!is_array($items) || $items === [] || !array_is_list($items)) {
-            return 0;
-        }
-
-        return count($items);
+        return $this->getItemsCoverage()->getTupleLength();
     }
 
     /**
-     * True when the branch's `additionalItems` evaluates every index at or past the tuple length.
-     * That requires a tuple to sit in front of it: `additionalItems` has no effect at all without
-     * a tuple-form `items` alongside it, so a branch declaring it alone claims nothing rather than
-     * claiming the whole array. The `false` value rejects tail indices instead of evaluating them,
-     * so it does not count either.
+     * True when the branch's trailing-entry keyword (`additionalItems` behind a tuple `items`,
+     * `items` behind a `prefixItems` tuple) evaluates every index at or past the tuple length.
+     * That requires a tuple to sit in front of it: the keyword has no effect at all without one,
+     * so a branch declaring it alone claims nothing rather than claiming the whole array. The
+     * `false` value rejects tail indices instead of evaluating them, so it does not count either.
      *
-     * Deliberately not "does the branch declare a non-false additionalItems" — that phrasing drops
+     * Deliberately not "does the branch declare a non-false trailing keyword" — that phrasing drops
      * the tuple precondition and makes a lone `{additionalItems: {...}}` branch credit every index
-     * of the value. The sibling-applicator path applies the same precondition (see
-     * `UnevaluatedItemsValidatorFactory::isDeadCode()`, which only considers `additionalItems` once
-     * it has established a tuple); the two must agree, because the same JSON means the same thing
-     * whether it sits on the property or inside one of its composition branches.
+     * of the value. The sibling-applicator path applies the same precondition through the same
+     * reading (see {@see ArrayItemsCoverage}); the two must agree, because the same JSON means the
+     * same thing whether it sits on the property or inside one of its composition branches.
      */
     public function branchAdditionalItemsCoversTail(): bool
     {
-        $branchJson = $this->jsonSchema->getJson();
+        return $this->getItemsCoverage()->tailIsClaimed();
+    }
 
-        return $this->getBranchTupleItemsCount() > 0
-            && array_key_exists('additionalItems', $branchJson)
-            && $branchJson['additionalItems'] !== false;
+    private function getItemsCoverage(): ArrayItemsCoverage
+    {
+        return $this->itemsCoverage ??= ArrayItemsCoverage::fromJson($this->jsonSchema->getJson(), $this->draft);
     }
 
     /**
@@ -326,21 +328,19 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * True when the branch carries at least one array-side applicator (`items`,
-     * `additionalItems`, `contains`, or an `unevaluatedItems: true` annotation) and no
-     * object-side applicators (`properties`,
-     * `additionalProperties`, `patternProperties`). Drives whether the composition template
-     * writes the branch's slot into `_compositionAnnotated`.
+     * True when the branch carries at least one array-side applicator (`items`, `prefixItems`
+     * where the draft registers it, `additionalItems`, `contains`, or an `unevaluatedItems: true`
+     * annotation) and no object-side applicators (`properties`, `additionalProperties`,
+     * `patternProperties`). Drives whether the composition template writes the branch's slot into
+     * `_compositionAnnotated`.
      */
     public function branchIsArrayKind(): bool
     {
         $branchJson = $this->jsonSchema->getJson();
 
-        $hasArrayApplicator = array_key_exists('items', $branchJson)
-            || array_key_exists('prefixItems', $branchJson)
-            || array_key_exists('additionalItems', $branchJson)
-            || array_key_exists('contains', $branchJson)
-            || ($branchJson['unevaluatedItems'] ?? null) === true;
+        $hasArrayApplicator = array_key_exists('contains', $branchJson)
+            || ($branchJson['unevaluatedItems'] ?? null) === true
+            || array_intersect(ArrayItemsCoverage::positionalKeywords($this->draft), array_keys($branchJson)) !== [];
 
         $hasObjectApplicator = array_key_exists('properties', $branchJson)
             || array_key_exists('additionalProperties', $branchJson)

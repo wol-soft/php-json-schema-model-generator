@@ -395,7 +395,10 @@ element raises an ``UnevaluatedItemsException``. Adding ``"items": {"type": "int
 ``prefixItems`` instead validates every element from index 1 on, leaving nothing unevaluated.
 
 On Draft 7 and Draft 2019-09 ``prefixItems`` is not a known keyword and is ignored, so ``items``
-keeps its own meaning there and still validates every element.
+keeps its own meaning there and still validates every element. Being ignored also means it
+evaluates no index: the schema above rejects ``["a"]`` on Draft 2019-09, where nothing evaluates
+index 0, whether the keyword is declared on the array property or inside one of its composition
+branches.
 
 Using ``false``
 ^^^^^^^^^^^^^^^

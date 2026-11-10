@@ -476,6 +476,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $compositionSchema,
                     $property->isRequired(),
                 ),
+                $draft,
             );
 
             // Only branches that resolve synchronously (i.e. right here, not deferred to a later
@@ -548,6 +549,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         $presenceCheck = $property instanceof BaseProperty
@@ -596,6 +598,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         $branchProperty->markAsAlwaysTrueBranch();

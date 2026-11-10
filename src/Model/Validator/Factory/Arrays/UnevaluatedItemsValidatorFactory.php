@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\NoUnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 
 class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
 {
@@ -59,10 +60,14 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $unevaluatedPointer = $propertySchema->getPointer() . '/' . $this->key;
+        $siblingCoverage = ArrayItemsCoverage::fromJson(
+            $json,
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+        );
 
         if ($unevaluatedItems === false) {
             $property->addValidator(
-                (new NoUnevaluatedItemsValidator($property))->withJsonPointer($unevaluatedPointer),
+                (new NoUnevaluatedItemsValidator($property, $siblingCoverage))->withJsonPointer($unevaluatedPointer),
                 self::VALIDATOR_PRIORITY,
             );
 
@@ -70,7 +75,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema))
+            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema, $siblingCoverage))
                 ->withJsonPointer($unevaluatedPointer),
             self::VALIDATOR_PRIORITY,
         );

@@ -17,19 +17,10 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\TrailingItemsValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 
 class ItemsValidatorFactory extends AbstractValidatorFactory
 {
-    /**
-     * The keyword that constrains the entries a tuple does not cover, per tuple keyword. Draft
-     * 2020-12 renamed the tuple form of `items` to `prefixItems` and reused `items` itself for the
-     * trailing entries, which is the role `additionalItems` fills in earlier drafts.
-     */
-    private const array TAIL_KEYWORD = [
-        'items' => 'additionalItems',
-        'prefixItems' => 'items',
-    ];
-
     /**
      * @throws SchemaException
      */
@@ -113,9 +104,9 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         array $json,
     ): bool {
         return array_key_exists('prefixItems', $json)
-            && $schemaProcessor->getGeneratorConfiguration()
-                ->getBuiltDraft($propertySchema)
-                ->getTypesForKeyword('prefixItems') !== [];
+            && ArrayItemsCoverage::registersPrefixItems(
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+            );
     }
 
     /**
@@ -129,7 +120,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         string $itemsPointer,
     ): void {
         $json = $propertySchema->getJson();
-        $tailKeyword = self::TAIL_KEYWORD[$this->key];
+        $tailKeyword = ArrayItemsCoverage::TAIL_KEYWORD[$this->key];
 
         if (isset($json[$tailKeyword]) && $json[$tailKeyword] !== true) {
             $this->addAdditionalItemsValidator($schemaProcessor, $schema, $property, $propertySchema);
@@ -155,7 +146,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
-        $tailKeyword = self::TAIL_KEYWORD[$this->key];
+        $tailKeyword = ArrayItemsCoverage::TAIL_KEYWORD[$this->key];
         $additionalItemsPointer = $propertySchema->getPointer() . '/' . $tailKeyword;
 
         if (!is_bool($json[$tailKeyword])) {

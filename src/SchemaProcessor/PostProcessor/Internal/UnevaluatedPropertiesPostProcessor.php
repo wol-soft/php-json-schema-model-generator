@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
@@ -19,6 +20,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -67,7 +69,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return;
         }
 
-        $this->assertNoUnsupportedDownPropagation($schema);
+        $this->assertNoUnsupportedDownPropagation($schema, $generatorConfiguration);
 
         // A schema with a non-false `unevaluatedProperties` validator tracks each key the
         // validator successfully evaluates in `_evaluatedPropertyKeys`. That field is read
@@ -108,14 +110,17 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * because it already blocks annotations from crossing its boundary in both directions by
      * design (see `not.rst`) - nothing about its own outcome depends on outside annotations.
      */
-    private function assertNoUnsupportedDownPropagation(Schema $schema): void
-    {
+    private function assertNoUnsupportedDownPropagation(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
         foreach ($schema->getBaseValidators() as $validator) {
             if ($validator instanceof AbstractComposedPropertyValidator) {
                 $this->checkBranchesForUnsupportedDownPropagation(
                     $validator,
                     $schema->getJsonSchema()->getJson(),
                     $schema->getClassName(),
+                    $generatorConfiguration->getBuiltDraft($schema->getJsonSchema()),
                 );
             }
         }
@@ -127,6 +132,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                         $validator,
                         $schemaProperty->getJsonSchema()->getJson(),
                         $schemaProperty->getName(),
+                        $generatorConfiguration->getBuiltDraft($schemaProperty->getJsonSchema()),
                     );
                 }
             }
@@ -136,11 +142,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     /**
      * @param array<string, mixed> $enclosingJson The JSON of the schema/property the composition
      *                                             keyword itself sits on - not any one branch's.
+     * @param Draft                $draft         The draft the enclosing schema/property is evaluated
+     *                                             under; it decides which keywords found in the
+     *                                             enclosing JSON and in the branches claim anything.
      */
     private function checkBranchesForUnsupportedDownPropagation(
         AbstractComposedPropertyValidator $validator,
         array $enclosingJson,
         string $contextName,
+        Draft $draft,
     ): void {
         if (is_a($validator->getCompositionProcessor(), NotValidatorFactory::class, true)) {
             return;
@@ -155,7 +165,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         $enclosingHasObjectClaims = $this->declaresObjectClaimingKeyword($enclosingJson);
-        $enclosingHasArrayClaims = $this->declaresArrayClaimingKeyword($enclosingJson);
+        $enclosingHasArrayClaims = $this->declaresArrayClaimingKeyword($enclosingJson, $draft);
 
         foreach ($branchJsonList as $index => $branchJson) {
             $somethingElseHasObjectClaims = $enclosingHasObjectClaims;
@@ -169,7 +179,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $somethingElseHasObjectClaims =
                     $somethingElseHasObjectClaims || $this->declaresObjectClaimingKeyword($siblingJson);
                 $somethingElseHasArrayClaims =
-                    $somethingElseHasArrayClaims || $this->declaresArrayClaimingKeyword($siblingJson);
+                    $somethingElseHasArrayClaims || $this->declaresArrayClaimingKeyword($siblingJson, $draft);
             }
 
             $this->assertKeywordNotUnsupported(
@@ -239,12 +249,18 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             || array_key_exists('additionalProperties', $json);
     }
 
-    private function declaresArrayClaimingKeyword(array $json): bool
+    /**
+     * Whether the JSON carries a keyword that evaluates array indices under the given draft.
+     * `prefixItems` counts only where the draft registers it: before Draft 2020-12 it is an
+     * unknown keyword that is ignored, and counting it would reject a schema as unsupported
+     * because of an annotation source that does not exist.
+     *
+     * @param array<string, mixed> $json
+     */
+    private function declaresArrayClaimingKeyword(array $json, Draft $draft): bool
     {
-        return array_key_exists('items', $json)
-            || array_key_exists('prefixItems', $json)
-            || array_key_exists('additionalItems', $json)
-            || array_key_exists('contains', $json);
+        return array_key_exists('contains', $json)
+            || array_intersect(ArrayItemsCoverage::positionalKeywords($draft), array_keys($json)) !== [];
     }
 
     private function assertKeywordNotUnsupported(

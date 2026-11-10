@@ -150,6 +150,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         $absenceCheck = $property instanceof BaseProperty

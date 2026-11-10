@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -26,8 +27,18 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
      * @param array<string, mixed> $extraTemplateValues Subclass-specific template values merged
      *                                                  on top of the shared set.
      */
+    /**
+     * @param ArrayItemsCoverage $siblingCoverage What the property's own tuple and trailing-entry
+     *                                            keywords evaluate: the tuple evaluates indices
+     *                                            [0, count), a non-false trailing keyword every
+     *                                            index past it. Every other sibling shape is
+     *                                            suppressed as dead code by
+     *                                            UnevaluatedItemsValidatorFactory, so it
+     *                                            contributes no coverage here.
+     */
     public function __construct(
         PropertyInterface $property,
+        ArrayItemsCoverage $siblingCoverage,
         string $templatePath,
         string $exceptionClass,
         array $exceptionParams,
@@ -35,50 +46,18 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     ) {
         $this->parentProperty = $property;
 
-        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage(
-            $property->getJsonSchema()->getJson(),
-        );
-
         parent::__construct(
             $property,
             $templatePath,
             $extraTemplateValues + [
                 'arrayPropertyName' => $property->getName(),
                 'compositionSlotKeys' => '[]',
-                'siblingTupleItemsCount' => $siblingTupleItemsCount,
-                'siblingCoversTail' => $siblingCoversTail ? 'true' : 'false',
+                'siblingTupleItemsCount' => $siblingCoverage->getTupleLength(),
+                'siblingCoversTail' => $siblingCoverage->tailIsClaimed() ? 'true' : 'false',
             ],
             $exceptionClass,
             $exceptionParams,
         );
-    }
-
-    /**
-     * Positional index coverage from a sibling tuple and its trailing-entry keyword on the same
-     * property: the tuple evaluates indices [0, count); a non-false trailing keyword then
-     * evaluates every index past it. Every other shape is suppressed as dead code by
-     * UnevaluatedItemsValidatorFactory, so it contributes no coverage here.
-     *
-     * Draft 2020-12 spells the tuple `prefixItems` and its trailing entries `items`, where earlier
-     * drafts use `items` and `additionalItems`. Reading `prefixItems` first covers both: the
-     * keyword cannot appear with its 2020-12 meaning on a draft that does not register it, because
-     * there it is an unknown keyword and `items` keeps the tuple role.
-     *
-     * @return array{0: int, 1: bool} [tuple length, whether the trailing keyword covers the rest]
-     */
-    private function siblingItemsCoverage(array $json): array
-    {
-        $hasPrefixItems = array_key_exists('prefixItems', $json);
-        $tuple = $hasPrefixItems ? $json['prefixItems'] : ($json['items'] ?? null);
-        $tailKeyword = $hasPrefixItems ? 'items' : 'additionalItems';
-
-        if (!is_array($tuple) || $tuple === [] || !array_is_list($tuple)) {
-            return [0, false];
-        }
-
-        $coversTail = array_key_exists($tailKeyword, $json) && $json[$tailKeyword] !== false;
-
-        return [count($tuple), $coversTail];
     }
 
     public function getCheck(): string
