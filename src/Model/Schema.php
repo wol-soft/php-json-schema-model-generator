@@ -73,7 +73,7 @@ class Schema
     private array $unconditionallyEvaluatedPropertyPatterns = [];
 
     /**
-     * @var array<string, array{names: string[], patterns: string[], claimsEveryKey: bool}>
+     * @var array<string, array{names: string[], claimsEveryKey: bool}>
      *      Keyed by the trigger property name; see addDependentEvaluatedProperties()
      */
     private array $dependentEvaluatedProperties = [];
@@ -519,20 +519,24 @@ class Schema
      * the schema declaring it, so the names it claims are evaluated there — but only while the
      * trigger key is actually present, which is why this cannot join the unconditional set.
      *
+     * There is deliberately no pattern list. A pattern match is credited only when the key is
+     * recorded in the enclosing class's own `_patternProperties` with the value currently in the
+     * model, and the dependent subschema's `PatternPropertiesValidator` writes that record into
+     * the dependency schema's class instead. Handing the accumulator the regexes anyway would
+     * promise a credit it can never give; crediting on the regex alone would credit a key whose
+     * value failed the pattern's subschema, so an invalid instance would be accepted.
+     *
      * @param string[] $names          Names the dependent subschema's `properties` declares
-     * @param string[] $patterns       Regexes its `patternProperties` declares (raw, undelimited)
      * @param bool     $claimsEveryKey Whether it declares a non-false `additionalProperties`, which
      *                                 claims every remaining key rather than a nameable set
      */
     public function addDependentEvaluatedProperties(
         string $triggerPropertyName,
         array $names,
-        array $patterns,
         bool $claimsEveryKey,
     ): self {
         $this->dependentEvaluatedProperties[$triggerPropertyName] = [
             'names' => $names,
-            'patterns' => $patterns,
             'claimsEveryKey' => $claimsEveryKey,
         ];
 
@@ -540,7 +544,7 @@ class Schema
     }
 
     /**
-     * @return array<string, array{names: string[], patterns: string[], claimsEveryKey: bool}>
+     * @return array<string, array{names: string[], claimsEveryKey: bool}>
      */
     public function getDependentEvaluatedProperties(): array
     {

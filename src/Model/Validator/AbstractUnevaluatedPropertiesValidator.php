@@ -73,17 +73,14 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
                 array_filter($dependent, static fn(array $dependency): bool => $dependency['names'] !== []),
             ),
         );
-        $this->templateValues['pcrePatterns'] = $this->buildNameListExpression(
-            RenderHelper::varExportPcrePatterns(
-                array_values(array_unique(array_merge(
-                    array_map(strval(...), array_keys($json['patternProperties'] ?? [])),
-                    $this->compositionScope->getUnconditionallyEvaluatedPropertyPatterns(),
-                ))),
-            ),
-            array_map(
-                static fn(array $dependency): string => RenderHelper::varExportPcrePatterns($dependency['patterns']),
-                array_filter($dependent, static fn(array $dependency): bool => $dependency['patterns'] !== []),
-            ),
+        // No trigger-dependent patterns here, unlike the names above: a pattern match is credited
+        // only through the class's own `_patternProperties` record, which a dependent subschema's
+        // patternProperties never write into this class. See Schema::addDependentEvaluatedProperties().
+        $this->templateValues['pcrePatterns'] = RenderHelper::varExportPcrePatterns(
+            array_values(array_unique(array_merge(
+                array_map(strval(...), array_keys($json['patternProperties'] ?? [])),
+                $this->compositionScope->getUnconditionallyEvaluatedPropertyPatterns(),
+            ))),
         );
 
         // A dependent subschema declaring a non-false `additionalProperties` claims every
@@ -105,9 +102,9 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
     }
 
     /**
-     * Renders the argument expression for one of collectUnevaluatedKeys()'s name lists: the static
-     * list on its own when nothing is trigger-dependent, otherwise that list merged at runtime with
-     * the entries whose trigger property is present in the model data.
+     * Renders the argument expression for collectUnevaluatedKeys()'s declared-names list: the
+     * static list on its own when nothing is trigger-dependent, otherwise that list merged at
+     * runtime with the entries whose trigger property is present in the model data.
      *
      * `array_intersect_key` performs the presence test for every trigger at once, keeping the
      * emitted expression flat regardless of how many dependencies the schema declares.

@@ -471,11 +471,12 @@ declare their own properties.
             "unevaluatedProperties": false
         }
 
-    Only what the dependent subschema declares directly counts. Names it reaches through a
-    composition (``allOf``, ``anyOf``, ``oneOf``, ``if``) or a ``$ref`` are not credited, and the
-    generator emits a warning naming the keyword when it sees one. Such a key is then reported as
-    unevaluated even though the dependent subschema evaluates it — declare the properties on the
-    dependent subschema itself to avoid this.
+    Only the names the dependent subschema declares directly under its own ``properties`` count.
+    Names it reaches through a composition (``allOf``, ``anyOf``, ``oneOf``, ``if``) or a ``$ref``
+    are not credited, and neither are keys matched by its ``patternProperties``. The generator emits
+    a warning naming the keyword when it sees one. Such a key is then reported as unevaluated even
+    though the dependent subschema evaluates it — declare the names as ``properties`` of the
+    dependent subschema itself to avoid this; a pattern has no such substitute.
 
     ``dependentSchemas``, the Draft 2019-09 spelling of the same applicator, is not yet supported.
 

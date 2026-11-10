@@ -23,6 +23,7 @@ use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use Throwable;
 
 /**
  * Verifies the runtime behaviour of `unevaluatedProperties`: keys not claimed by `properties`,
@@ -103,7 +104,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
      * the offending key(s). The regex pattern is anchored on the full message so a different
      * exception body cannot accidentally satisfy it.
      *
-     * @return array<string, array{0: string, 1: array<string, mixed>, 2: class-string<\Throwable>, 3: string}>
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: class-string<Throwable>, 3: string}>
      */
     public static function rejectionProvider(): array
     {
@@ -161,7 +162,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
     /**
      * @param array<string, mixed>     $input
-     * @param class-string<\Throwable> $exceptionClass
+     * @param class-string<Throwable> $exceptionClass
      */
     #[DataProvider('rejectionProvider')]
     public function testRejectedInputThrows(
@@ -246,11 +247,11 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
             $requiredErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof RequiredValueException,
+                static fn(Throwable $error): bool => $error instanceof RequiredValueException,
             ));
             $unevaluatedErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
+                static fn(Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
             ));
 
             $this->assertCount(1, $requiredErrors, 'expected one RequiredValueException');
@@ -1670,7 +1671,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->hasLogEntry(
                 $logger->getEntries(),
                 'warning',
-                "The dependent schema of '{property}' on {class} reaches properties through"
+                "The dependent schema of '{property}' on {class} evaluates properties through"
                     . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
                     . ' reported as unevaluated even when the dependent schema evaluates them',
                 ['property' => 'kind', 'keywords' => 'allOf'],
@@ -1685,6 +1686,110 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
         );
         new $className(['kind' => 'X', 'extra' => 5]);
+    }
+
+    /**
+     * @return array<string, array{0: bool}>
+     */
+    public static function collectErrorsModeProvider(): array
+    {
+        return [
+            'direct exception mode' => [false],
+            'error collection mode' => [true],
+        ];
+    }
+
+    /**
+     * A dependent subschema's `patternProperties` cannot be credited. A pattern match counts as
+     * evaluated only when the key is recorded in the enclosing class's own `_patternProperties`
+     * with the value that is currently in the model, because that record is what tells a key whose
+     * value passed the pattern's subschema from one whose value failed it. The dependent
+     * subschema's `PatternPropertiesValidator` writes that record into the *dependency schema's*
+     * class, so the enclosing class never sees it.
+     *
+     * Crediting a dependent pattern match on the regex alone was rejected: a `p_a` whose value
+     * failed `{"type": "integer"}` would count as evaluated and the accumulator would accept an
+     * invalid instance, which is worse than the over-rejection pinned here.
+     *
+     * So the generated accumulator must not be handed a dependent pattern list it cannot honour,
+     * and the shortfall is reported at generation time instead. The dependent subschema's
+     * `properties` — credited on plain key presence — must keep working next to it.
+     *
+     * Spec-wise `{trigger, p_a}` is valid. This test pins the rejection and says so, so the day
+     * the contribution is implemented it fails and names what to update.
+     */
+    #[DataProvider('collectErrorsModeProvider')]
+    public function testDependentPatternPropertiesWarnAndDoNotCredit(bool $collectErrors): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DependenciesWithPatternProperties.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors($collectErrors),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'trigger', 'keywords' => 'patternProperties'],
+            ),
+            'A dependent subschema\'s patternProperties must be reported as uncredited at generation time.',
+        );
+
+        // The names half of the channel is untouched: `extra` is declared directly under the
+        // dependent subschema's `properties`, so it is credited while the trigger is present.
+        $instance = new $className(['trigger' => 1, 'extra' => 2]);
+        $this->assertSame(['trigger' => 1, 'extra' => 2], $instance->meta()->rawInput());
+
+        // Spec-wise valid — the dependent subschema's pattern evaluates `p_a` — but the generator
+        // cannot credit it, which is what the warning announces.
+        $this->assertRejectedAsUnevaluated($className, ['trigger' => 1, 'p_a' => 2], ['p_a']);
+
+        // Right today and must stay right: without the trigger the dependent subschema never
+        // applies, so its pattern evaluates nothing.
+        $this->assertRejectedAsUnevaluated($className, ['p_a' => 2], ['p_a']);
+
+        // Matches neither the declared names nor the dependent pattern.
+        $this->assertRejectedAsUnevaluated($className, ['trigger' => 1, 'q' => 2], ['q']);
+
+        // The emitted accumulator call must not carry the dependent pattern: the enclosing class
+        // has no `_patternProperties` record to back it, so a pattern argument there would be a
+        // credit promised in the generated code that the runtime can never give.
+        $this->assertStringNotContainsString(
+            '^p_',
+            file_get_contents((new ReflectionClass($className))->getFileName()),
+        );
+    }
+
+    /**
+     * Asserts that constructing the model rejects the input with exactly one
+     * UnevaluatedPropertiesException, whichever way the configured error mode delivers it.
+     *
+     * @param array<string, mixed> $input
+     * @param string[]             $unevaluatedKeys
+     */
+    private function assertRejectedAsUnevaluated(string $className, array $input, array $unevaluatedKeys): void
+    {
+        try {
+            new $className($input);
+            $this->fail('The input must be rejected as containing unevaluated properties');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertCount(1, $registry->getErrors());
+            $exception = $registry->getErrors()[0];
+        } catch (UnevaluatedPropertiesException $exception) {
+            // direct exception mode delivers the rejection itself
+        }
+
+        $this->assertInstanceOf(UnevaluatedPropertiesException::class, $exception);
+        $this->assertSame(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['"
+                . implode("', '", $unevaluatedKeys) . "']",
+            $exception->getMessage(),
+        );
     }
 
     /**

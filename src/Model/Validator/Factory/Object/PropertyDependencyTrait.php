@@ -76,7 +76,6 @@ trait PropertyDependencyTrait
         $schema->addDependentEvaluatedProperties(
             $property->getName(),
             array_map(strval(...), array_keys($json['properties'] ?? [])),
-            array_map(strval(...), array_keys($json['patternProperties'] ?? [])),
             isset($json['additionalProperties']) && $json['additionalProperties'] !== false,
         );
 
@@ -84,14 +83,17 @@ trait PropertyDependencyTrait
     }
 
     /**
-     * The names a dependent subschema contributes are read from its own `properties` /
-     * `patternProperties`, which is everything it declares directly but nothing it reaches through
-     * a composition or a reference.
+     * The names a dependent subschema contributes are read from its own `properties`, which is
+     * every name it declares directly but nothing it reaches through a composition or a reference,
+     * and nothing its `patternProperties` match — a pattern match is only credited through the
+     * enclosing class's own `_patternProperties` record, which the dependent subschema's pattern
+     * validator never writes (see Schema::addDependentEvaluatedProperties()).
      *
-     * That gap cannot be closed the way the enclosing schema's own compositions are, by reading
-     * their outcome back at runtime: the dependency validator runs during the trigger property's
-     * validation pass, which is *after* the post-composition phase where unevaluatedProperties
-     * evaluates, so no dependency result exists yet when the accumulator is built. Harvesting the
+     * The reach-through gap cannot be closed the way the enclosing schema's own compositions are,
+     * by reading their outcome back at runtime: the dependency validator runs during the trigger
+     * property's validation pass, which is *after* the post-composition phase where
+     * unevaluatedProperties evaluates, so no dependency result exists yet when the accumulator is
+     * built. Harvesting the
      * nested names statically instead is only sound for a conjunctive `allOf`; for `anyOf`,
      * `oneOf` and `if`/`then`/`else` it would credit branches that never ran — the exact
      * over-crediting the branch classes' runtime slots exist to avoid. So the shortfall is
@@ -112,23 +114,29 @@ trait PropertyDependencyTrait
             return;
         }
 
-        $reachThroughKeywords = array_values(array_filter(
+        $uncreditedKeywords = array_values(array_filter(
             ['allOf', 'anyOf', 'oneOf', 'if', '$ref'],
             static fn(string $keyword): bool => array_key_exists($keyword, $dependentJson),
         ));
 
-        if ($reachThroughKeywords === []) {
+        // Declared directly, so not a reach-through, but uncredited all the same. An empty list
+        // evaluates nothing and is not worth a warning.
+        if (($dependentJson['patternProperties'] ?? []) !== []) {
+            $uncreditedKeywords[] = 'patternProperties';
+        }
+
+        if ($uncreditedKeywords === []) {
             return;
         }
 
         $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-            "The dependent schema of '{property}' on {class} reaches properties through {keywords},"
+            "The dependent schema of '{property}' on {class} evaluates properties through {keywords},"
                 . ' which unevaluatedProperties cannot credit — those keys are reported as'
                 . ' unevaluated even when the dependent schema evaluates them',
             [
                 'property' => $property->getName(),
                 'class' => $schema->getClassName(),
-                'keywords' => implode(', ', $reachThroughKeywords),
+                'keywords' => implode(', ', $uncreditedKeywords),
             ],
         );
     }
