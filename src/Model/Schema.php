@@ -20,6 +20,7 @@ use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
+use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -395,6 +396,23 @@ class Schema
     public function getBaseValidators(): array
     {
         return $this->baseValidators;
+    }
+
+    /**
+     * The validators which record the matches of a schema pattern in the `_patternProperties` field. The field is
+     * only written by these, so whether it is declared (PatternPropertiesPostProcessor) and whether the generated
+     * code reads it unconditionally (PatternPropertiesAccessorPostProcessor) both follow from this list rather than
+     * from the `patternProperties` keyword of the schema's own JSON: a base-level `$ref` transfers the referenced
+     * schema's validators, and a keyword whose patterns are all boolean produces none.
+     *
+     * @return PatternPropertiesValidator[]
+     */
+    public function getPatternPropertiesValidators(): array
+    {
+        return array_values(array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool => $validator instanceof PatternPropertiesValidator,
+        ));
     }
 
     /**
