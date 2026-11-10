@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -412,6 +413,28 @@ class Schema
         return array_values(array_filter(
             $this->baseValidators,
             static fn(PropertyValidatorInterface $validator): bool => $validator instanceof PatternPropertiesValidator,
+        ));
+    }
+
+    /**
+     * The validators which validate (and, once switched to collecting, store) the additional properties against a
+     * schema. Only these write the `_additionalProperties` field, which is why whether it is declared follows from
+     * this list and not from the `additionalProperties` keyword of the schema's own JSON: a base-level `$ref`
+     * transfers the referenced schema's validators, so one can run on a class whose own JSON never mentions the
+     * keyword.
+     *
+     * The transferred instance is the one the referenced schema owns and keeps its state (collecting, and the names
+     * the referenced schema declares). Cloning it for the referencing class was rejected: its template values hold a
+     * reference to the collecting flag, which a clone would keep sharing with the original.
+     *
+     * @return AdditionalPropertiesValidator[]
+     */
+    public function getAdditionalPropertiesValidators(): array
+    {
+        return array_values(array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool =>
+                $validator instanceof AdditionalPropertiesValidator,
         ));
     }
 
