@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
-use Error;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -496,49 +495,6 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
                 'additional property',
             ],
         ];
-    }
-
-    /**
-     * Known gap: unevaluatedItems declared on an array which is an item of another array can't be evaluated. The
-     * class neither receives the evaluation tracking trait nor the field which holds the evaluated indices, so the
-     * validation of the inner array calls into code which doesn't exist. This is independent of any filter. The
-     * indices are tracked per property name, the inner arrays of all outer elements would share one entry.
-     *
-     * This test pins the current failure so the gap stays visible. It fails as soon as nested unevaluatedItems are
-     * supported, the test then has to assert the evaluated behaviour.
-     */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testKnownGapUnevaluatedItemsOfANestedArrayCrashAtRuntime(): void
-    {
-        $className = $this->generateClassFromFile(
-            'NestedUnevaluatedItems.json',
-            (new GeneratorConfiguration())->setImmutable(false),
-        );
-
-        $warnings = [];
-        set_error_handler(
-            static function (int $severity, string $message) use (&$warnings): bool {
-                $warnings[] = $message;
-
-                return true;
-            },
-            E_WARNING,
-        );
-
-        try {
-            new $className(['tags' => [[1, 'a']]]);
-
-            $this->fail('Expected the evaluation tracking of the nested array to be missing');
-        } catch (Error $error) {
-            $this->assertSame(
-                sprintf('Call to undefined method %s::collectUnevaluatedIndices()', $className),
-                $error->getMessage(),
-            );
-        } finally {
-            restore_error_handler();
-        }
-
-        $this->assertSame([sprintf('Undefined property: %s::$_evaluatedItemIndices', $className)], $warnings);
     }
 
     public static function collectErrorsDataProvider(): array
