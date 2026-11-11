@@ -611,14 +611,6 @@ class Schema
     }
 
     /**
-     * @return array<string, array{names: string[], claimsEveryKey: bool}>
-     */
-    public function getDependentEvaluatedProperties(): array
-    {
-        return $this->dependentEvaluatedProperties;
-    }
-
-    /**
      * The names of the dependent subschemas by their trigger property, for the triggers which have any. Both places
      * which render the dependent contribution (the unevaluatedProperties check and a branch class's
      * `_getEvaluatedProperties()`) read it from here, so they agree on what is credited.
