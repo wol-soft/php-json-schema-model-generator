@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\PatternPropertiesPostProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
 
@@ -27,18 +28,30 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $json = $schema->getJsonSchema()->getJson();
+        $patternValidators = $schema->getPatternPropertiesValidators();
 
-        if (!isset($json['patternProperties'])) {
+        // The accessor is offered where pattern properties are in effect: the schema declares the
+        // keyword itself (also with boolean patterns only, which no validator records) or runs a
+        // pattern validator it received through a base-level `$ref`.
+        if ($patternValidators === [] && !isset($schema->getJsonSchema()->getJson()['patternProperties'])) {
             return;
         }
 
-        $patternTypes = [];
+        $patternTypes = array_map(
+            static fn(PatternPropertiesValidator $validator): ?PropertyType => $validator
+                ->getValidationProperty()
+                ->getType(true),
+            $patternValidators,
+        );
 
-        foreach ($schema->getBaseValidators() as $validator) {
-            if (is_a($validator, PatternPropertiesValidator::class)) {
-                $patternTypes[] = $validator->getValidationProperty()->getType(true);
-            }
+        // The accessor reads the `$_patternProperties` record unconditionally. Only a validator writing
+        // it makes the internal post processor declare it, so a schema whose patterns are all boolean
+        // has to declare the (empty) record here: reading an undeclared property creates it
+        // dynamically as null, which the accessor's by-reference array parameter then rejects with a
+        // TypeError. Hiding the accessor on such a schema instead was rejected: the public method
+        // exists on those schemas today and would silently disappear.
+        if ($patternValidators === []) {
+            PatternPropertiesPostProcessor::declareCollectionProperty($schema, []);
         }
 
         $hasCompanion = $this->shouldGenerateCompanion($patternTypes);

@@ -99,4 +99,64 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['solo'], $object->getTags());
         $this->assertSame(['tags' => ['solo']], $object->meta()->rawInput());
     }
+
+    /**
+     * Not every index credit flows through the composition slot. A sibling `contains` records the
+     * indices it matched directly in `_evaluatedItemIndices`, and those credits belong to one
+     * specific array value — they must not survive into the next validation pass.
+     *
+     * `AllOfTupleBranches.json` cannot expose this: its credits come from `_compositionAnnotated`,
+     * which the composition template overwrites wholesale on every run. This fixture pairs the
+     * `false` form with a `contains` sibling, the combination that writes `_evaluatedItemIndices`
+     * without any composition involved.
+     *
+     * The control assertion (rejecting the same array at construction time) is what makes the
+     * setter assertion meaningful: it proves the array is genuinely invalid and that only the
+     * carried-over state could make the setter accept it.
+     */
+    public function testContainsCreditsFromAPriorPassDoNotLeakIntoASetterCall(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ContainsWithUnevaluatedFalse.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Control: ['a', 1] is invalid on its own — `contains` matches only index 1, leaving
+        // index 0 unevaluated.
+        try {
+            new $className(['tags' => ['a', 1]]);
+            $this->fail('Index 0 is not matched by contains and must be unevaluated');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame([0], $exception->getUnevaluatedItems());
+        }
+
+        // [1, 2] credits indices 0 and 1. Replacing it with the array rejected above must be
+        // rejected the same way — the earlier pass's credits describe a value that is gone.
+        $object = new $className(['tags' => [1, 2]]);
+
+        try {
+            $object->setTags(['a', 1]);
+            $this->fail('Expected setTags to throw because index 0 is unevaluated');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([0], $exception->getUnevaluatedItems());
+        }
+        $this->assertSame([1, 2], $object->getTags());
+
+        // The symmetric case: a stale credit at the tail index rather than the head.
+        try {
+            $object->setTags([9, 'b']);
+            $this->fail('Expected setTags to throw because index 1 is unevaluated');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+        }
+        $this->assertSame([1, 2], $object->getTags());
+
+        // A genuinely valid replacement is still accepted.
+        $object->setTags([7]);
+        $this->assertSame([7], $object->getTags());
+    }
 }

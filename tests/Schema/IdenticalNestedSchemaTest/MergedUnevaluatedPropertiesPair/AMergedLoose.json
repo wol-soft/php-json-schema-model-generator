@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "d": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "e": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

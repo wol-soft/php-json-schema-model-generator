@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "inner": {
+      "$ref": "#/$defs/base",
+      "properties": {
+        "b": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "type": "object",
+      "properties": {
+        "f": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

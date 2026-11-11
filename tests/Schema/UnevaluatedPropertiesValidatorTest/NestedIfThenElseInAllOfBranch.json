@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "a"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "aOnly": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "bOnly": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

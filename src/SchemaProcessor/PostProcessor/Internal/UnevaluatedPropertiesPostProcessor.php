@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
@@ -14,11 +15,13 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -67,7 +70,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return;
         }
 
-        $this->assertNoUnsupportedDownPropagation($schema);
+        $this->assertNoUnsupportedDownPropagation($schema, $generatorConfiguration);
 
         // A schema with a non-false `unevaluatedProperties` validator tracks each key the
         // validator successfully evaluates in `_evaluatedPropertyKeys`. That field is read
@@ -79,7 +82,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         // render() runs, ensures every branch class carries _getEvaluatedProperties() regardless
         // of whether the outer or inner schema was processed first. RenderQueue::execute runs
         // process() over every job before render() begins.
-        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema);
+        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema, $generatorConfiguration);
+
+        // The schema's own accumulator consults what its dependent subschemas declare. A schema which merely
+        // activates because a branch or a property further down uses an unevaluated keyword has no accumulator
+        // of its own, so it keeps its shortfalls until an enclosing schema reaches it as a branch.
+        $ownUnevaluatedProperties = $schema->getJsonSchema()->getJson()['unevaluatedProperties'] ?? true;
+        if ($ownUnevaluatedProperties !== true) {
+            $this->reportDependentContributionShortfalls($schema, $generatorConfiguration);
+        }
 
         // The trait carries collectUnevaluatedKeys(), which every generated unevaluatedProperties
         // validator calls regardless of whether the schema also has composition validators. It
@@ -108,14 +119,17 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * because it already blocks annotations from crossing its boundary in both directions by
      * design (see `not.rst`) - nothing about its own outcome depends on outside annotations.
      */
-    private function assertNoUnsupportedDownPropagation(Schema $schema): void
-    {
+    private function assertNoUnsupportedDownPropagation(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
         foreach ($schema->getBaseValidators() as $validator) {
             if ($validator instanceof AbstractComposedPropertyValidator) {
                 $this->checkBranchesForUnsupportedDownPropagation(
                     $validator,
                     $schema->getJsonSchema()->getJson(),
                     $schema->getClassName(),
+                    $generatorConfiguration->getBuiltDraft($schema->getJsonSchema()),
                 );
             }
         }
@@ -127,6 +141,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                         $validator,
                         $schemaProperty->getJsonSchema()->getJson(),
                         $schemaProperty->getName(),
+                        $generatorConfiguration->getBuiltDraft($schemaProperty->getJsonSchema()),
                     );
                 }
             }
@@ -136,11 +151,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     /**
      * @param array<string, mixed> $enclosingJson The JSON of the schema/property the composition
      *                                             keyword itself sits on - not any one branch's.
+     * @param Draft                $draft         The draft the enclosing schema/property is evaluated
+     *                                             under; it decides which keywords found in the
+     *                                             enclosing JSON and in the branches claim anything.
      */
     private function checkBranchesForUnsupportedDownPropagation(
         AbstractComposedPropertyValidator $validator,
         array $enclosingJson,
         string $contextName,
+        Draft $draft,
     ): void {
         if (is_a($validator->getCompositionProcessor(), NotValidatorFactory::class, true)) {
             return;
@@ -155,7 +174,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         $enclosingHasObjectClaims = $this->declaresObjectClaimingKeyword($enclosingJson);
-        $enclosingHasArrayClaims = $this->declaresArrayClaimingKeyword($enclosingJson);
+        $enclosingHasArrayClaims = $this->declaresArrayClaimingKeyword($enclosingJson, $draft);
 
         foreach ($branchJsonList as $index => $branchJson) {
             $somethingElseHasObjectClaims = $enclosingHasObjectClaims;
@@ -169,7 +188,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $somethingElseHasObjectClaims =
                     $somethingElseHasObjectClaims || $this->declaresObjectClaimingKeyword($siblingJson);
                 $somethingElseHasArrayClaims =
-                    $somethingElseHasArrayClaims || $this->declaresArrayClaimingKeyword($siblingJson);
+                    $somethingElseHasArrayClaims || $this->declaresArrayClaimingKeyword($siblingJson, $draft);
             }
 
             $this->assertKeywordNotUnsupported(
@@ -179,6 +198,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $composedProperties[$index]->getBranchSchema(),
                 $contextName,
                 $index,
+                $draft,
             );
             $this->assertKeywordNotUnsupported(
                 $branchJson,
@@ -187,6 +207,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 $composedProperties[$index]->getBranchSchema(),
                 $contextName,
                 $index,
+                $draft,
             );
         }
     }
@@ -239,11 +260,18 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             || array_key_exists('additionalProperties', $json);
     }
 
-    private function declaresArrayClaimingKeyword(array $json): bool
+    /**
+     * Whether the JSON carries a keyword that evaluates array indices under the given draft.
+     * `prefixItems` counts only where the draft registers it: before Draft 2020-12 it is an
+     * unknown keyword that is ignored, and counting it would reject a schema as unsupported
+     * because of an annotation source that does not exist.
+     *
+     * @param array<string, mixed> $json
+     */
+    private function declaresArrayClaimingKeyword(array $json, Draft $draft): bool
     {
-        return array_key_exists('items', $json)
-            || array_key_exists('additionalItems', $json)
-            || array_key_exists('contains', $json);
+        return array_key_exists('contains', $json)
+            || array_intersect(ArrayItemsCoverage::positionalKeywords($draft), array_keys($json)) !== [];
     }
 
     private function assertKeywordNotUnsupported(
@@ -253,11 +281,17 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         JsonSchema $branchSchema,
         string $contextName,
         int $branchIndex,
+        Draft $draft,
     ): void {
+        // A keyword the draft does not register is ignored by the generated class altogether
+        // (Draft 7 knows neither unevaluated keyword), so the branch computes no "unevaluated" set
+        // that could be wrong. Rejecting it would turn an ignorable keyword into a generation
+        // failure.
         if (
             !array_key_exists($keyword, $branchJson)
             || $branchJson[$keyword] === true
             || !$somethingElseClaims
+            || $draft->getTypesForKeyword($keyword) === []
         ) {
             return;
         }
@@ -286,8 +320,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * validator reads those slots via the trait's `collectUnevaluatedKeys`. Schemas without
      * any composition skip the field declaration — the trait's reads use `?? []`, so the
      * absence is safe.
+     *
+     * @return bool Whether any composition was activated, i.e. whether the cache field now exists
      */
-    private function activateSchemaLevelTracking(Schema $schema): void
+    private function activateSchemaLevelTracking(Schema $schema): bool
     {
         $activated = false;
         foreach ($schema->getBaseValidators() as $baseValidator) {
@@ -298,7 +334,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         if (!$activated) {
-            return;
+            return false;
         }
 
         $schema->addProperty(
@@ -310,6 +346,8 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 ->setInternal(true)
                 ->setDefaultValue([]),
         );
+
+        return true;
     }
 
     /**
@@ -557,9 +595,22 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * schema property called `evaluatedProperties` (whose generated getter would be
      * `getEvaluatedProperties()` without the underscore) and so its internal-only role is
      * visible at the call site.
+     *
+     * Activation recurses through the branch's own composition branches. A branch class can only
+     * answer what it evaluated if its own compositions record their outcomes, and its `process()`
+     * pass will not enable that: the walk that decides activation looks for an unevaluated keyword
+     * reachable from the schema being processed, and a branch class that merely sits under an
+     * enclosing `unevaluatedProperties` has none of its own. Without recursing here, a branch whose
+     * body is itself a composition answers from a static name list — crediting names its losing
+     * branches happened to declare and missing what its winning ones actually claimed.
+     *
+     * `hasMethod()` doubles as the already-activated marker, so a branch class shared between
+     * several enclosing schemas is set up exactly once.
      */
-    private function addGetEvaluatedPropertiesToNestedBranchSchemas(Schema $schema): void
-    {
+    private function addGetEvaluatedPropertiesToNestedBranchSchemas(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
         foreach ($schema->getBaseValidators() as $baseValidator) {
             if (!$baseValidator instanceof AbstractComposedPropertyValidator) {
                 continue;
@@ -576,7 +627,55 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     '_getEvaluatedProperties',
                     $this->buildGetEvaluatedPropertiesMethod($nestedSchema),
                 );
+
+                // The enclosing schema's accumulator now consults this branch class.
+                $this->reportDependentContributionShortfalls($nestedSchema, $generatorConfiguration);
+
+                // Only a branch class that has compositions of its own needs the trait: its own
+                // branches call collectEvaluatedProperties() from it when they write their slots.
+                // A branch class without compositions would just carry an unused trait and import.
+                if ($this->activateSchemaLevelTracking($nestedSchema)) {
+                    $nestedSchema->addTrait(CompositionEvaluationTrait::class);
+                }
+
+                $this->addGetEvaluatedPropertiesToNestedBranchSchemas($nestedSchema, $generatorConfiguration);
             }
+        }
+    }
+
+    /**
+     * Reports what the dependent subschemas of a schema evaluate through keywords the dependent contribution cannot
+     * credit (see PropertyDependencyTrait::recordDependentContributionShortfall()). Called once an
+     * unevaluatedProperties accumulator is known to consult the schema, and only where the draft knows the keyword:
+     * on a draft which ignores it no validator exists and nothing can over-reject.
+     *
+     * The shortfalls are taken either way, so a schema reached from several enclosing schemas reports once.
+     */
+    private function reportDependentContributionShortfalls(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $shortfalls = $schema->takeDependentContributionShortfalls();
+
+        if (
+            $shortfalls === []
+            || $generatorConfiguration->getBuiltDraft($schema->getJsonSchema())
+                ->getTypesForKeyword('unevaluatedProperties') === []
+        ) {
+            return;
+        }
+
+        foreach ($shortfalls as $shortfall) {
+            $generatorConfiguration->getLogger()->warning(
+                "The dependent schema of '{property}' on {class} evaluates properties through {keywords},"
+                    . ' which unevaluatedProperties cannot credit — those keys are reported as'
+                    . ' unevaluated even when the dependent schema evaluates them',
+                [
+                    'property' => $shortfall['trigger'],
+                    'class' => $schema->getClassName(),
+                    'keywords' => implode(', ', $shortfall['keywords']),
+                ],
+            );
         }
     }
 
@@ -597,36 +696,95 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
             public function getCode(): string
             {
-                $declaredPropertyNames = array_values(array_map(
-                    static fn(PropertyInterface $property): string => $property->getName(),
-                    array_filter(
-                        $this->nestedSchema->getProperties(),
-                        static fn(PropertyInterface $property): bool => !$property->isInternal(),
-                    ),
-                ));
+                $json = $this->nestedSchema->getJsonSchema()->getJson();
+
+                // A non-false additionalProperties claims every key the schema did not otherwise
+                // evaluate, so nothing is left to compute — the whole instance is covered. Only a
+                // branch that succeeded is ever queried, so its claim definitely applied. The claim
+                // may also have arrived through a `$ref` to a schema declaring it.
+                if (
+                    (isset($json['additionalProperties']) && $json['additionalProperties'] !== false)
+                    || $this->nestedSchema->claimsEveryKeyThroughReference()
+                ) {
+                    return implode("\n", [
+                        '#[Internal]',
+                        'public function _getEvaluatedProperties(): array',
+                        '{',
+                        '    // additionalProperties claims every remaining key.',
+                        '    return array_keys($this->_rawModelDataInput);',
+                        '}',
+                    ]);
+                }
+
+                // The schema's own `properties` keyword, not getProperties(): the latter also holds
+                // names transferred from anyOf/oneOf/if branches purely so the generated class can
+                // expose getters for them, and those are evaluated only when their branch wins —
+                // reading them as declared credits a losing branch's properties. Names materialised
+                // from `required` land in getProperties() too, and `required` evaluates nothing.
+                $declaredPropertyNames = array_values(array_unique(array_merge(
+                    array_map(strval(...), array_keys($json['properties'] ?? [])),
+                    $this->nestedSchema->getUnconditionallyEvaluatedPropertyNames(),
+                )));
+
+                // The dependent subschemas of the branch apply while their trigger is present, the same
+                // trigger-guarded contribution the unevaluatedProperties check of a schema renders.
+                $dependentNameLists = array_map(
+                    RenderHelper::varExportArray(...),
+                    $this->nestedSchema->getDependentEvaluatedNamesByTrigger(),
+                );
+
+                $lines = [
+                    '#[Internal]',
+                    'public function _getEvaluatedProperties(): array',
+                    '{',
+                ];
+
+                // A dependent subschema declaring a non-false additionalProperties claims every
+                // remaining key, but only while its trigger is present.
+                $allKeysTriggerNames = $this->nestedSchema->getDependentAllKeysTriggerNames();
+                if ($allKeysTriggerNames !== []) {
+                    array_push(
+                        $lines,
+                        '    if (array_intersect_key('
+                            . RenderHelper::varExportArray(array_fill_keys($allKeysTriggerNames, true))
+                            . ', $this->_rawModelDataInput)) {',
+                        '        return array_keys($this->_rawModelDataInput);',
+                        '    }',
+                        '',
+                    );
+                }
+
+                // Only the blocks which can add to the accumulator are emitted. A loop over a name list the
+                // generator already knows to be empty is dead code, and a branch class without any block
+                // contributes nothing at all, which is then said directly instead of computing an empty list
+                // through an empty accumulator.
+                $contributions = [];
+
+                if ($declaredPropertyNames !== [] || $dependentNameLists !== []) {
+                    array_push(
+                        $contributions,
+                        '    foreach (' . AbstractUnevaluatedPropertiesValidator::buildNameListExpression(
+                            RenderHelper::varExportArray($declaredPropertyNames),
+                            $dependentNameLists,
+                            '$this->_rawModelDataInput',
+                        ) . ' as $declaredName) {',
+                        '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
+                        '            $evaluated[$declaredName] = true;',
+                        '        }',
+                        '    }',
+                    );
+                }
 
                 // Both fields are added by post processors, and RenderQueue::execute() runs every
                 // process() before the first render(), so by now the nested schema's final field
                 // set is known. Emitting a runtime property_exists() guard instead would leave
                 // generated code probing for a field the generator already knows is absent.
-                $lines = [
-                    '#[Internal]',
-                    'public function _getEvaluatedProperties(): array',
-                    '{',
-                    '    $evaluated = [];',
-                    '    foreach (' . RenderHelper::varExportArray($declaredPropertyNames) . ' as $declaredName) {',
-                    '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
-                    '            $evaluated[$declaredName] = true;',
-                    '        }',
-                    '    }',
-                ];
-
                 if ($this->declaresInternalProperty('patternProperties')) {
                     // Keys matched by this schema's own patternProperties (with passing values) are
                     // evaluated too, so an enclosing schema must see them. Only the keys matter
                     // (the result is array_keys($evaluated)), so the maps are unioned.
                     array_push(
-                        $lines,
+                        $contributions,
                         '    foreach ($this->_patternProperties as $patternMatches) {',
                         '        $evaluated += $patternMatches;',
                         '    }',
@@ -636,12 +794,68 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 if ($this->declaresInternalProperty('evaluatedPropertyKeys')) {
                     // Keys evaluated by this schema's own unevaluatedProperties: {schema} validator
                     // are tracked so an enclosing schema can see them.
-                    $lines[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
+                    $contributions[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
                 }
 
-                array_push($lines, '', '    return array_keys($evaluated);', '}');
+                array_push($contributions, ...$this->renderCompositionContribution());
+
+                if ($contributions === []) {
+                    $lines[] = '    return [];';
+                } else {
+                    $lines = array_merge(
+                        $lines,
+                        ['    $evaluated = [];'],
+                        $contributions,
+                        ['', '    return array_keys($evaluated);'],
+                    );
+                }
+
+                $lines[] = '}';
 
                 return implode("\n", $lines);
+            }
+
+            /**
+             * The lines that fold in whatever this schema's own composition branches claimed, read
+             * from `_compositionEvaluations` with the slot conventions `collectUnevaluatedKeys()`
+             * uses. Only branches that succeeded hold a slot value, so a losing branch's
+             * declarations stay out — which no static name list could express.
+             *
+             * Empty for a schema without compositions: the cache field is not declared there, so
+             * the loop would iterate an empty key list to no effect.
+             *
+             * @return string[]
+             */
+            private function renderCompositionContribution(): array
+            {
+                $compositionValidatorKeys = $this->nestedSchema->getCompositionValidatorKeys();
+
+                if ($compositionValidatorKeys === []) {
+                    return [];
+                }
+
+                return [
+                    '    foreach (' . RenderHelper::varExportArray($compositionValidatorKeys)
+                        . ' as $validatorIndex) {',
+                    '        foreach ($this->_compositionEvaluations[$validatorIndex] ?? [] as $slot) {',
+                    '            if ($slot === null) {',
+                    '                continue;',
+                    '            }',
+                    '            if ($slot === true) {',
+                    '                return array_keys($this->_rawModelDataInput);',
+                    '            }',
+                    '            if (is_object($slot)) {',
+                    '                foreach ($slot->_getEvaluatedProperties() as $branchPropertyName) {',
+                    '                    $evaluated[$branchPropertyName] = true;',
+                    '                }',
+                    '                continue;',
+                    '            }',
+                    '            foreach ($slot as $branchPropertyName) {',
+                    '                $evaluated[$branchPropertyName] = true;',
+                    '            }',
+                    '        }',
+                    '    }',
+                ];
             }
 
             private function declaresInternalProperty(string $propertyName): bool

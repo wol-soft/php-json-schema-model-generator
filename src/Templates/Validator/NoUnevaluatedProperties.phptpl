@@ -1,6 +1,6 @@
-$unevaluatedProperties = $this->collectUnevaluatedKeys(
+$unevaluatedProperties ={% if claimsEveryKey %} []{% else %}{% if hasDependentAllKeysClaim %} array_intersect_key({{ dependentAllKeysTriggerKeys }}, $modelData) ? [] :{% endif %} $this->collectUnevaluatedKeys(
     $modelData,
     {{ declaredPropertyNames }},
     {{ pcrePatterns }},
     {{ compositionValidatorKeys }},
-)
+){% endif %}

@@ -20,6 +20,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 #[ApplicableDrafts]
 class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
@@ -488,5 +489,93 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         );
 
         $object->populate(['a0' => 'Hello', 'b1' => 'not allowed']);
+    }
+
+    /**
+     * @return array<string, array{string, array<string, mixed>, array<string, array<string, mixed>>, string[]}>
+     */
+    public static function booleanPatternPropertiesDataProvider(): array
+    {
+        return [
+            // `true` matches every key of the pattern without validating it, so there is nothing to record
+            'boolean true pattern' => [
+                'BooleanTruePatternProperty.json',
+                ['name' => 'x', 'any_a' => 1],
+                [],
+                ['^any_.*'],
+            ],
+            // `false` forbids the keys of the pattern, which an instance without such a key does not trigger
+            'boolean false pattern' => [
+                'BooleanFalsePatternProperty.json',
+                ['name' => 'x'],
+                [],
+                ['^secret_.*'],
+            ],
+            // the schema pattern is recorded next to the boolean one, which is not
+            'boolean pattern next to a schema pattern' => [
+                'BooleanAndSchemaPatternProperties.json',
+                ['name' => 'x', 'any_a' => 'y', 'num_1' => 5],
+                ['^num_.*' => ['num_1' => 5]],
+                ['^any_.*'],
+            ],
+        ];
+    }
+
+    /**
+     * Only a PatternPropertiesValidator writes the `_patternProperties` record, so a schema whose patterns are all
+     * boolean declares no such validator. The accessor method is generated whenever the schema declares
+     * `patternProperties` and reads the record, so it must find it declared: creating it dynamically is deprecated
+     * since PHP 8.2 and an error in PHP 9.
+     *
+     * Deprecations are collected instead of left to the run-wide failOnDeprecation, so a regression names this test.
+     *
+     * @param array<string, mixed>                $input
+     * @param array<string, array<string, mixed>> $recordedPatterns Pattern => matches the accessor must return
+     * @param string[]                            $unrecordedPatterns Patterns the accessor does not know
+     */
+    #[DataProvider('booleanPatternPropertiesDataProvider')]
+    public function testPatternPropertiesAccessorOfBooleanPatternsReadsADeclaredRecord(
+        string $file,
+        array $input,
+        array $recordedPatterns,
+        array $unrecordedPatterns,
+    ): void {
+        $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor());
+        $className = $this->generateClassFromFile($file);
+
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_patternProperties'),
+            'The record the accessor reads must be declared on the class.',
+        );
+
+        $deprecations = [];
+        set_error_handler(static function (int $errno, string $errstr) use (&$deprecations): bool {
+            $deprecations[] = $errstr;
+            return true;
+        });
+
+        try {
+            $accessor = (new $className($input))->patternProperties();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+
+        foreach ($recordedPatterns as $pattern => $matches) {
+            $this->assertSame($matches, $accessor->get($pattern));
+        }
+
+        foreach ($unrecordedPatterns as $pattern) {
+            try {
+                $accessor->get($pattern);
+                $this->fail("The pattern '$pattern' is not recorded and must be unknown to the accessor");
+            } catch (UnknownPatternPropertyException $exception) {
+                $this->assertSame(
+                    "Tried to access an unknown pattern property with key '$pattern'",
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 }
