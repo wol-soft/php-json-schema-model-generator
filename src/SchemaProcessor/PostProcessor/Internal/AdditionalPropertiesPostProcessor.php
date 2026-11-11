@@ -41,13 +41,6 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
      */
     public function addAdditionalPropertiesCollectionProperty(Schema $schema): void
     {
-        // Declared by an earlier call: the internal post processor and the accessor post processor reach the
-        // same schema when it declares the keyword and also receives a transferred validator. Only an internal
-        // property counts, a schema may declare a property which is merely named like the keyword.
-        if ($schema->getProperty('additionalProperties')?->isInternal()) {
-            return;
-        }
-
         $validationProperty = null;
         foreach ($schema->getAdditionalPropertiesValidators() as $validator) {
             $validator->setCollectAdditionalProperties(true);
