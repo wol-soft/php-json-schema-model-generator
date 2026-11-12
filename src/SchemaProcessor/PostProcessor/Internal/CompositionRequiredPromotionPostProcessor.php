@@ -12,6 +12,8 @@ use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
 /**
@@ -23,6 +25,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
  *   anyOf  — property is required in every branch (at least one always matches)
  *   oneOf  — property is required in every branch (exactly one always matches)
  *   if/then/else — property is required in both then and else (one always applies)
+ *   not    — never promoted: a branch requiring a property guarantees the property is absent
  *
  * The property's isRequired() flag is intentionally left false so the template short-circuit
  * (which exits early when the key is absent) continues to work correctly during construction.
@@ -100,11 +103,23 @@ class CompositionRequiredPromotionPostProcessor extends PostProcessor
             $branches,
         );
 
-        if (is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true)) {
+        $compositionProcessor = $validator->getCompositionProcessor();
+
+        if (is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             return array_values(array_unique(array_merge(...$requiredPerBranch)));
         }
 
-        return array_values(array_intersect(...$requiredPerBranch));
+        // Allow list instead of excluding not: a required keyword inside a not branch means the property must be
+        // absent for the branch to match, promoting it to non-nullable makes its getter throw a TypeError for every
+        // valid object. A composition added later must opt in explicitly instead of being promoted by default.
+        if (
+            is_a($compositionProcessor, AnyOfValidatorFactory::class, true)
+            || is_a($compositionProcessor, OneOfValidatorFactory::class, true)
+        ) {
+            return array_values(array_intersect(...$requiredPerBranch));
+        }
+
+        return [];
     }
 
     /**

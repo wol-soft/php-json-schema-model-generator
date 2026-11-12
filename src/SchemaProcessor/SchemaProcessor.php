@@ -703,6 +703,8 @@ class SchemaProcessor
                     true,
                 )
             ) {
+                $this->registerAffectedPropertiesOfNonTransferringComposition($validator);
+
                 continue;
             }
 
@@ -844,6 +846,38 @@ class SchemaProcessor
                     );
                 });
             }
+        }
+    }
+
+    /**
+     * A composition which doesn't transfer its branch properties to the schema (not) still caches the result of each
+     * branch for updates, and a branch is only evaluated again if an update changes one of its affected properties.
+     * The properties of the branch are registered as affected without transferring them: a not branch must not add
+     * properties to the schema.
+     *
+     * Registering nothing was rejected: the cached result of a branch which didn't match would never be invalidated,
+     * so an update which makes the not branch match (e.g. adding the property the branch requires) was accepted
+     * although the constructor rejects the resulting data.
+     */
+    private function registerAffectedPropertiesOfNonTransferringComposition(
+        AbstractComposedPropertyValidator $validator,
+    ): void {
+        foreach ($validator->getComposedProperties() as $composedProperty) {
+            $composedProperty->onResolve(static function () use ($composedProperty): void {
+                $nestedSchema = $composedProperty->getNestedSchema();
+
+                if (!$nestedSchema) {
+                    return;
+                }
+
+                $nestedSchema->onAllPropertiesResolved(
+                    static function () use ($composedProperty, $nestedSchema): void {
+                        foreach ($nestedSchema->getProperties() as $branchProperty) {
+                            $composedProperty->appendAffectedObjectProperty($branchProperty);
+                        }
+                    },
+                );
+            });
         }
     }
 

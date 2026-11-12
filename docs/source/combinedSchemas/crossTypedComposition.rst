@@ -68,6 +68,9 @@ promotion rules depend on the keyword:
 * **if / then / else** — property is promoted only when it appears in ``required`` in **both**
   ``then`` and ``else``. If only a ``then`` block exists (no ``else``), the property is never
   promoted because the ``else`` path may apply at runtime and the property would be absent.
+* **not** — a property is never promoted. A ``required`` inside a ``not`` branch means the branch
+  matches (and the object is rejected) if the property is present, so a valid object may lack it
+  and the getter stays nullable.
 
 For example, with a two-branch ``oneOf`` where ``age`` is required in both branches:
 
