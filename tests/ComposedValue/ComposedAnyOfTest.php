@@ -789,9 +789,72 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessageMatches(
             "/^Property 'property' is declared with type 'string' which conflicts with the types 'int', 'bool'"
                 . " of all anyOf branches \(file .+\): anyOf requires at least one branch to be satisfied,"
-                . " making this schema unsatisfiable$/",
+                . " making this schema unsatisfiable at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFile('PropertyLevelAnyOfAllBranchesDead.json');
+    }
+
+    /**
+     * Without implicit null a `null` branch is dead for a declared string property and is
+     * reported. Implicit null widens the declared type of an optional property to "string | null",
+     * so the same branch can match and nothing is reported.
+     */
+    public function testAnyOfNullBranchIsReportedOnlyWhenImplicitNullDoesNotApply(): void
+    {
+        $deadBranchWarning = "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+            . " which does not overlap the declared type '{declaredType}' and can never be satisfied";
+
+        $recordingLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'PropertyLevelAnyOfNullBranch.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+            implicitNull: false,
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                $deadBranchWarning,
+                [
+                    'keyword' => 'anyOf',
+                    'branch' => 2,
+                    'property' => 'property',
+                    'branchType' => 'null',
+                    'declaredType' => 'string',
+                ],
+            ),
+            'Expected a warning for the null branch without implicit null.',
+        );
+
+        $recordingLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'PropertyLevelAnyOfNullBranch.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+            implicitNull: true,
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry($recordingLogger->getEntries(), 'warning', $deadBranchWarning),
+            'Expected no dead branch warning when implicit null applies to the property.',
+        );
+    }
+
+    /**
+     * An integer and a number branch under a declared number: the union keeps float, so the
+     * property stays a float property with its int to float cast. Retyping to int only happens
+     * when float is no longer part of the narrowed type.
+     */
+    public function testAnyOfWithIntegerAndNumberBranchesKeepsNumberPropertyAsFloat(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAnyOfNumberDeclaredWithIntegerAndNumberBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(['float', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
+        $this->assertSame(5.0, (new $className(['property' => 5]))->getProperty());
+        $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
     }
 }

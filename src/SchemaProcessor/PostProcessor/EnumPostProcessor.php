@@ -119,6 +119,7 @@ class EnumPostProcessor extends PostProcessor
                     $property,
                     $validator->getComposedProperties(),
                     $validator->getCompositionProcessor() === AllOfValidatorFactory::class,
+                    $generatorConfiguration,
                 );
 
                 continue;
@@ -320,7 +321,7 @@ class EnumPostProcessor extends PostProcessor
                 || count(array_uintersect(
                     $enumMap,
                     $sortedValues,
-                    fn($a, $b): int => $a === $b ? 0 : 1,
+                    fn($mapValue, $sortedValue): int => $mapValue === $sortedValue ? 0 : 1,
                 )) !== count($sortedValues)
             ) {
                 $throw('invalid enum map %s in file %s');

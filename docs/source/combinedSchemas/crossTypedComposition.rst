@@ -140,6 +140,55 @@ apply when ``then`` and ``else`` define the same property with different types.
 
 See `If <if.html>`__ for examples and further details.
 
+Declared type and branch types
+------------------------------
+
+A property which declares a ``type`` and carries a composition validates its own type independently
+of the branches. The branch types are therefore checked against the declared type:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "property": {
+                "type": "string",
+                "allOf": [
+                    {
+                        "type": "integer"
+                    }
+                ]
+            }
+        }
+    }
+
+No value can satisfy both the type of the property and the branch, so the generation fails with a
+``SchemaException``:
+
+.. code-block:: text
+
+    Property 'property' is declared with type 'string' which conflicts with the type 'int' of allOf branch #1 (file ...): allOf requires all constraints to hold simultaneously, making this schema unsatisfiable
+
+The check follows these rules:
+
+* ``allOf``: every branch type which does not overlap the declared type is rejected.
+* ``anyOf`` / ``oneOf``: a branch type which does not overlap the declared type is reported with a
+  generation-time warning (the branch can never match, but another branch still may). When no branch
+  overlaps the declared type the schema is rejected with a ``SchemaException``. The type of the property
+  is narrowed to the overlap of the declared type and the branch types instead of being replaced by the
+  branch types.
+* ``integer`` is a subtype of ``number``: ``{"type": "number", "allOf": [{"type": "integer"}]}`` is valid
+  and generates an ``int`` property. The ``int`` to ``float`` cast of a ``number`` property is dropped in
+  this case.
+* ``null`` is a type like any other: a declared ``string`` and a ``null`` branch do not overlap. With
+  `implicit null <../gettingStarted.html#implicit-null>`__ enabled an optional property additionally accepts
+  ``null``, so a ``null`` branch overlaps its declared type. A required property is not widened.
+* A branch without a ``type`` keyword, and the boolean ``true`` branch, constrain no type and never
+  conflict.
+* A filter does not change the check. A branch ``type`` is validated against the raw input, so a
+  ``{"type": "integer"}`` branch conflicts with a declared ``"type": "string"`` even if a filter
+  transforms the string into another type.
+
 Root-level property precedence
 --------------------------------
 

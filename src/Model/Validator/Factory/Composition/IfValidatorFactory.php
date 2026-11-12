@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -147,7 +148,7 @@ class IfValidatorFactory
             );
         }
 
-        $this->applyIfThenElseTypeSemantics($property, $properties);
+        $this->applyIfThenElseTypeSemantics($property, $properties, $schemaProcessor->getGeneratorConfiguration());
 
         $property->addValidator(
             (new ConditionalPropertyValidator(
@@ -348,6 +349,7 @@ class IfValidatorFactory
     private function applyIfThenElseTypeSemantics(
         PropertyInterface $property,
         array $properties,
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         $thenProperty = $properties['then'];
         $elseProperty = $properties['else'];
@@ -368,6 +370,7 @@ class IfValidatorFactory
             $thenProperty,
             $elseProperty,
             $originalParentType,
+            $generatorConfiguration,
         ): void {
             $resolvedCount++;
             if ($resolvedCount < 2) {
@@ -394,7 +397,7 @@ class IfValidatorFactory
             }
 
             // No parent type: widen to the union of then and else types (anyOf-like semantics).
-            $this->transferPropertyType($property, [$thenProperty, $elseProperty], false);
+            $this->transferPropertyType($property, [$thenProperty, $elseProperty], false, $generatorConfiguration);
         };
 
         $thenProperty->onResolve($onBothResolved);

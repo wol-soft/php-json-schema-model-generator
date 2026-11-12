@@ -583,10 +583,12 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function testNoNestedSchemaThrowsAnException(): void
+    public function testRootLevelAllOfWithScalarBranchThrowsConflictingTypeException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('No nested schema for composed property');
+        $this->expectExceptionMessageMatches(
+            self::declaredTypeConflictMessagePattern("'[^']*'", 'object', 'int', 1),
+        );
 
         $this->generateClassFromFile('NoNestedSchema.json');
     }
@@ -827,6 +829,70 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The type of an object branch takes part in the check like any other branch type: a string
+     * property cannot hold the object an object branch requires, and an object property cannot
+     * hold the string a string branch requires.
+     */
+    #[DataProvider('objectAndScalarDeclaredTypeConflictDataProvider')]
+    public function testPropertyLevelAllOfObjectAndScalarTypesAcrossPropertyAndBranchThrowSchemaException(
+        string $schemaFile,
+        string $quotedPropertyNamePattern,
+        string $declaredType,
+        string $branchType,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            self::declaredTypeConflictMessagePattern($quotedPropertyNamePattern, $declaredType, $branchType, 1),
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public static function objectAndScalarDeclaredTypeConflictDataProvider(): array
+    {
+        return [
+            'object branch on a string property' => [
+                'PropertyLevelAllOfObjectBranchConflictsWithStringProperty.json',
+                "'property'",
+                'string',
+                'object',
+            ],
+            'string branch on an object property' => [
+                'PropertyLevelAllOfScalarBranchConflictsWithObjectProperty.json',
+                // An object property is named after the class generated for it.
+                "'[^']*'",
+                'object',
+                'string',
+            ],
+        ];
+    }
+
+    /**
+     * A number property narrowed to int by an integer branch checks for an int and no longer
+     * casts int input to float: floats and strings are rejected by the property itself with the
+     * narrowed type in the message.
+     */
+    public function testPropertyLevelAllOfNumberPropertyNarrowedToIntegerRejectsNonIntegers(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfBranchTypeNarrowsPropertyType.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        foreach ([[4.5, 'double'], ['text', 'string']] as [$invalidValue, $providedType]) {
+            try {
+                new $className(['narrowedToInteger' => $invalidValue]);
+                $this->fail("Expected a ValidationException for the value of type $providedType");
+            } catch (ValidationException $exception) {
+                $this->assertSame(
+                    "Invalid type for 'narrowedToInteger': requires 'int', got '$providedType'",
+                    $exception->getMessage(),
+                );
+            }
+        }
+    }
+
+    /**
      * Without implicit null, `null` is a type like any other: a declared `string` and a `null`
      * branch are disjoint.
      */
@@ -837,7 +903,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             self::declaredTypeConflictMessagePattern("'property'", 'string', 'null', 1),
         );
 
-        $this->generateClassFromFile('PropertyLevelAllOfNullBranchOptionalProperty.json');
+        $this->generateClassFromFile('PropertyLevelAllOfNullBranchOptionalProperty.json', implicitNull: false);
     }
 
     /**
@@ -849,7 +915,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile(
             'PropertyLevelAllOfNullBranchOptionalProperty.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setImplicitNull(true),
+            (new GeneratorConfiguration())->setImmutable(false),
+            implicitNull: true,
         );
 
         $this->assertNull((new $className([]))->getProperty());
@@ -869,10 +936,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             self::declaredTypeConflictMessagePattern("'property'", 'string', 'null', 1),
         );
 
-        $this->generateClassFromFile(
-            'PropertyLevelAllOfNullBranchRequiredProperty.json',
-            (new GeneratorConfiguration())->setImplicitNull(true),
-        );
+        $this->generateClassFromFile('PropertyLevelAllOfNullBranchRequiredProperty.json', implicitNull: true);
     }
 
     /**
@@ -897,7 +961,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     ): string {
         return '/^Property ' . $quotedPropertyNamePattern . " is declared with type '$declaredType' which conflicts"
             . " with the type '$branchType' of allOf branch #$branchNumber \(file .+\): allOf requires all"
-            . ' constraints to hold simultaneously, making this schema unsatisfiable$/';
+            . ' constraints to hold simultaneously, making this schema unsatisfiable at line \d+, column \d+$/';
     }
 
     /**

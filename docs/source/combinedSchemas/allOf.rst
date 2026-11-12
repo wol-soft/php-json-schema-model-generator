@@ -116,6 +116,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
 .. note::
 
+    The ``type`` declared on the property itself takes part in this check. A property declaring
+    ``"type": "string"`` with an ``allOf`` branch of ``"type": "integer"`` is rejected with a
+    ``SchemaException`` at generation time, instead of generating a class which rejects every value.
+    See `Declared type and branch types <crossTypedComposition.html#declared-type-and-branch-types>`__.
+
+.. note::
+
     For object-level ``allOf`` compositions, when a property appears in the ``required`` array of
     **any** branch, the generator promotes that property to non-nullable in the generated class. All
     ``allOf`` branches must hold simultaneously, so any branch's ``required`` constraint is effectively

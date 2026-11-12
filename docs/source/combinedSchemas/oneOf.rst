@@ -107,6 +107,14 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
 .. note::
 
+    The ``type`` declared on the property itself is not replaced by the branch types: the type of the
+    property is narrowed to the types of the ``oneOf`` branches which overlap the declared type. A
+    branch whose type does not overlap the declared type can never match and is reported with a
+    generation-time warning; if no branch overlaps, the schema is rejected with a ``SchemaException``.
+    See `Declared type and branch types <crossTypedComposition.html#declared-type-and-branch-types>`__.
+
+.. note::
+
     For object-level ``oneOf`` compositions, when a property appears in the ``required`` array of
     **every** branch, the generator promotes that property to non-nullable in the generated class.
     Exactly one branch applies at runtime; because all branches guarantee the property's presence,

@@ -674,7 +674,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessageMatches(
             "/^Property 'property' is declared with type 'string' which conflicts with the types 'int', 'bool'"
                 . " of all oneOf branches \(file .+\): oneOf requires at least one branch to be satisfied,"
-                . " making this schema unsatisfiable$/",
+                . " making this schema unsatisfiable at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFile('PropertyLevelOneOfAllBranchesDead.json');

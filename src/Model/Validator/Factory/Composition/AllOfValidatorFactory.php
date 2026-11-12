@@ -74,7 +74,18 @@ class AllOfValidatorFactory
                     $schema,
                 ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
-                        self::transferPropertyType($property, $compositionProperties, true);
+                        self::assertBranchTypesOverlapDeclaredType(
+                            $schemaProcessor,
+                            $property,
+                            $compositionProperties,
+                            $this->key,
+                        );
+                        self::transferPropertyType(
+                            $property,
+                            $compositionProperties,
+                            true,
+                            $schemaProcessor->getGeneratorConfiguration(),
+                        );
 
                         $mergedProperty = !($property instanceof BaseProperty)
                             ? $schemaProcessor->createMergedProperty(
