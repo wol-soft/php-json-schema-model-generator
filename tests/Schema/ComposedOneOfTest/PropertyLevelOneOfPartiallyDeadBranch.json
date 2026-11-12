@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "number",
+      "oneOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

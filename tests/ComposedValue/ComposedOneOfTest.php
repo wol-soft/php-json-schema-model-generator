@@ -6,18 +6,15 @@ namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class ComposedOneOfTest
- *
- * @package PHPModelGenerator\Tests\ComposedValue
- */
 #[ApplicableDrafts]
 class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -626,5 +623,60 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('array', $parameterType->getName());
         // as implicit null is enabled the default value may be overwritten by a null value
         $this->assertTrue($parameterType->allowsNull());
+    }
+
+    /**
+     * A oneOf branch whose type does not overlap the declared type of the property can never
+     * match. It is reported with a warning, and the property type is narrowed to the overlap of
+     * the declared type and the branch types instead of being replaced by the branch types:
+     * the declared number overlaps the integer branch (integer is a subtype of number), the
+     * string branch is dead.
+     */
+    public function testOneOfBranchTypeDisjointFromPropertyTypeIsReportedAndPropertyTypeIsNarrowed(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PropertyLevelOneOfPartiallyDeadBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'oneOf',
+                    'branch' => 2,
+                    'property' => 'property',
+                    'branchType' => 'string',
+                    'declaredType' => 'float',
+                ],
+            ),
+            'Expected a warning for the dead oneOf branch.',
+        );
+
+        $this->assertEqualsCanonicalizing(['int', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(['int', 'null'], $this->getParameterTypeNames($className, 'setProperty'));
+
+        $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
+    }
+
+    /**
+     * When no oneOf branch can match the declared type, no value can be valid: the schema is
+     * rejected at generation time, like contradicting allOf branches are.
+     */
+    public function testOneOfWithAllBranchTypesDisjointFromPropertyTypeThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property 'property' is declared with type 'string' which conflicts with the types 'int', 'bool'"
+                . " of all oneOf branches \(file .+\): oneOf requires at least one branch to be satisfied,"
+                . " making this schema unsatisfiable$/",
+        );
+
+        $this->generateClassFromFile('PropertyLevelOneOfAllBranchesDead.json');
     }
 }

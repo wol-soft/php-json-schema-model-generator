@@ -6,20 +6,17 @@ namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use ReflectionMethod;
 
-/**
- * Class ComposedAnyOfTest
- *
- * @package PHPModelGenerator\Tests\ComposedValue
- */
 #[ApplicableDrafts]
 class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -741,5 +738,60 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
+    }
+
+    /**
+     * A anyOf branch whose type does not overlap the declared type of the property can never
+     * match. It is reported with a warning, and the property type is narrowed to the overlap of
+     * the declared type and the branch types instead of being replaced by the branch types:
+     * the declared number overlaps the integer branch (integer is a subtype of number), the
+     * string branch is dead.
+     */
+    public function testAnyOfBranchTypeDisjointFromPropertyTypeIsReportedAndPropertyTypeIsNarrowed(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAnyOfPartiallyDeadBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'anyOf',
+                    'branch' => 2,
+                    'property' => 'property',
+                    'branchType' => 'string',
+                    'declaredType' => 'float',
+                ],
+            ),
+            'Expected a warning for the dead anyOf branch.',
+        );
+
+        $this->assertEqualsCanonicalizing(['int', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(['int', 'null'], $this->getParameterTypeNames($className, 'setProperty'));
+
+        $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
+    }
+
+    /**
+     * When no anyOf branch can match the declared type, no value can be valid: the schema is
+     * rejected at generation time, like contradicting allOf branches are.
+     */
+    public function testAnyOfWithAllBranchTypesDisjointFromPropertyTypeThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property 'property' is declared with type 'string' which conflicts with the types 'int', 'bool'"
+                . " of all anyOf branches \(file .+\): anyOf requires at least one branch to be satisfied,"
+                . " making this schema unsatisfiable$/",
+        );
+
+        $this->generateClassFromFile('PropertyLevelAnyOfAllBranchesDead.json');
     }
 }

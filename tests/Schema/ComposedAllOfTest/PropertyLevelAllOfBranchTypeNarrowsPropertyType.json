@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "properties": {
+    "narrowedToInteger": {
+      "type": "number",
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "keptInteger": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "keptString": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "allOf": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "untypedBranch": {
+      "type": "string",
+      "allOf": [
+        {
+          "minLength": 2
+        },
+        true
+      ]
+    }
+  }
+}
