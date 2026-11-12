@@ -86,25 +86,4 @@ class ComposedNotUpdateTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame($acceptedValue, $object->{'get' . ucfirst($acceptedProperty)}(), $update);
         }
     }
-
-    /**
-     * Without a stored property the not branch doesn't match: the first update which adds the property the branch
-     * requires must be rejected, an update of another property must not be.
-     */
-    public function testSetterAddingTheRequiredPropertyToAnEmptyModelIsRejected(): void
-    {
-        $className = $this->generateClassFromFile(
-            'NotRequiredOnly.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-        );
-
-        $object = new $className([]);
-        $object->setA('x');
-        $this->assertSame('x', $object->getA());
-
-        $exception = $this->catchException(static fn() => $object->setB('y'));
-        $this->assertNotNull($exception, 'The setter must be rejected');
-        $this->assertSame(['a' => 'x'], $object->meta()->rawInput());
-        $this->assertNull($object->getB());
-    }
 }

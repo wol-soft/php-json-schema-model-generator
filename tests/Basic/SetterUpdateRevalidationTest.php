@@ -80,10 +80,21 @@ class SetterUpdateRevalidationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
         $this->assertSame('abc', $object->getInner()->getB());
 
-        // setting the whole nested object constructs the nested class and is rejected as well
-        $this->assertNotNull($this->catchException(
-            static fn() => $object->setInner(['a' => 'x', 'b' => 'ab']),
-        ));
+        // the setter of a nested object only accepts an instance of the nested class, the array of the nested data is
+        // passed to populate(), which constructs the nested class and is rejected like the outer constructor
+        $expectedOuterException = $this->catchException(
+            static fn() => new $className(['inner' => ['a' => 'x', 'b' => 'ab']]),
+        );
+        $this->assertNotNull($expectedOuterException, 'The outer constructor must reject the data');
+
+        $actualOuterException = $this->catchException(
+            static fn() => $object->populate(['inner' => ['a' => 'x', 'b' => 'ab']]),
+        );
+
+        $this->assertNotNull($actualOuterException, 'populate must be rejected');
+        $this->assertSame($expectedOuterException::class, $actualOuterException::class);
+        $this->assertSame($expectedOuterException->getMessage(), $actualOuterException->getMessage());
+        $this->assertSame('abc', $object->getInner()->getB());
     }
 
     #[DataProvider('collectErrorsProvider')]
