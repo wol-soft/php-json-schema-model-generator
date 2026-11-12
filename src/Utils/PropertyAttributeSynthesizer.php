@@ -9,6 +9,7 @@ use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -78,7 +79,13 @@ class PropertyAttributeSynthesizer
 
                 foreach ($branch->getNestedSchema()->getProperties() as $branchProperty) {
                     if ($branchProperty->getName() === $propertyName) {
-                        $branchPointers[] = $branchProperty->getJsonSchema()->getPointer();
+                        // Use the composition branch position (e.g. /allOf/0) rather than the
+                        // property's own pointer: for a $ref'd branch the latter resolves to the
+                        // referenced definition (/$defs/…) instead of the branch it was merged from.
+                        $branchPointer = $branch->getBranchSchema()->getPointer();
+                        $branchPointers[] = $branchPointer !== ''
+                            ? $branchPointer . '/properties/' . JsonSchema::encodePointer($propertyName)
+                            : $branchProperty->getJsonSchema()->getPointer();
                         break;
                     }
                 }
