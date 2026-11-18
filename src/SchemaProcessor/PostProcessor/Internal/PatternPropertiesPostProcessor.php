@@ -141,8 +141,10 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     }
 
                     foreach ($matchingProperties as $matchingProperty) {
+                        // "\n" like every template of the generated code. PHP_EOL was rejected: it is "\r\n" on
+                        // Windows and mixes line endings into the generated class.
                         $code .= sprintf(
-                            '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,
+                            '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . "\n",
                             $hash,
                             $matchingProperty->getName(),
                             $matchingProperty->getAttribute(true),

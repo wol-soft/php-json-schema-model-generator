@@ -1040,8 +1040,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
         } catch (SchemaException $exception) {
             $this->assertMatchesRegularExpression(
-                "~^Composition of property '(?<reporting>[AB])' in file .+/(?P=reporting)\\.json references itself "
-                    . "without descending into the value: '\\#' -> '.+/(?!(?P=reporting))[AB]\\.json\\#' -> '\\#' "
+                // the separator of the directories is a backslash on Windows
+                "~^Composition of property '(?<reporting>[AB])' in file .+[\\\\/](?P=reporting)\\.json references "
+                    . "itself without descending into the value: '\\#' -> '.+[\\\\/](?!(?P=reporting))[AB]\\.json\\#' "
+                    . "-> '\\#' "
                     . "at line \\d+, column \\d+$~",
                 $exception->getMessage(),
             );
@@ -1076,8 +1078,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->generateDirectory('MutuallyReferencingAnyOfRootCompositions', $this->directoryConfig($namespace));
         } catch (SchemaException $exception) {
             $this->assertMatchesRegularExpression(
-                "~^Composition of property '(?<reporting>[AB])' in file .+/(?P=reporting)\\.json references itself "
-                    . "without descending into the value: '\\#' -> '.+/(?!(?P=reporting))[AB]\\.json\\#' -> '\\#' "
+                // the separator of the directories is a backslash on Windows
+                "~^Composition of property '(?<reporting>[AB])' in file .+[\\\\/](?P=reporting)\\.json references "
+                    . "itself without descending into the value: '\\#' -> '.+[\\\\/](?!(?P=reporting))[AB]\\.json\\#' "
+                    . "-> '\\#' "
                     . "at line \\d+, column \\d+$~",
                 $exception->getMessage(),
             );
