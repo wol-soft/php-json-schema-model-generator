@@ -24,17 +24,15 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     private readonly PropertyInterface $parentProperty;
 
     /**
+     * @param ArrayItemsCoverage   $siblingCoverage     What the property's own tuple and trailing-entry
+     *                                                  keywords evaluate: the tuple evaluates indices
+     *                                                  [0, count), a non-false trailing keyword every
+     *                                                  index past it. Every other sibling shape is
+     *                                                  suppressed as dead code by
+     *                                                  UnevaluatedItemsValidatorFactory, so it
+     *                                                  contributes no coverage here.
      * @param array<string, mixed> $extraTemplateValues Subclass-specific template values merged
      *                                                  on top of the shared set.
-     */
-    /**
-     * @param ArrayItemsCoverage $siblingCoverage What the property's own tuple and trailing-entry
-     *                                            keywords evaluate: the tuple evaluates indices
-     *                                            [0, count), a non-false trailing keyword every
-     *                                            index past it. Every other sibling shape is
-     *                                            suppressed as dead code by
-     *                                            UnevaluatedItemsValidatorFactory, so it
-     *                                            contributes no coverage here.
      */
     public function __construct(
         PropertyInterface $property,
