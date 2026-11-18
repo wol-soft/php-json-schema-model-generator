@@ -73,8 +73,8 @@ The accessors stay ``mixed`` — an `anyOf` does not guarantee that a matching v
 
 * Company.php
 * Company_Ceo.php
-* Company_Company_Ceo91970cbb844ec1beb624eaa26295bd8d.php
-* Company_Company_Ceoc51f76a84e24113bdb256d8bab180156.php
+* Company_Ceo91970cbb844ec1beb624eaa26295bd8d.php
+* Company_Ceoc51f76a84e24113bdb256d8bab180156.php
 
 .. code-block:: php
 
@@ -112,8 +112,8 @@ If your composition is defined on object level the object will gain access to al
 This schema will generate three classes as no merged property is created. The main class will be `CEO` and two classes will be generated to validate the subschemas combined with the `allOf` independent:
 
 * CEO.php
-* CEO_CEO91970cbb844ec1beb624eaa26295bd8d.php
-* CEO_CEOc51f76a84e24113bdb256d8bab180156.php
+* CEO_Branch91970cbb844ec1beb624eaa26295bd8d.php
+* CEO_Branchc51f76a84e24113bdb256d8bab180156.php
 
 .. code-block:: php
 

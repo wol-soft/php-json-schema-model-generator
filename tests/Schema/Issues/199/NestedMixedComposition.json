@@ -1,0 +1,108 @@
+{
+  "$id": "CustomerOrderConfigurationRequest",
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "marker0": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "marker0"
+      ]
+    },
+    {
+      "type": "object",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "marker1": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "marker1"
+          ]
+        },
+        {
+          "type": "object",
+          "allOf": [
+            {
+              "type": "object",
+              "properties": {
+                "marker2": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "marker2"
+              ]
+            },
+            {
+              "type": "object",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "marker3": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "marker3"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "marker4": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "marker4"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "marker5": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "marker5"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
