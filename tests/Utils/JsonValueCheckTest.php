@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Utils;
 
 use PHPModelGenerator\Accessor\Meta;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Tests\Fixtures\JsonValueEqualityCases;
 use PHPModelGenerator\Utils\JsonValueCheck;
@@ -14,7 +15,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Executes the expressions which are embedded into the generated code. The generated code must come to the same
- * result as the comparison used while the code is generated.
+ * result as the comparison used while the code is generated (JsonValue of the production library, whose own tests
+ * cover the comparison itself).
  */
 class JsonValueCheckTest extends TestCase
 {
@@ -48,14 +50,22 @@ class JsonValueCheckTest extends TestCase
         $this->assertSame('$value !== null', JsonValueCheck::notEqualTo(null));
     }
 
-    public function testStructuresAreComparedWithAClosure(): void
+    public function testStructuresAreComparedByTheJsonValueOfTheProductionLibrary(): void
     {
-        $checks = [JsonValueCheck::notOneOf(['a', ['b' => 1]]), JsonValueCheck::notEqualTo(['b' => 1])];
-
-        foreach ($checks as $check) {
-            $this->assertStringStartsWith('!(static function (mixed $provided, array $allowedValues): bool {', $check);
-            $this->assertStringContainsString('[\'b\' => 1]', $check);
-        }
+        $this->assertSame(
+            '!\PHPModelGenerator\Utils\JsonValue::contains('
+                . '[\'a\', [\'b\' => 1]], \PHPModelGenerator\Utils\JsonValue::normalize($value))',
+            JsonValueCheck::notOneOf(['a', ['b' => 1]]),
+        );
+        $this->assertSame(
+            '!\PHPModelGenerator\Utils\JsonValue::contains('
+                . '[[\'b\' => 1]], \PHPModelGenerator\Utils\JsonValue::normalize($value))',
+            JsonValueCheck::notEqualTo(['b' => 1]),
+        );
+        $this->assertSame(
+            '\PHPModelGenerator\Utils\JsonValue::normalize($value ?? null)',
+            JsonValueCheck::providedValue([['b' => 1]]),
+        );
     }
 
     public function testModelsAreComparedWithTheirRawInput(): void
@@ -102,6 +112,35 @@ class JsonValueCheckTest extends TestCase
             AbstractPropertyValidator::VALIDATED_VALUE_CODE,
             JsonValueCheck::providedValue(['a', 1, null]),
         );
+    }
+
+    /**
+     * @param mixed[]              $values
+     * @param mixed[]              $expected
+     * @param string|string[]|null $typeNames
+     */
+    #[DataProvider('alignNumbersDataProvider')]
+    public function testAlignNumbers(array $values, array $expected, string | array | null $typeNames): void
+    {
+        $this->assertSame(
+            $expected,
+            JsonValueCheck::alignNumbers($values, $typeNames === null ? null : new PropertyType($typeNames)),
+        );
+    }
+
+    public static function alignNumbersDataProvider(): array
+    {
+        return [
+            'no type' => [[1, 2.5, 'a'], [1, 2.5, 'a'], null],
+            'float property' => [[1, 2.5, 'a', null, [1]], [1.0, 2.5, 'a', null, [1]], 'float'],
+            'integer property' => [[1.0, 2.5, 3, 'a', null, [1.0]], [1, 2.5, 3, 'a', null, [1.0]], 'int'],
+            'integer property without an integral float' => [[2.5], [2.5], 'int'],
+            'float property with a null' => [[1, null], [1.0, null], ['float', 'null']],
+            'string property' => [[1, 2.5], [1, 2.5], 'string'],
+            'integer and float property' => [[1, 2.5, 3.0], [1, 2.5, 3.0], ['int', 'float']],
+            'integer and string property' => [[1.0, 'a'], [1, 'a'], ['int', 'string']],
+            'float and string property' => [[1, 'a'], [1.0, 'a'], ['float', 'string']],
+        ];
     }
 
     private function evaluate(string $code, mixed $value): mixed

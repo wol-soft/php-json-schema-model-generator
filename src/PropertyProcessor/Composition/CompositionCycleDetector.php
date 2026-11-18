@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Composition;
 
-use Exception;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use TypeError;
 
 /**
  * Finds a schema which requires itself for the very same value: a `$ref` or a branch of allOf, anyOf, oneOf, not and
@@ -21,13 +19,20 @@ use TypeError;
  * The walk is static: it follows the raw JSON of the schema and peeks through references via the definition
  * dictionary, no property is created. A reference which can't be resolved is not followed, the reference resolution
  * which follows reports the failure with its own message.
+ *
+ * One detector serves a generation run (see SchemaProcessor::getCompositionCycleDetector()): the schemas behind a
+ * reference which were found free of cycles stay known, every composition keyword of a property and every property
+ * composing the same definitions stop at a definition which is already known. A schema behind a reference is the JSON
+ * of the schema file, nothing which changes during the run. Discarding the findings after each walk was rejected: the
+ * same definitions were walked again for each composition keyword of each property. Keeping the findings for the
+ * schema a walk starts with was rejected as well: it may be a modified copy sharing the location of the original.
  */
 final class CompositionCycleDetector
 {
     private const array BRANCH_LIST_KEYWORDS = ['allOf', 'anyOf', 'oneOf'];
     private const array SINGLE_BRANCH_KEYWORDS = ['not', 'if', 'then', 'else'];
 
-    /** @var array<string, true> The locations from which no cycle is reachable */
+    /** @var array<string, true> The locations behind a reference from which no cycle is reachable */
     private array $acyclicLocations = [];
 
     public function __construct(private readonly SchemaProcessor $schemaProcessor)
@@ -45,10 +50,10 @@ final class CompositionCycleDetector
      */
     public function findCycle(JsonSchema $schema, SchemaDefinitionDictionary $dictionary): array
     {
-        $this->acyclicLocations = [];
+        $acyclicLocationsOfTheWalk = [];
 
         $namedEntries = array_filter(
-            $this->walk($schema, $dictionary, [], true),
+            $this->walk($schema, $dictionary, [], true, false, $acyclicLocationsOfTheWalk),
             static fn(array $entry): bool => $entry['named'],
         );
 
@@ -65,16 +70,28 @@ final class CompositionCycleDetector
      *                                                                               their location
      * @param bool $named Whether the schema is the start of the walk or the target of a reference, in contrast to a
      *                    branch written inline
+     * @param bool $fromSource Whether the schema is the target of a reference or written inside of one: its JSON
+     *                         is the JSON of the schema file. The schema a walk starts with may be a modified copy
+     *                         which shares the location of the original (e.g. without the keywords of the outer
+     *                         property), its findings are only kept for the walk ($acyclicLocationsOfTheWalk).
+     * @param array<string, true> $acyclicLocationsOfTheWalk
      *
      * @return array<int, array{file: string, pointer: string, named: bool}>
      *
      * @throws SchemaException
      */
-    private function walk(JsonSchema $schema, SchemaDefinitionDictionary $dictionary, array $path, bool $named): array
-    {
+    private function walk(
+        JsonSchema $schema,
+        SchemaDefinitionDictionary $dictionary,
+        array $path,
+        bool $named,
+        bool $fromSource,
+        array &$acyclicLocationsOfTheWalk,
+    ): array {
         $location = $schema->getFile() . '#' . $schema->getPointer();
+        $acyclicLocations = $fromSource ? $this->acyclicLocations : $acyclicLocationsOfTheWalk;
 
-        if (isset($this->acyclicLocations[$location])) {
+        if (isset($acyclicLocations[$location])) {
             return [];
         }
 
@@ -96,6 +113,8 @@ final class CompositionCycleDetector
                 $sameInstanceSchema['dictionary'],
                 $path,
                 $sameInstanceSchema['isReference'],
+                $fromSource || $sameInstanceSchema['isReference'],
+                $acyclicLocationsOfTheWalk,
             );
 
             if ($cycle !== []) {
@@ -103,7 +122,11 @@ final class CompositionCycleDetector
             }
         }
 
-        $this->acyclicLocations[$location] = true;
+        if ($fromSource) {
+            $this->acyclicLocations[$location] = true;
+        } else {
+            $acyclicLocationsOfTheWalk[$location] = true;
+        }
 
         return [];
     }
@@ -123,7 +146,7 @@ final class CompositionCycleDetector
         $sameInstanceSchemas = [];
 
         if (is_string($json['$ref'] ?? null)) {
-            $referencedSchema = $this->resolveReference($schema, $dictionary);
+            $referencedSchema = $dictionary->getReferencedSchema($schema, $this->schemaProcessor);
 
             if ($referencedSchema !== null) {
                 $sameInstanceSchemas[] = [
@@ -168,47 +191,5 @@ final class CompositionCycleDetector
         }
 
         return $sameInstanceSchemas;
-    }
-
-    /**
-     * @return array{0: JsonSchema, 1: SchemaDefinitionDictionary}|null The referenced schema and the dictionary of
-     *                                                                   the document it belongs to, null if the
-     *                                                                   reference can't be resolved
-     *
-     * @throws SchemaException
-     */
-    private function resolveReference(JsonSchema $schema, SchemaDefinitionDictionary $dictionary): ?array
-    {
-        $path = [];
-
-        try {
-            $definition = $dictionary->getDefinition(
-                $schema->getJson()['$ref'],
-                $this->schemaProcessor,
-                $path,
-                $schema->getBaseId(),
-            );
-
-            if ($definition === null) {
-                return null;
-            }
-
-            return [
-                $definition->getSource()->navigate(implode('/', $path)),
-                $definition->getSchema()->getSchemaDictionary(),
-            ];
-        } catch (SchemaException $exception) {
-            // Resolving a reference to a file which isn't processed yet processes the file. A failure of the
-            // referenced file is the very failure the reference resolution reports, it must not be swallowed here:
-            // the file is registered as processed, the failure would be lost.
-            if ($exception->isReferencedSchemaFailure()) {
-                throw $exception;
-            }
-
-            return null;
-        } catch (Exception | TypeError) {
-            // An unresolvable reference, or a reference to a boolean schema which can't be navigated
-            return null;
-        }
     }
 }

@@ -23,9 +23,10 @@ use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
  * (`_evaluatedItemIndices`). An array which is an element of a container (the items, a tuple index, the additional
  * items, the contained item or the unevaluated item of another array, the value of an additional, pattern or
  * unevaluated property) is validated many times per validation pass of the model, and its property carries the name
- * of the enclosing property or a name shared with its siblings. Each validation of such an element has to start with
- * an empty set of evaluated indices and must hand the set of the enclosing array back untouched
- * (see RenderHelper::renderValidators()).
+ * of the enclosing property or a name shared with its siblings. Each validation of such an element has to start without
+ * any evaluated index and must hand the indices of the enclosing arrays back untouched (see
+ * RenderHelper::renderValidators()). The same holds for a branch of a composition, whose indices only count if the
+ * composition succeeds (see CompositionPropertyDecorator::tracksEvaluatedItems()).
  */
 final class EvaluatedItemsScope
 {

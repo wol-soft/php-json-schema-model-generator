@@ -12,7 +12,6 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use PHPModelGenerator\Utils\JsonValue;
 use PHPModelGenerator\Utils\JsonValueCheck;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeConverter;
@@ -32,7 +31,7 @@ class ConstModifier implements ModifierInterface
         }
 
         // The type of the property decides how a number is represented: a number property compares a float
-        $const = JsonValue::alignNumbers([$json['const']], $property->getType())[0];
+        $const = JsonValueCheck::alignNumbers([$json['const']], $property->getType())[0];
 
         // A property which transforms the provided value (eg. into the model of a nested class) already carries the
         // type of the value it holds, the const compares the provided data. Deriving the type from the const would

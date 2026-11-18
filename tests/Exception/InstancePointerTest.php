@@ -49,7 +49,16 @@ class InstancePointerTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertInstanceOf(InvalidTupleException::class, $tupleException);
         $this->assertSame([1], array_keys($tupleException->getInvalidTuples()));
-        $this->assertStringContainsString('invalid tuple #1', $tupleException->getMessage());
+        $this->assertSame(
+            <<<'MSG'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid tuple item in array 'tuple item #0 of array pair':
+                  - invalid tuple #2
+                    * Invalid type for 'tuple item #1 of array tuple item #0 of array pair': requires 'int', got 'string'
+            MSG,
+            $tupleException->getMessage(),
+        );
 
         $this->assertExceptionTree(
             <<<'TREE'

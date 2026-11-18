@@ -40,6 +40,20 @@
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
+    {% if compositionValidator.tracksEvaluatedItems() %}
+        {#
+            The branches which read or record evaluated indices are validated in an evaluation scope of their own:
+            each one starts without any evaluated index and leaves the indices of the enclosing arrays as it found
+            them. The indices recorded by a branch which succeeds are collected and handed to the enclosing array once
+            the composition as a whole succeeded (the serialization of a filtered unevaluatedItems reads them). A
+            composition which fails provides no annotations, also not the ones of its succeeding branches: an allOf
+            failing on its second branch must not leave the items its first branch evaluated behind for the
+            unevaluatedItems of the enclosing array. A not never hands indices over.
+        #}
+        $evaluatedItemIndicesBeforeComposition = $this->_evaluatedItemIndices;
+        $evaluatedItemIndicesOfSucceededBranches = [];
+    {% endif %}
+
     {% foreach compositionProperties as compositionProperty %}
         {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
             $preNotBranchEvaluations = $this->_compositionEvaluations ?? [];
@@ -49,18 +63,8 @@
             $shouldTrack = true;
         {% endif %}
 
-        {% if compositionProperty.getEvaluationScopeKey() %}
-            {#
-                The branch evaluates its own items in a scope of its own: it starts with an empty set, a branch which
-                fails leaves the set of the enclosing array as it found it and a branch which succeeds adds the
-                indices it evaluated to it (the serialization of a filtered unevaluatedItems reads them). The set is
-                shared by the name of the array property, the credits of a branch which fails (its contains matched,
-                then another keyword rejected the value) would stay behind and the unevaluatedItems of the enclosing
-                array would accept items no succeeding branch evaluated. A not branch never adds its indices: a not
-                contributes no annotations.
-            #}
-            $savedBranchEvaluatedItemIndices = $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
-            $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] = [];
+        {% if compositionProperty.tracksEvaluatedItems() %}
+            $this->_evaluatedItemIndices = [];
         {% endif %}
 
         try {
@@ -172,9 +176,9 @@
                         // claimed indices under its own slot — union them into this branch's set.
                         $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ viewHelper.escapeSingleQuoted(nestedCompositionSlotKey) }}'] ?? [];
                     {% endforeach %}
-                    {% if compositionProperty.getEvaluationScopeKey() %}
+                    {% if compositionProperty.getEvaluatedItemsKey() %}
                         // The indices evaluated by the contains of this branch and by its own unevaluatedItems
-                        $compositionEvaluatedIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
+                        $compositionEvaluatedIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluatedItemsKey() }}] ?? [];
                     {% endif %}
                 }
             {% endif %}
@@ -195,8 +199,11 @@
                     {% endif %}
                 }
             {% endif %}
-            {% if compositionProperty.getEvaluationScopeKey() and not compositionValidator.isNotComposition() %}
-                $savedBranchEvaluatedItemIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] ?? [];
+            {% if compositionProperty.tracksEvaluatedItems() and not compositionValidator.isNotComposition() %}
+                $evaluatedItemIndicesOfSucceededBranches = array_replace_recursive(
+                    $evaluatedItemIndicesOfSucceededBranches,
+                    $this->_evaluatedItemIndices,
+                );
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
@@ -226,9 +233,9 @@
             {% endif %}
 
             $succeededCompositionElements--;
-        {% if compositionProperty.getEvaluationScopeKey() %}
+        {% if compositionProperty.tracksEvaluatedItems() %}
         } finally {
-            $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluationScopeKey() }}] = $savedBranchEvaluatedItemIndices;
+            $this->_evaluatedItemIndices = $evaluatedItemIndicesBeforeComposition;
         }
         {% else %}
         }
@@ -254,6 +261,15 @@
         value and, since array/object items are validated by reference, the original data itself.
     #}
     $compositionSatisfied = {{ composedValueValidation }};
+
+    {% if compositionValidator.tracksEvaluatedItems() and not compositionValidator.isNotComposition() %}
+        if ($compositionSatisfied) {
+            $this->_evaluatedItemIndices = array_replace_recursive(
+                $this->_evaluatedItemIndices,
+                $evaluatedItemIndicesOfSucceededBranches,
+            );
+        }
+    {% endif %}
 
     {% if publishesFilteredValues %}
         {#

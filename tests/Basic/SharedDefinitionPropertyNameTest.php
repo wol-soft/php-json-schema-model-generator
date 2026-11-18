@@ -454,8 +454,9 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('validationMethodDataProvider')]
-    public function testNotCompositionReportsTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
-    {
+    public function testNotCompositionReportsTheNameOfTheReferencingProperty(
+        GeneratorConfiguration $configuration,
+    ): void {
         $className = $this->generateClassFromFile('NotComposition.json', $configuration);
 
         $this->assertNotCompositionReportsTheNameOfTheReferencingProperty($configuration, $className);
@@ -762,6 +763,39 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The const of an object definition is validated by the property which references the class, not by the class
+     * (the class is shared by every schema with the same structure). Each referencing property validates the const,
+     * also an optional property without implicit null, whose const is only validated if the key of the property is
+     * provided: the key checked is the key of the property itself, never the key of the other reference.
+     */
+    #[DataProvider('validationMethodWithImplicitNullDataProvider')]
+    public function testConstOfAnObjectDefinitionIsValidatedForEveryReferencingProperty(
+        GeneratorConfiguration $configuration,
+        bool $implicitNull,
+    ): void {
+        $className = $this->generateClassFromFile('ObjectConst.json', $configuration, implicitNull: $implicitNull);
+
+        $object = new $className([]);
+        $this->assertNull($object->getFixedA());
+        $this->assertNull($object->getFixedB());
+
+        $object = new $className(['fixedA' => ['value' => 'x'], 'fixedB' => ['value' => 'x']]);
+        $this->assertSame('x', $object->getFixedA()->getValue());
+        $this->assertSame('x', $object->getFixedB()->getValue());
+        // the class of the definition is generated once
+        $this->assertSame($object->getFixedA()::class, $object->getFixedB()::class);
+
+        foreach (['fixedA', 'fixedB'] as $name) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$name => ['value' => 'y']],
+                $this->getExpectedExceptionClass($configuration, InvalidConstException::class),
+                "Value for '$name' must be {\"value\":\"x\"}, got {\"value\":\"y\"}",
+            );
+        }
+    }
+
+    /**
      * The items of the array are objects. The properties referencing the definition are no copies of each other: the
      * class of the items is generated once and processing the definition for each of the properties is no reason for
      * a notice about a duplicated signature.
@@ -816,7 +850,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame(1, $object->{'getObjectOrText' . $reference}()->getValue());
         }
 
-        // The class of an object is shared by both properties, the property only holds the instance check
+        // The class of an object is generated once and shared by both properties
         $object = new $className(['recordA' => ['value' => 1], 'recordB' => ['value' => 2]]);
         $this->assertSame($object->getRecordA()::class, $object->getRecordB()::class);
 

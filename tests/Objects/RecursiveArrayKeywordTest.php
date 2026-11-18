@@ -452,6 +452,74 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The first item of a node is a node itself, every other item has to be an integer matched by contains. The items
+     * a nested node evaluates belong to the nested node only: the integer 5 matched in a nested node doesn't evaluate
+     * the item at the same index of the enclosing node, also on the levels which reference the definition while it
+     * is still being created (the third level and below).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testItemsMatchedByContainsOfANestedLevelOfARecursiveTupleAreCreditedToThatLevelOnly(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleWithContainsAndUnevaluatedItemsFalse.json',
+            $configuration,
+        );
+
+        foreach ([[], [[]], [[], 5], [[[], 5], 7], [[[[], 5], 7]], [[[[[], 5], 7], 8]]] as $tree) {
+            $this->assertSame($tree, (new $className(['tree' => $tree]))->getTree());
+        }
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => [[], 'x']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
+        );
+
+        // the second level holds 'x', the match of the third level is no evaluation of the second level
+        $secondLevelTrees = [
+            [[[[]], 'x']],
+            [[[[], 5], 'x']],
+        ];
+
+        foreach ($secondLevelTrees as $tree) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['tree' => $tree],
+                $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+                <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #1
+                    * Provided JSON for 'tuple item #0 of array tree' contains not allowed unevaluated items [#1]
+                MSG,
+            );
+        }
+
+        // the third level holds 'x', the match of the fourth level is no evaluation of the third level
+        $thirdLevelTrees = [
+            [[[[[]], 'x']]],
+            [[[[[], 5], 'x']]],
+        ];
+
+        foreach ($thirdLevelTrees as $tree) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['tree' => $tree],
+                $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
+                <<<'MSG'
+                Invalid tuple item in array 'tree':
+                  - invalid tuple #1
+                    * Invalid tuple item in array 'tuple item #0 of array tree':
+                      - invalid tuple #1
+                        * Provided JSON for 'tuple item #0 of array tuple item #0 of array tree' contains not allowed unevaluated items [#1]
+                MSG,
+            );
+        }
+    }
+
+    /**
      * The branch which references the owning definition inside of its items is evaluated on every level: it is
      * rejected as a whole if an item isn't a valid node, and the contains and the compositions of the referenced node
      * evaluate the items of the node itself. A node is valid if it is a string or an array which contains 'k' and

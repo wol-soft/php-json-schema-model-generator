@@ -131,6 +131,23 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * Whether a branch of the composition reads or records evaluated indices (see
+     * CompositionPropertyDecorator::tracksEvaluatedItems()): the composition then hands the indices of its succeeding
+     * branches to the enclosing array only if the composition as a whole succeeds. A composition which fails provides
+     * no annotations, like the slot of an array-side composition (see getSlotKey()) is emptied when it fails.
+     */
+    public function tracksEvaluatedItems(): bool
+    {
+        foreach ($this->composedProperties as $composedProperty) {
+            if ($composedProperty->tracksEvaluatedItems()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The condition a value has to fulfil to be evaluated by the composition: the type check of the property passes.
      *
      * In error collection mode a failed type check reports its error and the validation of the property goes on. Every

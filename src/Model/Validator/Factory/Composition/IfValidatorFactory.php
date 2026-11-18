@@ -127,6 +127,7 @@ class IfValidatorFactory
                     $compositionSchema,
                     $property->isRequired(),
                 ),
+                $this->getReferencedBranchJsons($schemaProcessor, $schema, $compositionSchema),
             );
 
             // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by

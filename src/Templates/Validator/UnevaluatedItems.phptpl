@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelData): bool {
+is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -26,7 +26,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {
-                    $invalidItems{{ suffix }}[$index] = $this->_errorRegistry->getErrors();
+                    $invalidItems[$index] = $this->_errorRegistry->getErrors();
                     continue;
                 }
             {% endif %}
@@ -35,9 +35,9 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
             // enclosing schema's unevaluatedItems accumulator can credit it.
             $this->_evaluatedItemIndices['{{ escapedArrayPropertyName }}'][$index] = true;
         } catch (\Exception $exception) {
-            isset($invalidItems{{ suffix }}[$index])
-                ? $invalidItems{{ suffix }}[$index][] = $exception
-                : $invalidItems{{ suffix }}[$index] = [$exception];
+            isset($invalidItems[$index])
+                ? $invalidItems[$index][] = $exception
+                : $invalidItems[$index] = [$exception];
         }
     }
 
@@ -45,9 +45,9 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    if (!empty($invalidItems{{ suffix }})) {
+    if (!empty($invalidItems)) {
         $this->_evaluatedItemIndices = $rollbackEvaluatedItemIndices;
     }
 
-    return !empty($invalidItems{{ suffix }});
+    return !empty($invalidItems);
 })($value)

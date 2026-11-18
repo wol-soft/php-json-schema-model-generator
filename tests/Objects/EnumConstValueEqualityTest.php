@@ -176,7 +176,9 @@ class EnumConstValueEqualityTest extends AbstractPHPModelGeneratorTestCase
 
         // an object which contains an object
         foreach ([['inner' => ['value' => 1], 'tag' => 't'], ['tag' => 't', 'inner' => ['value' => 1]]] as $value) {
-            $object = new $className(self::REQUIRED_OBJECTS + ['enumNestedObject' => $value, 'constNestedObject' => $value]);
+            $object = new $className(
+                self::REQUIRED_OBJECTS + ['enumNestedObject' => $value, 'constNestedObject' => $value],
+            );
             $this->assertSame(1, $object->getEnumNestedObject()->getInner()->getValue());
             $this->assertSame(1, $object->getConstNestedObject()->getInner()->getValue());
         }
@@ -778,7 +780,11 @@ class EnumConstValueEqualityTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Invalid default value array \(\n  'a' => 1,\n\) for enum property property in file .*\.json/",
+            <<<'REGEX'
+            /^Invalid default value array \(
+              'a' => 1,
+            \) for enum property 'property' in file .*\.json at line \d+, column \d+$/
+            REGEX,
         );
 
         $this->generateClassFromFile('ObjectEnumWithInvalidDefault.json');

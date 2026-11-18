@@ -25,9 +25,12 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
     private const NESTED_PROPERTY_NAME = 'unevaluated item';
 
     private readonly PropertyInterface $validationProperty;
-    private readonly string $variableSuffix;
 
     /**
+     * The error map `$invalidItems` needs no name of its own: the validators of an unevaluated item (which may be an
+     * array with unevaluatedItems itself) are rendered into a method of their own (see
+     * RenderHelper::renderExtractedValidators()), an inner validator never shares the scope of this one.
+     *
      * @throws SchemaException
      */
     public function __construct(
@@ -36,13 +39,6 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
     ) {
-        // The unevaluated item may be an array with unevaluatedItems itself, rendered inline into the closure of this
-        // validator: the error map of the inner validator must not be the error map of this validator. The schema of
-        // the array is unique along a chain of nested validators (the inner schema is part of the outer one), the name
-        // of the property is not (all unevaluated items are named alike). The location in a file was rejected: it
-        // changes the generated code of an unchanged schema whenever the file is moved.
-        $this->variableSuffix = '_' . md5(json_encode($propertiesStructure->getJson()));
-
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
             $schema,
@@ -59,9 +55,8 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
-            ["&\$invalidItems{$this->variableSuffix}"],
+            ['&$invalidItems'],
             [
-                'suffix' => $this->variableSuffix,
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
                 'validationMethod' => $schema->reserveMethodName(
@@ -94,6 +89,6 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
      */
     public function getValidatorSetUp(): string
     {
-        return "\$invalidItems{$this->variableSuffix} = [];";
+        return '$invalidItems = [];';
     }
 }

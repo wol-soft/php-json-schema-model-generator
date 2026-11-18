@@ -432,6 +432,145 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * A composition which fails evaluates nothing for the enclosing array, also if some of its branches succeeded:
+     * the first allOf branch evaluates every integer, but the allOf fails on minItems; the condition evaluates every
+     * string, but the conditional fails on its then branch. The composition is a branch of an anyOf which succeeds by
+     * its second branch (evaluating no item), or it is the composition of the property itself, whose failure is
+     * reported next to the unevaluated items if the errors are collected. Crediting the items of the succeeding
+     * branches would accept [1, 2] and ['a', 'b'] although no succeeding composition evaluates them.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testItemsEvaluatedByAFailedCompositionAreNotCreditedToTheEnclosingArray(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'FailedCompositionsWithOuterUnevaluatedItemsFalse.json',
+            $configuration,
+        );
+
+        $object = new $className([
+            'integersInBranch' => [1, 2, 3],
+            'stringsInBranch' => ['a'],
+            'integers' => [1, 2, 3],
+            'strings' => ['a'],
+        ]);
+        $this->assertSame([1, 2, 3], $object->getIntegersInBranch());
+        $this->assertSame(['a'], $object->getStringsInBranch());
+        $this->assertSame([1, 2, 3], $object->getIntegers());
+        $this->assertSame(['a'], $object->getStrings());
+
+        // the anyOf succeeds by its second branch, which evaluates no item
+        $this->assertSame([], (new $className(['integersInBranch' => []]))->getIntegersInBranch());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['integersInBranch' => [1, 2]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'integersInBranch' contains not allowed unevaluated items [#0, #1]",
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['stringsInBranch' => ['a', 'b']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'stringsInBranch' contains not allowed unevaluated items [#0, #1]",
+        );
+
+        // the unevaluatedItems of the property is only validated after the failed composition if the errors are
+        // collected
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['integers' => [1, 2]],
+            $this->getExpectedExceptionClass($configuration, AllOfException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid value for 'integers' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
+                  - Composition element #1: Valid
+                  - Composition element #2: Failed
+                    * Array 'integers' must not contain less than 3 items
+                Provided JSON for 'integers' contains not allowed unevaluated items [#0, #1]
+                MSG
+                : <<<'MSG'
+                Invalid value for 'integers' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
+                  - Composition element #1: Valid
+                  - Composition element #2: Failed
+                    * Array 'integers' must not contain less than 3 items
+                MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['strings' => ['a', 'b']],
+            $this->getExpectedExceptionClass($configuration, ConditionalException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid value for 'strings' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Array 'strings' must not contain more than 1 items
+                Provided JSON for 'strings' contains not allowed unevaluated items [#0, #1]
+                MSG
+                : <<<'MSG'
+                Invalid value for 'strings' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Array 'strings' must not contain more than 1 items
+                MSG,
+        );
+    }
+
+    /**
+     * A branch which references a definition evaluates the items its definition evaluates, also by a keyword which
+     * accepts every item: `additionalItems: true` evaluates every item behind the tuple, `items: true` every item.
+     * Written inline the same branches are credited from their own keywords.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testReferencedBranchWithBooleanItemsKeywordsEvaluatesTheItems(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ReferencedBranchesWithBooleanItemsKeywordsAndOuterUnevaluatedItemsFalse.json',
+            $configuration,
+        );
+
+        foreach ([[], ['a'], ['a', 1, [2]]] as $items) {
+            $object = new $className(['openTuple' => $items, 'anyItems' => $items]);
+            $this->assertSame($items, $object->getOpenTuple());
+            $this->assertSame($items, $object->getAnyItems());
+        }
+
+        $this->assertSame([1, 'a'], (new $className(['anyItems' => [1, 'a']]))->getAnyItems());
+
+        // the tuple of the definition rejects the first item: the branch fails and evaluates nothing, the
+        // unevaluatedItems of the property is only validated after the failed anyOf if the errors are collected
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['openTuple' => [1, 'a']],
+            $this->getExpectedExceptionClass($configuration, AnyOfException::class),
+            $configuration->collectErrors()
+                ? <<<'MSG'
+                Invalid value for 'openTuple' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'openTuple':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array openTuple': requires 'string', got 'integer'
+                Provided JSON for 'openTuple' contains not allowed unevaluated items [#0, #1]
+                MSG
+                : <<<'MSG'
+                Invalid value for 'openTuple' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'openTuple':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array openTuple': requires 'string', got 'integer'
+                MSG,
+        );
+    }
+
+    /**
      * A branch which succeeds hands the items it evaluated (its contains matched every item, its own
      * unevaluatedItems evaluated the rest) to the unevaluatedItems of the enclosing array. A branch which fails
      * evaluates nothing for the enclosing array: the items matched by the contains of a failed branch stay

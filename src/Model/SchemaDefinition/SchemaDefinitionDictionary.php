@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
 use ArrayObject;
+use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
+use TypeError;
 
-/**
- * Class SchemaDefinitionDictionary
- *
- * @package PHPModelGenerator\Model\SchemaDefinition
- */
 class SchemaDefinitionDictionary extends ArrayObject
 {
     /** @var Schema[] keyed by canonical file path */
@@ -23,9 +20,6 @@ class SchemaDefinitionDictionary extends ArrayObject
     /** @var string[] maps raw ref string → canonical file path */
     private array $rawRefToCanonical = [];
 
-    /**
-     * SchemaDefinitionDictionary constructor.
-     */
     public function __construct(private readonly JsonSchema $schema)
     {
         parent::__construct();
@@ -104,6 +98,53 @@ class SchemaDefinitionDictionary extends ArrayObject
         $this[$key] = $definition;
 
         return $this;
+    }
+
+    /**
+     * Look up the schema the `$ref` of the provided schema points at, without creating a property: the raw JSON of the
+     * target, for a static inspection of the keywords of a referenced definition.
+     *
+     * @return array{0: JsonSchema, 1: SchemaDefinitionDictionary}|null The referenced schema and the dictionary of the
+     *                                                                   document it belongs to, null if the schema
+     *                                                                   has no reference or the reference can't be
+     *                                                                   resolved
+     *
+     * @throws SchemaException A failure of a referenced file which is processed for the lookup
+     */
+    public function getReferencedSchema(JsonSchema $schema, SchemaProcessor $schemaProcessor): ?array
+    {
+        $reference = $schema->getJson()['$ref'] ?? null;
+
+        if (!is_string($reference)) {
+            return null;
+        }
+
+        $path = [];
+
+        try {
+            $definition = $this->getDefinition($reference, $schemaProcessor, $path, $schema->getBaseId());
+
+            if ($definition === null) {
+                return null;
+            }
+
+            return [
+                $definition->getSource()->navigate(implode('/', $path)),
+                $definition->getSchema()->getSchemaDictionary(),
+            ];
+        } catch (SchemaException $exception) {
+            // Resolving a reference to a file which isn't processed yet processes the file. A failure of the
+            // referenced file is the very failure the reference resolution reports, it must not be swallowed here:
+            // the file is registered as processed, the failure would be lost.
+            if ($exception->isReferencedSchemaFailure()) {
+                throw $exception;
+            }
+
+            return null;
+        } catch (Exception | TypeError) {
+            // An unresolvable reference, or a reference to a boolean schema which can't be navigated
+            return null;
+        }
     }
 
     /**

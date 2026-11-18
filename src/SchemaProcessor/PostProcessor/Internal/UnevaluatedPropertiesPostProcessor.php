@@ -393,12 +393,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
         if ($evaluatedItemIndicesNeeded) {
             // Per-array-property index map of indices the property's UnevaluatedItems validator
-            // successfully evaluated, shaped as [propertyName => [index => true]]. Inner and outer
-            // UnevaluatedItems validators of one array (a composition branch) share the same
-            // entry; an array which is an element of another array evaluates in an evaluation scope
-            // of its own (see RenderHelper::renderValidators()). Transient: every chain run
-            // overwrites it; never registered with the rollback registry, never snapshotted across
-            // setter calls.
+            // successfully evaluated, shaped as [propertyName => [index => true]]. A composition
+            // branch and an array which is an element of another array evaluate in an evaluation
+            // scope of their own (see ComposedItem.phptpl and RenderHelper::renderValidators()), the
+            // indices of a branch reach the entry of the array once its composition succeeded.
+            // Transient: every chain run overwrites it; never registered with the rollback registry,
+            // never snapshotted across setter calls.
             $schema->addProperty(
                 (new Property(
                     'evaluatedItemIndices',
@@ -518,7 +518,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 $wrappedProperty = $composedProperty->getWrappedProperty();
 
-                if ($composedProperty->getEvaluationScopeKey() !== null) {
+                if ($composedProperty->getEvaluatedItemsKey() !== null) {
                     $this->enableDirectSiblingContainsTracking($wrappedProperty);
 
                     foreach ($this->getSourceValidators($wrappedProperty) as $branchValidator) {
@@ -579,7 +579,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 // the keyword, which is not part of the JSON of the branch.
                 if (
                     array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())
-                    || $composedProperty->getEvaluationScopeKey() !== null
+                    || $composedProperty->getEvaluatedItemsKey() !== null
                 ) {
                     return $seen[$propertyKey] = true;
                 }
@@ -647,7 +647,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         // Iterate the source validators of the wrapped property. The decorator's
         // getOrderedValidators() (and the one of a proxy) returns fresh withProperty() clones every call, so a
         // mutation on those clones would be invisible at render time.
-        $evaluatesItsOwnItems = $composedProperty->getEvaluationScopeKey() !== null;
+        $evaluatesItsOwnItems = $composedProperty->getEvaluatedItemsKey() !== null;
 
         foreach ($this->getSourceValidators($composedProperty->getWrappedProperty()) as $validator) {
             if ($validator instanceof AbstractComposedPropertyValidator) {

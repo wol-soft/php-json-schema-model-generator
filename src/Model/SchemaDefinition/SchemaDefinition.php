@@ -13,11 +13,7 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
- * Class SchemaDefinition
- *
  * Hold a definition from a schema
- *
- * @package PHPModelGenerator\Model
  */
 class SchemaDefinition
 {
@@ -31,16 +27,7 @@ class SchemaDefinition
      * @var array<string, string>
      */
     private array $entriesInCreation = [];
-    /**
-     * The entry of a definition which describes an object: shared by all references to the definition
-     *
-     * @var array<string, string>
-     */
-    private array $objectEntries = [];
 
-    /**
-     * SchemaDefinition constructor.
-     */
     public function __construct(
         protected JsonSchema $source,
         protected SchemaProcessor $schemaProcessor,
@@ -97,14 +84,15 @@ class SchemaDefinition
         // The name of the property is metadata as well: the validators of a property name it in their exceptions and
         // in checks (the key of the property in the provided data), a property shared by differently named references
         // reports the name of the first reference for all of them (or doesn't validate the later ones at all). Each
-        // name therefore gets a property of its own. Two exceptions share the entry of the first reference:
-        // - a recursive reference (found while the entry of the definition is created): the recursion has to end in
-        //   the property which is created, a name specific entry would be created again and again.
-        // - an object: its constraints are validated by the generated class, which names its own properties. The
-        //   property only holds an instance check which is bound to the referencing property when it is rendered.
-        //   Creating the property for each name was rejected: the class would be processed again for each name only
-        //   to be reported as a duplicate of itself.
-        $entryKey = $this->entriesInCreation[$key] ?? $this->objectEntries[$key] ?? $key . '-' . md5($propertyName);
+        // name therefore gets a property of its own. Only a recursive reference (found while the entry of the
+        // definition is created) shares the entry of the property which is created: the recursion has to end in that
+        // property, a name specific entry would be created again and again.
+        // A definition describing an object gets a property per name as well, its class is still generated once
+        // (SchemaProcessor::processSchema() returns the class of the same signature). Sharing the property of an
+        // object was rejected: the property is more than an instance check, the keywords which target the property
+        // instead of the shared class (const, enum, filter, default) are validated by it, and the const of an optional
+        // property checks for the key of the first reference in the provided data.
+        $entryKey = $this->entriesInCreation[$key] ?? $key . '-' . md5($propertyName);
 
         if (!$this->resolvedPaths->offsetExists($entryKey)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -125,10 +113,6 @@ class SchemaDefinition
 
                 $this->resolvedPaths->offsetSet($entryKey, $property);
                 unset($this->entriesInCreation[$key]);
-
-                if ($property->isResolved() && $property->getNestedSchema() !== null) {
-                    $this->objectEntries[$key] = $entryKey;
-                }
 
                 /** @var PropertyProxy $proxy */
                 foreach ($this->unresolvedProxies[$entryKey] ?? [] as $proxy) {

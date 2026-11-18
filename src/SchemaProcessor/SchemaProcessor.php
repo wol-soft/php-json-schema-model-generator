@@ -25,6 +25,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
+use PHPModelGenerator\PropertyProcessor\Composition\CompositionCycleDetector;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyArrayDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -45,6 +46,8 @@ class SchemaProcessor
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
 
     private BranchFilterScope $branchFilterScope;
+
+    private CompositionCycleDetector $compositionCycleDetector;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -79,6 +82,7 @@ class SchemaProcessor
     ) {
         $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
         $this->branchFilterScope = new BranchFilterScope($generatorConfiguration);
+        $this->compositionCycleDetector = new CompositionCycleDetector($this);
     }
 
     /**
@@ -602,6 +606,15 @@ class SchemaProcessor
     public function getGeneratorConfiguration(): GeneratorConfiguration
     {
         return $this->generatorConfiguration;
+    }
+
+    /**
+     * The detector of compositions which require their own schema, shared by the generation run so the locations
+     * found free of cycles are walked once
+     */
+    public function getCompositionCycleDetector(): CompositionCycleDetector
+    {
+        return $this->compositionCycleDetector;
     }
 
     public function getSchemaProvider(): SchemaProviderInterface

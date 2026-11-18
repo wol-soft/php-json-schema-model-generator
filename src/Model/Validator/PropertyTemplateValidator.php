@@ -12,19 +12,11 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class PropertyTemplateValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class PropertyTemplateValidator extends AbstractPropertyValidator
 {
     /** @var Schema|null */
     protected $scope;
 
-    /**
-     * PropertyTemplateValidator constructor.
-     */
     public function __construct(
         PropertyInterface $property,
         protected string $template,

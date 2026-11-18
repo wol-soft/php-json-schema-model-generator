@@ -457,7 +457,10 @@ contributes nothing.
 Unlike ``additionalItems``, ``unevaluatedItems`` looks across composition branches: an index
 covered by a branch that ended up succeeding is credited, and an index covered only by a branch
 that failed is not. Compositions nested inside a branch contribute their own successful branches
-the same way, to any depth.
+the same way, to any depth. A branch only counts if its composition succeeds as a whole: an
+``allOf`` which fails on one of its branches, a ``oneOf`` matching more than one branch or a
+conditional whose ``then`` branch fails after the condition succeeded credits nothing, also not
+the indices of the branches which succeeded.
 
 A composition branch may declare ``unevaluatedItems`` itself. It constrains the indices which the keywords of
 the branch did not evaluate: the ``items``, ``additionalItems`` and ``contains`` of the branch and the compositions

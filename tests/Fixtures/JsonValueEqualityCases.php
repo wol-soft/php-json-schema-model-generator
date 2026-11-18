@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Fixtures;
 
 /**
- * The cases of the equality of two decoded JSON values shared by the tests of the generation time comparison and of
- * the comparison embedded into the generated code: both must come to the same result.
+ * The cases of the equality of two decoded JSON values the checks embedded into the generated code must come to. The
+ * same cases cover the comparison itself (JsonValue) in the tests of the production library: the generated code and
+ * the generation time comparison must come to the same result.
  *
  * Structures are equal if they hold the same keys with equal values, independent of the order of the keys of an
  * object (the order of a list matters). A number inside of a structure equals a number of the other type with the

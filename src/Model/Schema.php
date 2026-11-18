@@ -87,9 +87,6 @@ class Schema
 
     private PropertyMerger $propertyMerger;
 
-    /**
-     * Schema constructor.
-     */
     public function __construct(
         protected string $targetFileName,
         protected string $classPath,

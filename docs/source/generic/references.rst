@@ -129,7 +129,7 @@ An invalid value for ``keywords`` results in an error which names the property `
       - invalid item #0
         * Invalid type for 'keywords': requires 'string', got 'integer'
 
-The class of an object definition is generated once and shared by all properties referencing the definition.
+The class of an object definition is generated once and shared by all properties referencing the definition. The keywords of the definition which constrain the value as a whole instead of its properties (``const``, ``enum``, ``filter``, ``default``) are validated by each referencing property on its own: a ``const`` of the definition rejects an invalid value of every referencing property and names the property in the error.
 
 Self-reference (recursive schemas)
 -----------------------------------

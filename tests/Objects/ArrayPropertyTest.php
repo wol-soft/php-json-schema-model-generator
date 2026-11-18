@@ -26,11 +26,6 @@ use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class ArrayPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {

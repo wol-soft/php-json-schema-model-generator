@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonValue;
+use PHPModelGenerator\Utils\JsonValueCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 
 class EnumValidatorFactory extends AbstractValidatorFactory
@@ -39,7 +40,7 @@ class EnumValidatorFactory extends AbstractValidatorFactory
         if (empty($allowedValues)) {
             throw new SchemaException(
                 sprintf(
-                    "Empty enum property %s in file %s",
+                    "Empty enum property '%s' in file %s",
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
@@ -76,15 +77,15 @@ class EnumValidatorFactory extends AbstractValidatorFactory
             $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
         }
 
-        $allowedValues = JsonValue::alignNumbers($allowedValues, $property->getType());
+        $allowedValues = JsonValueCheck::alignNumbers($allowedValues, $property->getType());
 
         if (array_key_exists('default', $json)) {
-            $default = JsonValue::alignNumbers([$json['default']], $property->getType())[0];
+            $default = JsonValueCheck::alignNumbers([$json['default']], $property->getType())[0];
 
             if (!JsonValue::contains($allowedValues, $default)) {
                 throw new SchemaException(
                     sprintf(
-                        "Invalid default value %s for enum property %s in file %s",
+                        "Invalid default value %s for enum property '%s' in file %s",
                         var_export($json['default'], true),
                         $property->getName(),
                         $propertySchema->getFile(),

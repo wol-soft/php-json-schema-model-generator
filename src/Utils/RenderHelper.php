@@ -293,10 +293,17 @@ class RenderHelper
      * value of an additional property, ...).
      *
      * An element which carries an unevaluatedItems validator is validated in an evaluation scope of its own: the
-     * element starts with an empty set of evaluated indices and hands the set of the enclosing array back untouched.
-     * The set is tracked by the name of the array property, and the element shares that name with its siblings (all
-     * inner arrays of an outer array) and with the enclosing array (the schema-form items carry the name of the
-     * enclosing property).
+     * element starts without any evaluated indices and hands the indices of the enclosing arrays back untouched. The
+     * indices are tracked by the name of an array property, and the element shares that name with its siblings (all
+     * inner arrays of an outer array), with the enclosing array (the schema-form items carry the name of the
+     * enclosing property) or, as a recursive reference, with the definition it refers to.
+     *
+     * The scope covers all tracked arrays, not the key of the element: the validators of a recursive reference were
+     * created for the property of the definition and track the name of that property, the element carries the name of
+     * its position (`tuple item #0 of array ...`). Scoping the name of the element was rejected: from the second level
+     * of a recursion on, the element and its validators disagree on the key and the indices a nested level evaluated
+     * were credited to the level enclosing it. Nothing outside of the element reads the indices while it is
+     * validated, an empty set for every array is the state the element has to start with.
      *
      * The scope is restored in a `finally` block, a failing element (the exception is collected by the caller) and a
      * `continue` of the caller must not leave the credits of the element behind. Resetting the set without restoring
@@ -318,17 +325,15 @@ class RenderHelper
         $code = implode("\n", $renderedValidators);
 
         if ($this->hasUnevaluatedItemsValidator($property)) {
-            $key = var_export($property->getName(), true);
-
             $code = implode(
                 "\n",
                 [
-                    "\$savedEvaluatedItemIndices = \$this->_evaluatedItemIndices[$key] ?? [];",
-                    "\$this->_evaluatedItemIndices[$key] = [];",
+                    '$savedEvaluatedItemIndices = $this->_evaluatedItemIndices;',
+                    '$this->_evaluatedItemIndices = [];',
                     'try {',
                     '    ' . self::indent($code, 1),
                     '} finally {',
-                    "    \$this->_evaluatedItemIndices[$key] = \$savedEvaluatedItemIndices;",
+                    '    $this->_evaluatedItemIndices = $savedEvaluatedItemIndices;',
                     '}',
                 ],
             );
