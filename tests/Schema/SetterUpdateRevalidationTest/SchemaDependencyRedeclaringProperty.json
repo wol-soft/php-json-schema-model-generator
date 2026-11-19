@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "string"
+    },
+    "b": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "a": {
+      "required": [
+        "b"
+      ],
+      "properties": {
+        "b": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "string"
+    },
+    "zzz": {
+      "type": "string"
+    }
+  },
+  "propertyNames": {
+    "pattern": "^a"
+  }
+}

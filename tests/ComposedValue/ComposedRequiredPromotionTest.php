@@ -555,6 +555,31 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // -------------------------------------------------------------------------
+    // not
+    // -------------------------------------------------------------------------
+
+    /**
+     * not: a branch requiring a property guarantees the property is absent from a valid object. Promoting it
+     * to non-nullable like an anyOf/oneOf branch requirement would make its getter throw a TypeError for every valid
+     * object, as the property is always null there.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testNotRequiredInBranchIsNotPromoted(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'NotRequiredInBranch.json',
+            null,
+            false,
+            $implicitNull,
+        );
+
+        $this->assertNullableStringProperty($className, 'name');
+
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+    }
+
+    // -------------------------------------------------------------------------
     // Multiple properties: only some promoted
     // -------------------------------------------------------------------------
 
