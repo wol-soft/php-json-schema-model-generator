@@ -78,7 +78,7 @@ trait PropertyDependencyTrait
         if ($dependencySchema === null) {
             throw new SchemaException(
                 sprintf(
-                    "Schema dependency of property '%s' in file '%s' must be an object schema, a composition or a"
+                    "Schema dependency of property '%s' in file %s must be an object schema, a composition or a"
                         . ' reference to an object schema but declares %s',
                     $property->getName(),
                     $dependencyJsonSchema->getFile(),
@@ -119,7 +119,7 @@ trait PropertyDependencyTrait
             throw new SchemaException(
                 sprintf(
                     "Property '%s' has the dependency false and must not be provided, but is also listed as required"
-                        . " in file '%s'",
+                        . " in file %s",
                     $property->getName(),
                     $dependencyJsonSchema->getFile(),
                 ),

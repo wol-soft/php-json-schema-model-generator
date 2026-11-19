@@ -117,7 +117,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         string $filePattern,
         bool $flagCouldRescue,
     ): string {
-        $message = "^Composition for '$classNamePattern' in file '$filePattern' does not resolve to"
+        $message = "^Composition for '$classNamePattern' in file $filePattern does not resolve to"
             . ' a definite object and cannot be represented as a generated class';
 
         $message .= $flagCouldRescue

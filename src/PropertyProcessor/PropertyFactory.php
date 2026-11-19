@@ -320,7 +320,7 @@ class PropertyFactory
         // the schema is represented the same way, but there is no non-object value which could pass unnoticed.
         if (!$propertySchema->isObjectAssertedByContext()) {
             $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-                "Property '{property}' at '{pointer}' in file '{file}' carries object-constraining keywords"
+                "Property '{property}' at '{pointer}' in file {file} carries object-constraining keywords"
                     . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain"
                     . ' non-object values',
                 [
@@ -385,7 +385,7 @@ class PropertyFactory
         if (count($exclusiveKeywords) > 1) {
             throw new SchemaException(
                 sprintf(
-                    "Mutually exclusive keywords '%s' cannot be combined on property '%s' in file '%s'",
+                    "Mutually exclusive keywords '%s' cannot be combined on property '%s' in file %s",
                     implode("', '", $exclusiveKeywords),
                     $propertyName,
                     $propertySchema->getFile(),
@@ -588,7 +588,7 @@ class PropertyFactory
                 // Structural object siblings were detected but the $ref resolved to a
                 // non-object type — these are contradictory constraints.
                 throw new SchemaException(sprintf(
-                    "Property '%s' in file '%s': sibling structural object keywords"
+                    "Property '%s' in file %s: sibling structural object keywords"
                         . " ('properties', 'required', …) require the \$ref to resolve to an object,"
                         . " but it resolved to a non-object type",
                     $propertyName,
@@ -754,7 +754,7 @@ class PropertyFactory
 
         if (empty(TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames))) {
             throw new SchemaException(sprintf(
-                "Property '%s' in file '%s': \$ref resolves to type '%s' but sibling 'type' "
+                "Property '%s' in file %s: \$ref resolves to type '%s' but sibling 'type' "
                     . "declares '%s'; the types are incompatible",
                 $propertyName,
                 $siblingSchema->getFile(),
@@ -1121,7 +1121,7 @@ class PropertyFactory
         if ($isSchemaReadOnly && $isWriteOnly) {
             throw new SchemaException(
                 sprintf(
-                    "Property '%s' in file '%s' cannot be both readOnly and writeOnly",
+                    "Property '%s' in file %s cannot be both readOnly and writeOnly",
                     $propertyName,
                     $propertySchema->getFile(),
                 ),

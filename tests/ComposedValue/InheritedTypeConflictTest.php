@@ -270,8 +270,8 @@ class InheritedTypeConflictTest extends AbstractPHPModelGeneratorTestCase
         return '/^'
             . preg_quote("Composition branch #$branchNumber for '", '/')
             . $propertyPattern
-            . preg_quote("' in file '", '/')
-            . ".+\.json'"
+            . preg_quote("' in file ", '/')
+            . ".+\.json"
             . preg_quote(
                 " is forced to type $type by the inherited parent type, but its 'enum'/'const' contains no value"
                     . ' of that type: the allOf composition can never be satisfied',

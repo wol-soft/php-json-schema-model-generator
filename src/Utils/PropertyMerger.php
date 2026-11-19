@@ -167,7 +167,7 @@ class PropertyMerger
         if ($existingDefault !== null && $incomingDefault !== null && $existingDefault !== $incomingDefault) {
             throw new SchemaException(sprintf(
                 "Conflicting default values for property '%s': '%s' declared at '%s'"
-                    . " conflicts with '%s' declared at '%s' in file '%s'",
+                    . " conflicts with '%s' declared at '%s' in file %s",
                 $existing->getName(),
                 $existingDefault,
                 $existing->getJsonSchema()->getPointer(),
@@ -466,7 +466,7 @@ class PropertyMerger
         array $intersection,
         bool $hasNull,
     ): void {
-        $nonNull = array_values(array_filter($intersection, fn(string $t): bool => $t !== 'null'));
+        $nonNull = array_values(array_filter($intersection, fn(string $typeName): bool => $typeName !== 'null'));
 
         if (!$nonNull) {
             // Only null survives — keep as-is; the null-processor path handles pure-null types.
@@ -572,7 +572,7 @@ class PropertyMerger
         $hasNull = in_array('null', $allNames, true)
             || $existingOutput->isNullable() === true
             || $incomingOutput->isNullable() === true;
-        $nonNullNames = array_values(array_filter($allNames, fn(string $t): bool => $t !== 'null'));
+        $nonNullNames = array_values(array_filter($allNames, fn(string $typeName): bool => $typeName !== 'null'));
 
         if (!$nonNullNames) {
             return;

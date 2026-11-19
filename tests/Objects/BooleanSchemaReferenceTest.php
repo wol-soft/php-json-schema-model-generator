@@ -342,7 +342,7 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             '/^' . preg_quote("Property 'forbidden' has the dependency false and must not be provided, but is also"
-                . " listed as required in file '", '/') . ".+\.json'" . ' at line \d+, column \d+$/',
+                . " listed as required in file ", '/') . ".+\.json" . ' at line \d+, column \d+$/',
         );
 
         $this->generateClassFromFile('BooleanDependencyOfRequiredProperty.json');
@@ -379,7 +379,7 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getMessage(),
             );
             $this->assertMatchesRegularExpression(
-                "/^The value at '\/definitions\/title' in file '.+\.json' is not a schema, got string"
+                "/^The value at '\/definitions\/title' in file .+\.json is not a schema, got string"
                     . ' at line \d+, column \d+$/',
                 $exception->getPrevious()?->getMessage() ?? '',
             );

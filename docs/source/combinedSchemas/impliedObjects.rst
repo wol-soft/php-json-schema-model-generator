@@ -126,7 +126,7 @@ and the location of the offending schema:
 
 .. code-block:: none
 
-    Property 'person' at '/properties/person' in file '...' carries object-constraining keywords
+    Property 'person' at '/properties/person' in file ... carries object-constraining keywords
     (eg. 'properties', 'required') without a 'type' declaration and does not constrain non-object
     values
 
@@ -256,7 +256,7 @@ representation this generated class could produce for it. Generation is rejected
 
 .. code-block:: none
 
-    Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
+    Composition for 'Example' in file ... does not resolve to a definite object and cannot be
     represented as a generated class: add an explicit '"type": "object"' constraint, or enable
     'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it
 
@@ -266,7 +266,7 @@ branch such as ``true`` or ``{}``, no branches at all, or a root ``type`` listin
 
 .. code-block:: none
 
-    Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
+    Composition for 'Example' in file ... does not resolve to a definite object and cannot be
     represented as a generated class: if every value it accepts is meant to be an object, declare
     '"type": "object"' on the schema itself
 
@@ -322,7 +322,7 @@ for it and the generator warns, naming the class and the file:
 
 .. code-block:: none
 
-    Schema for 'Base' in file '...' carries object-constraining keywords (eg. 'properties',
+    Schema for 'Base' in file ... carries object-constraining keywords (eg. 'properties',
     'required') without a 'type' declaration and no class is generated for it: add an explicit
     '"type": "object"' constraint, or enable
     'GeneratorConfiguration::setImplicitObjectComposition(true)' to generate it

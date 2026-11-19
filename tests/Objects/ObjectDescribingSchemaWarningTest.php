@@ -23,7 +23,7 @@ use ReflectionClass;
 #[ApplicableDrafts]
 class ObjectDescribingSchemaWarningTest extends AbstractPHPModelGeneratorTestCase
 {
-    private const DESCRIBING_WARNING = "Property '{property}' at '{pointer}' in file '{file}' carries"
+    private const DESCRIBING_WARNING = "Property '{property}' at '{pointer}' in file {file} carries"
         . " object-constraining keywords (eg. 'properties', 'required') without a 'type' declaration and does not"
         . ' constrain non-object values';
 

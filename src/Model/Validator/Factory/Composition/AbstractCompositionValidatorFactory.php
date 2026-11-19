@@ -317,7 +317,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         if ($this->key === 'allOf') {
             throw new SchemaException(
                 sprintf(
-                    "Composition branch %s for '%s' in file '%s' is forced to type %s by the inherited parent type,"
+                    "Composition branch %s for '%s' in file %s is forced to type %s by the inherited parent type,"
                         . " but its 'enum'/'const' contains no value of that type: the allOf composition can never"
                         . ' be satisfied',
                     $branchLabel,

@@ -1696,7 +1696,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // copies schemas to a session temp directory before processing). The file path
         // in the message is the temp-copy path, so match only the invariant parts.
         $this->expectExceptionMessageMatches(
-            '/Property \'name\' in file \'.*\':'
+            '/Property \'name\' in file .*:'
             . ' \$ref resolves to type \'string\' but sibling \'type\' declares \'integer\';'
             . ' the types are incompatible/',
         );

@@ -22,12 +22,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts]
 class ObjectDescribingRootTest extends AbstractPHPModelGeneratorTestCase
 {
-    private const SKIPPED_ROOT_WARNING = "Schema for '{class}' in file '{file}' carries object-constraining keywords"
+    private const SKIPPED_ROOT_WARNING = "Schema for '{class}' in file {file} carries object-constraining keywords"
         . " (eg. 'properties', 'required') without a 'type' declaration and no class is generated for it: add an"
         . " explicit '\"type\": \"object\"' constraint, or enable"
         . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to generate it";
 
-    private const SITE_WARNING = "Property '{property}' at '{pointer}' in file '{file}' carries object-constraining"
+    private const SITE_WARNING = "Property '{property}' at '{pointer}' in file {file} carries object-constraining"
         . " keywords (eg. 'properties', 'required') without a 'type' declaration and does not constrain non-object"
         . ' values';
 

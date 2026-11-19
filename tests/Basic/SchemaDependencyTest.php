@@ -545,7 +545,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/^' . preg_quote("Schema dependency of property 'credit_card' in file '", '/') . ".+\.json'"
+            '/^' . preg_quote("Schema dependency of property 'credit_card' in file ", '/') . ".+\.json"
                 . preg_quote(
                     ' must be an object schema, a composition or a reference to an object schema but declares '
                         . $declaredType,

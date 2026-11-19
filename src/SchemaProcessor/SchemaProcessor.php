@@ -179,7 +179,7 @@ class SchemaProcessor
         $this->reportedSkippedRoots[$rootKey] = true;
 
         $this->generatorConfiguration->getLogger()->warning(
-            "Schema for '{class}' in file '{file}' carries object-constraining keywords (eg. 'properties',"
+            "Schema for '{class}' in file {file} carries object-constraining keywords (eg. 'properties',"
                 . " 'required') without a 'type' declaration and no class is generated for it: add an explicit"
                 . " '\"type\": \"object\"' constraint, or enable"
                 . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to generate it",
@@ -361,7 +361,7 @@ class SchemaProcessor
 
         if (!in_array($shape, $acceptedShapes, true)) {
             $message = sprintf(
-                "Composition for '%s' in file '%s' does not resolve to a definite object and"
+                "Composition for '%s' in file %s does not resolve to a definite object and"
                     . ' cannot be represented as a generated class',
                 $className,
                 $jsonSchema->getFile(),

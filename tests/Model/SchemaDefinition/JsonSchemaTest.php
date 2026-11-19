@@ -88,7 +88,7 @@ class JsonSchemaTest extends TestCase
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage(
-            "The boolean schema at '/definitions/boolean' in file '/path/to/schema.json' has no JSON object, check"
+            "The boolean schema at '/definitions/boolean' in file /path/to/schema.json has no JSON object, check"
                 . ' isBooleanSchema() before reading it',
         );
 
@@ -100,7 +100,7 @@ class JsonSchemaTest extends TestCase
         $jsonSchema = new JsonSchema('/path/to/schema.json', ['type' => 'object']);
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage("The schema at '' in file '/path/to/schema.json' is not a boolean schema");
+        $this->expectExceptionMessage("The schema at '' in file /path/to/schema.json is not a boolean schema");
 
         $jsonSchema->getBooleanValue();
     }
@@ -136,7 +136,7 @@ class JsonSchemaTest extends TestCase
 
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            "The value at '/definitions/value' in file '/path/to/schema.json' is not a schema, got $type",
+            "The value at '/definitions/value' in file /path/to/schema.json is not a schema, got $type",
         );
 
         $jsonSchema->navigate('/definitions/value');
@@ -306,7 +306,7 @@ class JsonSchemaTest extends TestCase
     public function testEmptyTypeArrayIsRejected(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage("Empty 'type' array in file '/path/to/schema.json'");
+        $this->expectExceptionMessage("Empty 'type' array in file /path/to/schema.json");
 
         new JsonSchema('/path/to/schema.json', ['type' => []]);
     }
@@ -321,7 +321,7 @@ class JsonSchemaTest extends TestCase
         $jsonSchema = new JsonSchema('/path/to/schema.json', json_decode($rawSource, true), '', $rawSource);
 
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage("Empty 'type' array in file '/path/to/schema.json' at line 3, column 16");
+        $this->expectExceptionMessage("Empty 'type' array in file /path/to/schema.json at line 3, column 16");
 
         $jsonSchema->navigate('/properties/age');
     }

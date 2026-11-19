@@ -147,7 +147,7 @@ class JsonSchema
 
         if ($declaredTypes === []) {
             throw new SchemaException(
-                sprintf("Empty 'type' array in file '%s'", $this->file),
+                sprintf("Empty 'type' array in file %s", $this->file),
                 $this,
             );
         }
@@ -165,7 +165,7 @@ class JsonSchema
         if ($this->booleanValue !== null) {
             throw new LogicException(
                 sprintf(
-                    "The boolean schema at '%s' in file '%s' has no JSON object, check isBooleanSchema() before"
+                    "The boolean schema at '%s' in file %s has no JSON object, check isBooleanSchema() before"
                         . ' reading it',
                     $this->pointer,
                     $this->file,
@@ -188,7 +188,7 @@ class JsonSchema
     {
         return $this->booleanValue
             ?? throw new LogicException(
-                sprintf("The schema at '%s' in file '%s' is not a boolean schema", $this->pointer, $this->file),
+                sprintf("The schema at '%s' in file %s is not a boolean schema", $this->pointer, $this->file),
             );
     }
 
@@ -333,7 +333,7 @@ class JsonSchema
             if (!is_array($target)) {
                 throw new SchemaException(
                     sprintf(
-                        "The value at '%s' in file '%s' is not a schema, got %s",
+                        "The value at '%s' in file %s is not a schema, got %s",
                         $jsonSchema->pointer,
                         $this->file,
                         gettype($target),
