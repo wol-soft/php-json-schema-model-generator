@@ -9,12 +9,14 @@ use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionClass;
+use ReflectionProperty;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -47,6 +49,37 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
+        ];
+    }
+
+    /**
+     * A fault in the referenced definition itself (here a type the draft doesn't know) is reported with its own
+     * message instead of being restated as an unresolved reference: the reference resolved perfectly well, the
+     * definition behind it is broken. The reference chain and the external file are covered as well, as the fault
+     * is raised at a different depth there.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    #[DataProvider('failingReferencedDefinitionProvider')]
+    public function testFaultInReferencedDefinitionIsReportedWithItsOwnCause(string $reference): void
+    {
+        try {
+            $this->generateClassFromFileTemplate('FailingReferencedDefinition.json', [$reference]);
+            $this->fail('Expected a SchemaException for the broken definition');
+        } catch (SchemaException $exception) {
+            $this->assertSame('Unsupported property type unknownType', $exception->getMessage());
+        }
+    }
+
+    public static function failingReferencedDefinitionProvider(): array
+    {
+        return [
+            'definition of the same file' => ['#/definitions/broken'],
+            'definition behind a reference chain' => ['#/definitions/alias'],
+            'definition of an external file' => [
+                '../ReferencePropertyTest_external/brokenLibrary.json#/definitions/broken',
+            ],
         ];
     }
 
@@ -1682,7 +1715,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // copies schemas to a session temp directory before processing). The file path
         // in the message is the temp-copy path, so match only the invariant parts.
         $this->expectExceptionMessageMatches(
-            '/Property \'name\' in file \'.*\':'
+            '/Property \'name\' in file .*:'
             . ' \$ref resolves to type \'string\' but sibling \'type\' declares \'integer\';'
             . ' the types are incompatible/',
         );
@@ -1714,5 +1747,58 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // rather than inheriting the array item's non-nullable one.
         $itemClass = $object->getList()[0]::class;
         $this->assertSame([$itemClass, 'null'], $this->getReturnTypeNames($className, 'getSingle'));
+    }
+
+    /**
+     * A base-level $ref transfers the base validators of the referenced schema onto the referencing class. The
+     * AdditionalPropertiesValidator among them is one instance shared with the referenced schema, which has already
+     * switched it to collecting the additional properties into `_additionalProperties`. The referencing class
+     * renders the same code, so it has to declare the field although its own JSON never spells
+     * `additionalProperties`: created dynamically it is deprecated since PHP 8.2 and an error in PHP 9.
+     *
+     * The transferred validator stores the additional properties itself, so the class must not add a second storage
+     * for the keys the referenced schema merely declares (`a`).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testBaseRefTransfersTheAdditionalPropertiesFieldWithTheValidator(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BaseRefAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_additionalProperties'),
+            'The field the transferred validator writes must be declared on the class.',
+        );
+
+        $deprecations = [];
+        set_error_handler(static function (int $errno, string $errstr) use (&$deprecations): bool {
+            $deprecations[] = $errstr;
+            return true;
+        });
+
+        try {
+            $object = new $className(['a' => 'x', 'b' => 'y', 'zz' => 's']);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+
+        $collectedProperty = new ReflectionProperty($className, '_additionalProperties');
+        $collected = $collectedProperty->getValue($object);
+        $this->assertSame('s', $collected['zz']);
+        $this->assertArrayNotHasKey('a', $collected);
+
+        // The transferred validator still validates the additional properties.
+        $this->expectException(InvalidAdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(<<<'MSG'
+        /^Provided JSON for '\S+' contains invalid additional properties
+          - invalid additional property 'zz'
+            \* Invalid type for 'additional property': requires 'string', got 'integer'$/
+        MSG);
+
+        new $className(['zz' => 5]);
     }
 }

@@ -1555,10 +1555,10 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function tupleFormInDraft2020DataProvider(): array
     {
         $tupleMessage = "The tuple form of 'items' of property 'property' in file %file% doesn't exist in Draft "
-            . "2020-12 (its tuple keyword 'prefixItems' isn't supported yet): declare Draft 2019-09 or earlier in "
-            . "'\$schema' to use it";
+            . "2020-12: use 'prefixItems' for the tuple or declare Draft 2019-09 or earlier in '\$schema'";
         $additionalItemsMessage = "The keyword 'additionalItems' of property 'property' in file %file% doesn't exist "
-            . "in Draft 2020-12: declare Draft 2019-09 or earlier in '\$schema' to use the tuple form of 'items'";
+            . "in Draft 2020-12: use 'items' for the items behind a 'prefixItems' tuple or declare Draft 2019-09 or "
+            . "earlier in '\$schema'";
 
         return [
             'tuple' => ['TupleArray.json', $tupleMessage],

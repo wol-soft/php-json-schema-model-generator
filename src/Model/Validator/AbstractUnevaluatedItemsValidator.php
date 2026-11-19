@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -23,12 +24,16 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     private readonly PropertyInterface $parentProperty;
 
     /**
+     * @param ArrayItemsCoverage[] $siblingCoverages    What the positional keywords of the schema objects next to the
+     *                                                  keyword evaluate: the schema of the property and, for a `$ref`
+     *                                                  next to the keyword (Draft 2019-09 on), the definitions along
+     *                                                  the chain of references (see siblingItemsCoverage())
      * @param array<string, mixed> $extraTemplateValues Subclass-specific template values merged
      *                                                  on top of the shared set.
      */
     public function __construct(
         PropertyInterface $property,
-        array $siblingSchemaJsons,
+        array $siblingCoverages,
         string $templatePath,
         string $exceptionClass,
         array $exceptionParams,
@@ -36,7 +41,7 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     ) {
         $this->parentProperty = $property;
 
-        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage($siblingSchemaJsons);
+        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage($siblingCoverages);
 
         parent::__construct(
             $property,
@@ -54,49 +59,32 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     }
 
     /**
-     * Positional index coverage of the schema objects next to the keyword: the schema of the
-     * property and, for a `$ref` next to the keyword (Draft 2019-09 on), the definitions along the
-     * chain of references. A tuple `items` evaluates the indices [0, count); a non-false
-     * `additionalItems` of the same schema object then evaluates every index past that tuple; a
-     * schema-form or `true` `items` evaluates every index. Each schema object counts on its own: an
-     * `additionalItems` doesn't extend the tuple of another object (see
-     * CompositionPropertyDecorator::branchClaimsAllIndices()).
+     * Positional index coverage of the schema objects next to the keyword. A tuple evaluates the
+     * indices [0, count); a claimed trailing keyword of the same schema object then evaluates every
+     * index past that tuple; a schema-form or `true` `items` without a tuple evaluates every index.
+     * Each schema object counts on its own: a trailing keyword doesn't extend the tuple of another
+     * object (see CompositionPropertyDecorator::branchClaimsAllIndices()).
      *
      * A schema-form `items` of the property itself never reaches this point, the factory suppresses
      * the keyword as dead code; the one of a referenced definition does.
      *
-     * @param array<int, array<string, mixed>> $siblingSchemaJsons
+     * @param ArrayItemsCoverage[] $siblingCoverages
      *
      * @return array{0: int, 1: bool} [tuple length, whether every index past the tuple is covered]
      */
-    private function siblingItemsCoverage(array $siblingSchemaJsons): array
+    private function siblingItemsCoverage(array $siblingCoverages): array
     {
         $tupleItemsCount = 0;
-        $coversTail = false;
 
-        foreach ($siblingSchemaJsons as $json) {
-            $items = $json['items'] ?? null;
-            $isTuple = is_array($items) && $items !== [] && array_is_list($items);
-
-            if ($items === true || (is_array($items) && !$isTuple)) {
-                $coversTail = true;
-
-                continue;
+        foreach ($siblingCoverages as $coverage) {
+            if ($coverage->claimsEveryIndex()) {
+                return [0, true];
             }
 
-            if (!$isTuple) {
-                continue;
-            }
-
-            $tupleItemsCount = max($tupleItemsCount, count($items));
-
-            // the tuple and its additionalItems together evaluate every index
-            if (array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false) {
-                $coversTail = true;
-            }
+            $tupleItemsCount = max($tupleItemsCount, $coverage->getTupleLength());
         }
 
-        return [$coversTail ? 0 : $tupleItemsCount, $coversTail];
+        return [$tupleItemsCount, false];
     }
 
     /**

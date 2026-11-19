@@ -473,6 +473,57 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * The Draft 2020-12 spelling of the tuple shapes: `prefixItems` carries the tuple and `items` the entries behind
+     * it. With a tuple present `items` governs only the tail, so the reason must name the pair rather than
+     * describe `items` as if it covered every index — index 0 is evaluated by the tuple, not rejected or claimed by
+     * `items`.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function prefixItemsDeadCodeProvider(): array
+    {
+        return [
+            'prefixItems tuple with items: {schema}' => [
+                'PrefixItemsWithTailItems.json',
+                'sibling prefixItems tuple plus items: {schema} already validates every tail index past the tuple',
+            ],
+            'prefixItems tuple with items: false' => [
+                'PrefixItemsWithTailItemsFalse.json',
+                'sibling prefixItems tuple plus items: false rejects every tail index past the tuple',
+            ],
+            'prefixItems tuple with items: true' => [
+                'PrefixItemsWithTailItemsTrue.json',
+                'sibling prefixItems tuple plus items: true already claims every tail index past the tuple',
+            ],
+        ];
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('prefixItemsDeadCodeProvider')]
+    public function testPrefixItemsDeadCodeShapesWarnWithThePairTheyForm(string $schemaFile, string $reason): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags', 'reason' => $reason],
+            ),
+            'Expected a warning naming the tuple and its trailing keyword as the reason for the dead keyword',
+        );
+
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('deadCodeProvider')]
     public function testDeadCodeShapesWarn(string $schemaFile, string $reason): void
@@ -2009,6 +2060,52 @@ MSG,
     }
 
     /**
+     * A `contains` next to the composition only claims indices in the drafts where its matches count as evaluated
+     * (Draft 2020-12 on). In Draft 2019-09 it evaluates no item, so the branch's own unevaluatedItems misses no claim
+     * and the schema is generated: the branch sees nothing evaluated, as the specification requires.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testSiblingContainsWithoutEvaluatedItemsDoesNotRejectTheUnevaluatedItemsOfABranch(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedItemsNextToContains.json');
+
+        // the first branch rejects every item, the second one accepts up to three items
+        $this->assertSame(['a', 1], (new $className(['tags' => ['a', 1]]))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => ['a', 'b', 'c', 'd']],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1, #2, #3]
+              - Composition element #2: Failed
+                * Array 'tags' must not contain more than 3 items
+            MSG,
+        );
+    }
+
+    /**
+     * From Draft 2020-12 on the `contains` next to the composition claims the indices it matches, which the branch's
+     * own unevaluatedItems can't see: the schema is rejected as for any other claiming keyword next to the branch.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testSiblingContainsWithEvaluatedItemsRejectsTheUnevaluatedItemsOfABranch(): void
+    {
+        $this->expectException(UnsupportedSchemaFeatureException::class);
+        $this->expectExceptionMessage(
+            "Branch #1 of the composition for 'tags' declares 'unevaluatedItems', which cannot "
+                . 'yet see property names or indices declared by the enclosing schema or a '
+                . "sibling branch - remove 'unevaluatedItems' from the branch, or restructure the "
+                . 'schema so it is declared only at the level that needs it at line 10, column 9',
+        );
+
+        $this->generateClassFromFile('BranchUnevaluatedItemsNextToContains.json', null, true);
+    }
+
+    /**
      * The credits of a previous validation of an array property are not applied to the next one: contains credits
      * the matched indices, a stale credit of index 0 would skip the check of the string at index 0 of the next value
      * if unevaluatedItems: false doesn't reset the credits like the schema-form keyword does.
@@ -2441,5 +2538,300 @@ MSG,
                     * Array 'branchItems' must not contain more than 0 items
             MSG,
         );
+    }
+
+    /**
+     * `additionalItems` only has an effect alongside a tuple: with no tuple to sit behind, the
+     * keyword is ignored and claims no index at all. The direct-sibling path already gets this
+     * right, so this pins the composition-branch path, which derives the same coverage
+     * independently and must agree with it.
+     *
+     * The branch is genuinely vacuous here — `additionalItems` alone constrains nothing — so the
+     * vacuous-branch warning it triggers is correct and deliberately not asserted against.
+     *
+     * Draft 2019-09 only: Draft 2020-12 has no `additionalItems` and rejects the keyword.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testBranchAdditionalItemsWithoutTupleClaimsNoIndex(): void
+    {
+        $className = $this->generateClassFromFile('BranchAdditionalItemsWithoutTuple.json');
+
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#0]");
+
+        new $className(['tags' => ['a']]);
+    }
+
+    /**
+     * `items: {}` is the empty schema — it accepts anything and, being the schema form, claims
+     * every index, so unevaluatedItems is correctly reported as dead code.
+     *
+     * The reason this needs pinning: `json_decode(..., true)` renders `items: {}` and `items: []`
+     * as the very same empty PHP array, so no amount of inspection can tell them apart, and
+     * `array_is_list([])` is true — an empty array looks exactly like an empty tuple. Reading the
+     * ambiguous value as an empty *tuple* (claiming no index, keeping unevaluatedItems alive)
+     * would break `items: {}`, which is legal in every draft. Reading it as the empty *schema*
+     * only "breaks" `items: []`, which no draft accepts at all: the tuple form is `schemaArray`
+     * with `minItems: 1`, and a bare array is not a valid schema either. The library therefore
+     * resolves the ambiguity toward the one reading that has a valid spelling.
+     */
+    public function testEmptySchemaItemsClaimsEveryIndexAndSuppressesTheKeyword(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'EmptySchemaItems.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags', 'reason' => 'sibling items: {schema} already validates every index'],
+            ),
+            'The empty schema claims every index, so unevaluatedItems is dead code.',
+        );
+
+        $instance = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $instance->meta()->rawInput());
+    }
+
+    /**
+     * Draft 2020-12 renamed the tuple form of `items` to `prefixItems`. It claims the indices it
+     * covers exactly as a tuple `items` does, so a sibling `unevaluatedItems` sees index 0 as
+     * evaluated and only the tail beyond the tuple as unevaluated.
+     *
+     * Three shapes on one generated class: a value covered entirely by the tuple, a value whose
+     * tail index is unclaimed, and a tuple entry violating its own positional subschema (proving
+     * `prefixItems` validates rather than merely annotating).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testPrefixItemsClaimsItsIndicesForTheUnevaluatedAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('PrefixItemsWithUnevaluatedFalse.json');
+
+        $instance = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $instance->meta()->rawInput());
+
+        try {
+            new $className(['tags' => ['a', 'b']]);
+            $this->fail('Index 1 sits past the prefixItems tuple and must be unevaluated');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+        }
+
+        try {
+            new $className(['tags' => [42]]);
+            $this->fail('prefixItems must validate index 0 against its own positional subschema');
+        } catch (InvalidTupleException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid tuple item in array 'tags':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tags': requires 'string', got 'integer'
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * The idiomatic Draft 2020-12 array: `prefixItems` carries the tuple and `items` constrains
+     * everything behind it, the role `additionalItems` fills in earlier drafts. The two keywords
+     * must not both validate the tuple entries — the pass registered under `items` stands down
+     * when `prefixItems` is present, so index 0 answers to the tuple's own subschema only.
+     *
+     * Between them they claim every index, so `unevaluatedItems` has nothing left and is reported
+     * as dead code.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testPrefixItemsLeavesTheTrailingEntriesToItems(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PrefixItemsWithTailItems.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                [
+                    'property' => 'tags',
+                    'reason' => 'sibling prefixItems tuple plus items: {schema} already validates every tail index'
+                        . ' past the tuple',
+                ],
+            ),
+            'The tuple plus its trailing-entry schema claim every index.',
+        );
+
+        // Index 0 against the tuple entry (string), every further index against `items` (integer).
+        $instance = new $className(['tags' => ['a', 1, 2]]);
+        $this->assertSame(['tags' => ['a', 1, 2]], $instance->meta()->rawInput());
+
+        // A trailing entry is judged by `items`, not by the tuple's string subschema.
+        try {
+            new $className(['tags' => ['a', 'b']]);
+            $this->fail('Index 1 must be validated against the trailing-entry schema');
+        } catch (InvalidAdditionalTupleItemsException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Tuple array 'tags' contains invalid additional items
+                  - invalid additional item '1'
+                    * Invalid type for 'additional item': requires 'int', got 'string'
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // And index 0 is still judged by the tuple entry, not by `items`.
+        $this->expectException(InvalidTupleException::class);
+        $this->expectExceptionMessage("Invalid tuple item in array 'tags'");
+
+        new $className(['tags' => [42, 1]]);
+    }
+
+    /**
+     * Before Draft 2020-12 `prefixItems` is an unknown keyword, which the spec requires to be
+     * ignored — so it neither validates index 0 nor credits it to a sibling `unevaluatedItems`.
+     * The tuple keyword is `prefixItems` only where the draft registers it; reading it as a tuple
+     * unconditionally credited an index nothing evaluated and accepted an array the keyword must
+     * reject.
+     *
+     * Pinned to Draft 2019-09 alone: Draft 7 does not know `unevaluatedItems` either, so nothing
+     * there rejects anything. The Draft 2020-12 counterpart is
+     * testPrefixItemsClaimsItsIndicesForTheUnevaluatedAccumulator, which pairs with this test to
+     * document the draft boundary.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPrefixItemsCreditsNothingBeforeDraft202012(): void
+    {
+        $className = $this->generateClassFromFile('PrefixItemsWithUnevaluatedFalse.json');
+
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+
+        try {
+            new $className(['tags' => ['a']]);
+            $this->fail('prefixItems is unknown here, so index 0 is unevaluated and must be rejected');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([0], $exception->getUnevaluatedItems());
+        }
+
+        // The ignored tuple does not validate either: an integer at index 0 is not rejected for
+        // violating the tuple's string subschema, it is rejected as unevaluated.
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#0]");
+
+        new $className(['tags' => [42]]);
+    }
+
+    /**
+     * The branch-level counterpart of testPrefixItemsCreditsNothingBeforeDraft202012. The branch
+     * `{prefixItems: [...]}` carries no keyword the draft knows, so the generator reports it as
+     * matching any value — and it must then credit nothing, instead of crediting index 0 from the
+     * very branch it just called vacuous.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testBranchPrefixItemsCreditsNothingBeforeDraft202012(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'BranchPrefixItemsTuple.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['property' => 'tags'],
+            ),
+            'prefixItems is unknown on this draft, so the branch carrying only it is vacuous.',
+        );
+
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#0]");
+
+        new $className(['tags' => ['a']]);
+    }
+
+    /**
+     * From Draft 2020-12 on a composition branch's `prefixItems` is a tuple and credits the
+     * indices it covers to the enclosing `unevaluatedItems`, exactly as the sibling form does.
+     * Together with testBranchPrefixItemsCreditsNothingBeforeDraft202012 this pins the draft
+     * boundary on the branch path.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testBranchPrefixItemsClaimsItsIndicesFromDraft202012(): void
+    {
+        $className = $this->generateClassFromFile('BranchPrefixItemsTuple.json');
+
+        $instance = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#1]");
+
+        new $className(['tags' => ['a', 'b']]);
+    }
+
+    /**
+     * Neither `prefixItems` nor, on Draft 7, `unevaluatedItems` is a known keyword, so this schema
+     * is inert apart from the composition and generated before the annotation work began.
+     * Treating the unknown `prefixItems` as a sibling that claims indices made the branch's
+     * `unevaluatedItems` look like it could not see them, which the down-propagation guard
+     * answers with an UnsupportedSchemaFeatureException — a generation failure for a schema the
+     * keyword has no business touching.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testUnknownPrefixItemsBesideBranchUnevaluatedItemsGenerates(): void
+    {
+        $className = $this->generateClassFromFile('PrefixItemsBesideBranchUnevaluatedItems.json');
+
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
+    /**
+     * Draft 7 does not know `unevaluatedItems`, so a composition branch carrying it is inert
+     * there. The down-propagation guard exists to stop a branch from computing a wrong
+     * "unevaluated" set — on a draft that evaluates nothing there is no set to get wrong, and
+     * rejecting the schema turns an ignorable keyword into a generation failure. The guard must
+     * therefore only ask about keywords the draft registers.
+     *
+     * `items` must keep validating next to the inert branch.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testUnknownBranchUnevaluatedItemsBesideSiblingItemsGeneratesOnDraft07(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedItemsBesideItems.json');
+
+        $instance = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $instance->meta()->rawInput());
+
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage("Invalid items in array 'tags'");
+
+        new $className(['tags' => [1]]);
     }
 }

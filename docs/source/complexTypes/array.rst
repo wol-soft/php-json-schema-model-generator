@@ -165,7 +165,7 @@ A tuple array defines the structure of each array item on it's own. A tuple arra
 
 .. warning::
 
-    The tuple form of ``items`` and the keyword ``additionalItems`` exist up to Draft 2019-09. Draft 2020-12 replaced them by ``prefixItems`` and the schema form of ``items``. ``prefixItems`` isn't supported yet: a Draft 2020-12 schema which uses the tuple form of ``items`` or ``additionalItems`` is rejected with a *SchemaException*. Draft 2020-12 is also the dialect of a schema which declares no ``$schema``, so a schema with tuples declares Draft 2019-09 (or an older draft) in ``$schema``, as the examples of this section do.
+    The tuple form of ``items`` and the keyword ``additionalItems`` exist up to Draft 2019-09. Draft 2020-12 replaced them by ``prefixItems`` (the tuple) and ``items`` (the items behind the tuple), see `Tuple items in Draft 2020-12`_. A Draft 2020-12 schema which uses the tuple form of ``items`` or ``additionalItems`` is rejected with a *SchemaException*. Draft 2020-12 is also the dialect of a schema which declares no ``$schema``, so the examples of this section declare Draft 2019-09 in ``$schema``; written for Draft 2020-12 they use ``prefixItems`` and ``items``.
 
 Items
 ^^^^^
@@ -458,7 +458,9 @@ Unevaluated Items
 
 The ``unevaluatedItems`` keyword (Draft 2019-09 and later) constrains every index that was not
 evaluated by any positive sibling applicator at the same schema level. Indices claimed by
-``items`` (single-schema or tuple form), by ``additionalItems`` behind a tuple of the same schema,
+``items`` (single-schema form, or the tuple form up to Draft 2019-09), by ``prefixItems`` (the
+Draft 2020-12 spelling of the tuple form), by the keyword covering the entries behind a tuple of
+the same schema (``additionalItems`` behind a tuple ``items``, ``items`` behind ``prefixItems``),
 by a passing ``contains`` match (Draft 2020-12 and later; Draft 2019-09 gives ``contains`` no
 annotation, its matches don't count), or by a **successful** composition branch (``allOf``,
 ``anyOf``, ``oneOf``, ``if``/``then``/``else``, ``$ref``) count as evaluated. A ``$ref`` next to
@@ -509,6 +511,53 @@ the branch rejects every non-empty array.
 A property subschema that declares array applicators but omits ``type: array`` is treated as an
 array property: the keywords apply whenever the provided value is an array, and a value of any
 other type passes through unchanged.
+
+.. note::
+
+    ``additionalItems`` only claims indices when a tuple sits in front of it. Declared on its own,
+    without a tuple-form ``items``/``prefixItems`` alongside it, the keyword has no effect and
+    claims nothing — so every index stays unevaluated. This holds identically whether the keyword
+    is declared directly on the array property or inside one of its composition branches.
+
+Tuple items in Draft 2020-12
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Draft 2020-12 renamed the tuple form of ``items`` to ``prefixItems`` and reused ``items`` itself
+for the entries behind the tuple — the role ``additionalItems`` fills in earlier drafts. Both
+spellings validate positionally and contribute the same evaluated indices:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "prefixItems": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "unevaluatedItems": false
+            }
+        }
+    }
+
+Index 0 is validated against the ``prefixItems`` entry and counted as evaluated; every further
+element raises an ``UnevaluatedItemsException``. Adding ``"items": {"type": "integer"}`` alongside
+``prefixItems`` instead validates every element from index 1 on, leaving nothing unevaluated.
+
+``prefixItems`` must be a list of schemas. Any other value (a single schema, a boolean, a scalar) is
+invalid and rejected with a ``SchemaException`` when the model is generated; a scalar ``items`` is
+rejected the same way. An empty ``prefixItems`` is read as a tuple without entries, so ``items``
+validates every element.
+
+On Draft 7 and Draft 2019-09 ``prefixItems`` is not a known keyword and is ignored, so ``items``
+keeps its own meaning there and still validates every element. Being ignored also means it
+evaluates no index: the schema above rejects ``["a"]`` on Draft 2019-09, where nothing evaluates
+index 0, whether the keyword is declared on the array property or inside one of its composition
+branches.
 
 Using ``false``
 ^^^^^^^^^^^^^^^
@@ -633,6 +682,11 @@ warning, and skips ``unevaluatedItems`` entirely:
   and evaluates every index past the tuple length (a schema additionally validates it) — every
   index is again claimed. A tail value is accepted or rejected by ``additionalItems`` alone; a
   skipped ``unevaluatedItems`` schema never takes part in the decision.
+- ``items`` behind a ``prefixItems`` tuple (Draft 2020-12) is the same pair under the new spelling:
+  ``items: false`` rejects every index past the tuple, ``items: true`` or ``items: {schema}``
+  accepts and evaluates it. Behind a tuple ``items`` only governs the tail, so the warning names
+  the pair (``sibling prefixItems tuple plus items: ...``) instead of describing ``items`` as if it
+  covered every index.
 
 Unlike ``additionalProperties`` on objects, the
 `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no

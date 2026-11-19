@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "definitions": {
+    "note": {
+      "title": "Note",
+      "description": "Documents a value without constraining it"
+    },
+    "chainToNote": {
+      "$ref": "#/definitions/note"
+    }
+  },
+  "properties": {
+    "annotationOnlyReferenceFirstUnderUntypedParent": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/note"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "annotationOnlyReferenceSecondUnderStringParent": {
+      "type": "string",
+      "allOf": [
+        {
+          "maxLength": 5
+        },
+        {
+          "$ref": "#/definitions/note"
+        }
+      ]
+    },
+    "annotationOnlyReferenceSecondUnderStringParentInOneOf": {
+      "type": "string",
+      "oneOf": [
+        {
+          "maxLength": 5
+        },
+        {
+          "$ref": "#/definitions/note"
+        }
+      ]
+    },
+    "referenceChainToAnnotationOnlyDefinition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/chainToNote"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

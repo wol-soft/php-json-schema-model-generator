@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "string"
+    },
+    "b": {
+      "type": "string"
+    }
+  },
+  "not": {
+    "type": "object",
+    "required": [
+      "b"
+    ]
+  }
+}

@@ -77,9 +77,9 @@ class AutoDetectedDraftSubschemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^The tuple form of 'items' of property 'pair' in file .*\.json doesn't exist in Draft 2020-12 \(its "
-                . "tuple keyword 'prefixItems' isn't supported yet\): declare Draft 2019-09 or earlier in '\\\$schema' "
-                . 'to use it at line \d+, column \d+$/',
+            "/^The tuple form of 'items' of property 'pair' in file .*\.json doesn't exist in Draft 2020-12: use "
+                . "'prefixItems' for the tuple or declare Draft 2019-09 or earlier in '\\\$schema' at line \d+, "
+                . 'column \d+$/',
         );
 
         $this->generateClassFromFile('TupleWithoutDialect.json');

@@ -15,14 +15,33 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PropertyDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
+    /**
+     * A property dependency constrains the objects which contain the property, whether or not
+     * the property is declared in `properties`. The dependencies are only wired from the declared
+     * (and the required) properties, so the dependency below is dropped silently and the object
+     * is accepted although `billing_address` is missing.
+     *
+     * The test turns green by itself as soon as the dependency is enforced; the assertion of the
+     * complete exception message belongs here then.
+     */
+    public function testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('DependencyOnUndeclaredProperty.json');
+
+        try {
+            new $className(['credit_card' => 12345]);
+        } catch (InvalidPropertyDependencyException) {
+            return;
+        }
+
+        $this->markTestIncomplete(
+            'Known gap: a dependency of a property which is neither declared nor required is dropped silently.',
+        );
+    }
+
     #[DataProvider('validPropertyDependencyDataProvider')]
     public function testValidPropertyDependency(array $propertyValue): void
     {

@@ -115,7 +115,10 @@ class IfValidatorFactory
                 continue;
             }
 
-            $compositionSchema = $propertySchema->navigate($keyword);
+            // The sub-schemas validate the very value of their owner, so they assert an object if the owner does.
+            $compositionSchema = $propertySchema
+                ->navigate($keyword)
+                ->withObjectAssertedByContext($propertySchema->assertsObject());
 
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),
@@ -127,6 +130,7 @@ class IfValidatorFactory
                     $compositionSchema,
                     $property->isRequired(),
                 ),
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($compositionSchema),
                 $schema->getSchemaDictionary()->getReferencedSchemaChain($compositionSchema, $schemaProcessor),
             );
 
@@ -198,6 +202,7 @@ class IfValidatorFactory
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by

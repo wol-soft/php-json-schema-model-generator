@@ -10,7 +10,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
-use TypeError;
+use Throwable;
 
 class SchemaDefinitionDictionary extends ArrayObject
 {
@@ -25,9 +25,6 @@ class SchemaDefinitionDictionary extends ArrayObject
         parent::__construct();
     }
 
-    /**
-     * Set up the definition directory for the schema
-     */
     public function setUpDefinitionDictionary(SchemaProcessor $schemaProcessor, Schema $schema): void
     {
         // attach the root node to the definition dictionary
@@ -84,11 +81,6 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
     }
 
-    /**
-     * Add a partial schema definition to the schema
-     *
-     * @return $this
-     */
     public function addDefinition(string $key, SchemaDefinition $definition): self
     {
         if (isset($this[$key])) {
@@ -106,14 +98,14 @@ class SchemaDefinitionDictionary extends ArrayObject
      *
      * @return array{0: JsonSchema, 1: SchemaDefinitionDictionary}|null The referenced schema and the dictionary of the
      *                                                                   document it belongs to, null if the schema
-     *                                                                   has no reference or the reference can't be
-     *                                                                   resolved
+     *                                                                   has no reference, the reference can't be
+     *                                                                   resolved or it leads to a boolean schema
      *
      * @throws SchemaException A failure of a referenced file which is processed for the lookup
      */
     public function getReferencedSchema(JsonSchema $schema, SchemaProcessor $schemaProcessor): ?array
     {
-        $reference = $schema->getJson()['$ref'] ?? null;
+        $reference = $schema->isBooleanSchema() ? null : $schema->getJson()['$ref'] ?? null;
 
         if (!is_string($reference)) {
             return null;
@@ -128,10 +120,14 @@ class SchemaDefinitionDictionary extends ArrayObject
                 return null;
             }
 
-            return [
-                $definition->getSource()->navigate(implode('/', $path)),
-                $definition->getSchema()->getSchemaDictionary(),
-            ];
+            $target = $definition->getSource()->navigate(implode('/', $path));
+
+            // A boolean schema has no keywords: it references no further schema and evaluates no item
+            if ($target->isBooleanSchema()) {
+                return null;
+            }
+
+            return [$target, $definition->getSchema()->getSchemaDictionary()];
         } catch (SchemaException $exception) {
             // Resolving a reference to a file which isn't processed yet processes the file. A failure of the
             // referenced file is the very failure the reference resolution reports, it must not be swallowed here:
@@ -141,8 +137,8 @@ class SchemaDefinitionDictionary extends ArrayObject
             }
 
             return null;
-        } catch (Exception | TypeError) {
-            // An unresolvable reference, or a reference to a boolean schema which can't be navigated
+        } catch (Exception) {
+            // An unresolvable reference, the reference resolution reports it with its own message
             return null;
         }
     }
@@ -227,6 +223,43 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
 
         return $this[$key] ?? null;
+    }
+
+    /**
+     * Read the raw decoded JSON of the schema a reference points at without resolving the reference into a
+     * property: a peek for decisions which have to know what a `$ref` forwards to without (or before) creating the
+     * property of the target. It stays side-effect-free for the common same-file reference case (cross-file
+     * references may parse the external file, which the order-independent external-schema machinery would parse
+     * moments later anyway).
+     *
+     * @return array|bool|null The decoded target; its boolean for a boolean-valued definition; null if the target can't
+     *                         be determined
+     */
+    public function peekReference(
+        string $reference,
+        SchemaProcessor $schemaProcessor,
+        string $baseId = '#',
+    ): array | bool | null {
+        $path = [];
+
+        try {
+            $target = $this->getDefinition($reference, $schemaProcessor, $path, $baseId)
+                ?->getSource()
+                ->navigate(implode('/', $path));
+
+            if ($target === null) {
+                return null;
+            }
+
+            return $target->isBooleanSchema() ? $target->getBooleanValue() : $target->getJson();
+        } catch (Throwable) {
+            // An unresolvable, malformed, or cyclic reference leaves the target genuinely
+            // undetermined - it might turn out to be anything; returning null makes the caller
+            // bail out conservatively (ObjectShapeResolver to BranchObjectShape::Undecidable,
+            // keeping the schema on its current processing path; the vacuous-branch check to
+            // no warning), deferring to the real $ref resolution's own, more precise error.
+            return null;
+        }
     }
 
     /**

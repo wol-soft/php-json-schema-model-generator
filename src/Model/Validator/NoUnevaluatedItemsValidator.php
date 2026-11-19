@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 
 /**
  * Validator emitted for schemas declaring `unevaluatedItems: false`.
@@ -17,15 +18,15 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 class NoUnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 {
     /**
-     * @param array<int, array<string, mixed>> $siblingSchemaJsons see AbstractUnevaluatedItemsValidator
+     * @param ArrayItemsCoverage[] $siblingCoverages see AbstractUnevaluatedItemsValidator
      */
-    public function __construct(PropertyInterface $property, array $siblingSchemaJsons)
+    public function __construct(PropertyInterface $property, array $siblingCoverages)
     {
         $this->isResolved = true;
 
         parent::__construct(
             $property,
-            $siblingSchemaJsons,
+            $siblingCoverages,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'NoUnevaluatedItems.phptpl',
             UnevaluatedItemsException::class,
             ['&$unevaluatedItems'],

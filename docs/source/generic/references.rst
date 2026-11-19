@@ -131,6 +131,41 @@ An invalid value for ``keywords`` results in an error which names the property `
 
 The class of an object definition is generated once and shared by all properties referencing the definition. The keywords of the definition which constrain the value as a whole instead of its properties (``const``, ``enum``, ``filter``, ``default``) are validated by each referencing property on its own: a ``const`` of the definition rejects an invalid value of every referencing property and names the property in the error.
 
+Boolean schema reference
+------------------------
+
+A definition can be a boolean schema instead of an object (``"definitions": {"anything": true, "nothing": false}``). A reference to it behaves like the boolean literal at the position of the reference: ``true`` accepts every value, ``false`` accepts no value.
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "anything": true,
+            "nothing": false
+        },
+        "type": "object",
+        "properties": {
+            "extension": {
+                "$ref": "#/definitions/anything"
+            },
+            "removed": {
+                "$ref": "#/definitions/nothing"
+            }
+        }
+    }
+
+The ``extension`` property accepts any value. Providing the ``removed`` property is rejected with a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException*. As for the boolean literals, a branch which references ``true`` in a composition (``allOf``, ``anyOf``, ``oneOf``) matches any value and is reported with a warning during the generation.
+
+.. note::
+
+    Unlike the literal ``false`` of a ``properties`` entry, a property which references ``false`` is part of the generated class (the getter always returns ``null``). A ``null`` value of such a property is treated like a missing value when implicit null is enabled, as for every other optional property.
+
+A reference on base level (the whole model) and the reference of a schema dependency have to lead to an object definition, a boolean schema is rejected with a **SchemaException**:
+
+* A referenced schema on base level must provide an object definition [Citizen]
+
+Keywords next to a reference to a boolean schema follow the rules of the reference to any other definition without a type, see `$ref with sibling keywords`_.
+
 Self-reference (recursive schemas)
 -----------------------------------
 
@@ -367,6 +402,14 @@ A property schema with ``$ref`` pointing to a string definition and a sibling ``
 Both constraints are enforced: the effective minimum length is ``5`` (the sibling tightens
 the ref's ``minLength: 1``).
 
+.. note::
+
+    For a reference to a definition without a ``type`` (an empty definition, a definition which only carries
+    annotations, or a boolean schema) the property is what the siblings make of it (``type``, ``minLength``,
+    ``default``, ...) plus the validators of the definition. Sibling ``properties`` and ``required`` without a sibling
+    ``"type": "object"`` are currently rejected with a **SchemaException** during the generation. Declare the object
+    type next to them or combine the reference with the constraints in an ``allOf``.
+
 Property and item evaluation propagation
 ----------------------------------------
 
@@ -374,6 +417,8 @@ A ``$ref`` is a positive applicator. When an enclosing schema uses
 `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__ or
 `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
 the resolved schema's evaluated set contributes to the enclosing schema's evaluated set —
-exactly as an inline branch of the same shape would. Self-referential ``$ref`` chains are
-handled without infinite recursion: the generator terminates the walk when it revisits a
-schema it has already processed.
+exactly as an inline branch of the same shape would. This holds whether the reference sits at the
+schema root, on a property, or inside a composition branch, and the names a reference adopted from
+a further reference travel on with it. Self-referential ``$ref`` chains are handled without
+infinite recursion: the generator terminates the walk when it revisits a schema it has already
+processed.

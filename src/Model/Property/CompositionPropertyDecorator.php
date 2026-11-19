@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
@@ -19,6 +20,7 @@ use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\Utils\ArrayItemFilterScope;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\EvaluatedItemsScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -39,16 +41,18 @@ class CompositionPropertyDecorator extends PropertyProxy
     private ?bool $filtersArrayItems = null;
 
     /**
-     * @throws SchemaException
-     */
-    /**
+     * @param Draft $draft The draft the branch is evaluated under; decides which keywords of the
+     *                     branch's JSON mean anything (`prefixItems` is only a tuple from Draft 2020-12 on)
      * @param array<int, array<string, mixed>> $referencedBranchJsons The JSON of the definitions the branch references
      *                                                               (see getBranchJsons())
+     *
+     * @throws SchemaException
      */
     public function __construct(
         string $propertyName,
         JsonSchema $jsonSchema,
         PropertyInterface $property,
+        private readonly Draft $draft,
         private readonly array $referencedBranchJsons = [],
     ) {
         parent::__construct(
@@ -297,15 +301,19 @@ class CompositionPropertyDecorator extends PropertyProxy
     /**
      * True when a successful branch evaluates every index of the validated array: `items` as a
      * schema object, an explicit `items: true`, an empty `items` (`{}`), an explicit
-     * `unevaluatedItems: true`, or a tuple with an `additionalItems` other than `false` next to it
-     * in the same schema object (the tuple evaluates the leading indices, additionalItems every
-     * index behind them). Each validates trivially or per index and annotates the whole array; only
-     * an omitted keyword produces no annotation.
+     * `unevaluatedItems: true`, or a tuple with a trailing keyword other than `false` next to it
+     * in the same schema object (`additionalItems` behind a tuple `items`, `items` behind a
+     * `prefixItems` tuple: the tuple evaluates the leading indices, the trailing keyword every index
+     * behind them). Each validates trivially or per index and annotates the whole array; only an
+     * omitted keyword produces no annotation.
      *
      * Every schema object of the branch (the branch, the definitions it references) is judged on
-     * its own: additionalItems only has an effect behind a tuple of its own schema object. Pooling
-     * the keywords of the objects was rejected: the additionalItems of a definition would extend
-     * the tuple written next to the reference and credit items nothing evaluates.
+     * its own: a trailing keyword only has an effect behind a tuple of its own schema object, a lone
+     * `additionalItems` claims nothing. Pooling the keywords of the objects was rejected: the
+     * additionalItems of a definition would extend the tuple written next to the reference and
+     * credit items nothing evaluates. The tuple and its trailing keyword are read through
+     * ArrayItemsCoverage, which the sibling unevaluatedItems validators ask as well: the same JSON
+     * means the same thing on the property and inside one of its branches.
      *
      * An empty PHP array is treated as the empty schema `{}`, never as an empty tuple `[]`:
      * json_decode(..., true) maps both to the same value, and the sibling-applicator path
@@ -315,39 +323,35 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function branchClaimsAllIndices(): bool
     {
         foreach ($this->getBranchJsons() as $branchJson) {
-            $items = $branchJson['items'] ?? null;
-            $isTuple = is_array($items) && $items !== [] && array_is_list($items);
-
             if (
                 ($branchJson['unevaluatedItems'] ?? null) === true
-                || $items === true
-                || (is_array($items) && !$isTuple)
-                || ($isTuple && ($branchJson['additionalItems'] ?? false) !== false)
+                || ArrayItemsCoverage::fromJson($branchJson, $this->draft)->claimsEveryIndex()
             ) {
                 return true;
             }
         }
 
-        // An AdditionalItemsValidator only exists next to the tuple of its own schema object (see
-        // ItemsValidatorFactory), so it claims the indices behind that tuple.
+        // An AdditionalItemsValidator (and the TrailingItemsValidator of a prefixItems tuple) only
+        // exists next to the tuple of its own schema object (see ItemsValidatorFactory), so it
+        // claims the indices behind that tuple.
         return $this->getBranchValidatorsOfType(ArrayItemValidator::class) !== []
             || $this->getBranchValidatorsOfType(AdditionalItemsValidator::class) !== [];
     }
 
     /**
-     * Count of items in a tuple-form `items` array. Returns 0 when items is absent, boolean,
-     * or schema-form. The tuple claims indices 0..count-1 when the branch succeeds.
+     * Count of items in a tuple (`items` as a list before Draft 2020-12, `prefixItems` from Draft
+     * 2020-12 on), the longest one of the schema objects of the branch. Returns 0 without a tuple.
+     * The tuple claims indices 0..count-1 when the branch succeeds.
      */
     public function getBranchTupleItemsCount(): int
     {
         $tupleItemsCount = 0;
 
         foreach ($this->getBranchJsons() as $branchJson) {
-            $items = $branchJson['items'] ?? null;
-
-            if (is_array($items) && array_is_list($items)) {
-                $tupleItemsCount = max($tupleItemsCount, count($items));
-            }
+            $tupleItemsCount = max(
+                $tupleItemsCount,
+                ArrayItemsCoverage::fromJson($branchJson, $this->draft)->getTupleLength(),
+            );
         }
 
         foreach ($this->getBranchValidatorsOfType(ArrayTupleValidator::class) as $tupleValidator) {
@@ -379,11 +383,11 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * True when the branch carries at least one array-side applicator (`items`,
-     * `additionalItems`, `contains`, or an `unevaluatedItems: true` annotation) and no
-     * object-side applicators (`properties`,
-     * `additionalProperties`, `patternProperties`). Drives whether the composition template
-     * writes the branch's slot into `_compositionAnnotated`.
+     * True when the branch carries at least one array-side applicator (`items`, `prefixItems`
+     * where the draft registers it, `additionalItems`, `contains`, or an `unevaluatedItems: true`
+     * annotation) and no object-side applicators (`properties`, `additionalProperties`,
+     * `patternProperties`). Drives whether the composition template writes the branch's slot into
+     * `_compositionAnnotated`.
      */
     public function branchIsArrayKind(): bool
     {
@@ -391,11 +395,11 @@ class CompositionPropertyDecorator extends PropertyProxy
             || $this->branchClaimsAllIndices()
             || $this->branchHasContains();
         $hasObjectApplicator = false;
+        $positionalKeywords = ArrayItemsCoverage::positionalKeywords($this->draft);
 
         foreach ($this->getBranchJsons() as $branchJson) {
             $hasArrayApplicator = $hasArrayApplicator
-                || array_key_exists('items', $branchJson)
-                || array_key_exists('additionalItems', $branchJson);
+                || array_intersect($positionalKeywords, array_keys($branchJson)) !== [];
 
             $hasObjectApplicator = $hasObjectApplicator
                 || array_key_exists('properties', $branchJson)

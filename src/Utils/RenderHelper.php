@@ -316,6 +316,12 @@ class RenderHelper
      * validation and any transforming filter for that index. The validator of a branch credits
      * into the slot of the property in the same way, also when the branch is a `not` branch or
      * the condition of an if/then/else.
+     *
+     * The validators match the shared base class, not the schema-form subclass:
+     * `unevaluatedItems: false` produces a `NoUnevaluatedItemsValidator`, a sibling of
+     * `UnevaluatedItemsValidator` rather than a subclass of it, and it reads the very same slot.
+     * Testing for the schema form alone leaves the `false` form — the more common spelling —
+     * without a reset.
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {

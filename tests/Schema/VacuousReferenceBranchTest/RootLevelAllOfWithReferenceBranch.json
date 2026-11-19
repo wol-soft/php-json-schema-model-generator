@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "definitions": {
+    "named": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/named"
+    },
+    {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}

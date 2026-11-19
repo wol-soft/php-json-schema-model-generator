@@ -306,6 +306,10 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             <<<'MSG'
             Invalid value for '%class%' declined by composition constraint
               Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Missing required value for 'alt's'
+              - Composition element #2: Failed
+                * Missing required value for 'owner's'
             MSG,
         );
 
@@ -319,6 +323,8 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             <<<'MSG'
             Invalid value for '%class%' declined by composition constraint
               Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                * Invalid type for 'date's': requires ['DateTime', 'string'], got 'integer'
             MSG,
         );
         $this->assertSame(
@@ -362,6 +368,8 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             <<<'MSG'
             Invalid value for '%class%' declined by composition constraint
               Requires to match one composition element but matched 2 elements
+              - Composition element #1: Valid
+              - Composition element #2: Valid
             MSG,
         );
         $this->assertSame(["pick's" => '2022-03-03T00:00:00+0000', "other's" => null], $object->toArray());

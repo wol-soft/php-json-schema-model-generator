@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -31,7 +32,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
      * array with unevaluatedItems itself) are rendered into a method of their own (see
      * RenderHelper::renderExtractedValidators()), an inner validator never shares the scope of this one.
      *
-     * @param array<int, array<string, mixed>> $siblingSchemaJsons see AbstractUnevaluatedItemsValidator
+     * @param ArrayItemsCoverage[] $siblingCoverages see AbstractUnevaluatedItemsValidator
      *
      * @throws SchemaException
      */
@@ -40,7 +41,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
-        array $siblingSchemaJsons,
+        array $siblingCoverages,
     ) {
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
@@ -56,7 +57,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 
         parent::__construct(
             $property,
-            $siblingSchemaJsons,
+            $siblingCoverages,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
             ['&$invalidItems'],

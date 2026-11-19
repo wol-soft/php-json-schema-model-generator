@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "string"
+    },
+    "b": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "required": [
+      "a"
+    ]
+  },
+  "then": {
+    "not": {
+      "required": [
+        "b"
+      ]
+    }
+  }
+}

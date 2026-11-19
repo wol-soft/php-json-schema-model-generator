@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "properties": {
+    "property": {
+      "$ref": "#/definitions/person",
+      "type": "object"
+    }
+  }
+}

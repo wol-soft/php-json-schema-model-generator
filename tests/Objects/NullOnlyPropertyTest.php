@@ -535,6 +535,10 @@ class NullOnlyPropertyTest extends AbstractPHPModelGeneratorTestCase
             <<<'MSG'
             Invalid value for '%class%' declined by composition constraint
               Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                * Value for 'merged' must be null, got "text"
+              - Composition element #2: Failed
+                * Value for 'merged' must be one of [null], got "text"
             MSG,
         );
     }

@@ -29,6 +29,11 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
         private readonly bool $evaluatesItems = false,
     ) {}
 
+    public function evaluatesItems(): bool
+    {
+        return $this->evaluatesItems;
+    }
+
     /**
      * @throws SchemaException
      */

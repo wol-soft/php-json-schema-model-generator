@@ -9,6 +9,11 @@
       }
     },
     {
+      "properties": {
+        "b": {
+          "type": "integer"
+        }
+      },
       "required": [
         "b"
       ]

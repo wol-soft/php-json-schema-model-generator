@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        }
+      },
+      "dependencies": {
+        "kind": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

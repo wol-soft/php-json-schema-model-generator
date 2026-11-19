@@ -73,6 +73,13 @@ class SchemaProcessor
     protected array $processedFileSchemas = [];
     /** @var string[] */
     protected array $generatedFiles = [];
+    /**
+     * The roots which were skipped with a warning, keyed by file and pointer. A skipped root is not registered as a
+     * processed schema, so a file which is referenced by another file is processed again by the reference.
+     *
+     * @var array<string, true>
+     */
+    private array $reportedSkippedRoots = [];
 
     public function __construct(
         protected SchemaProviderInterface $schemaProvider,
@@ -125,15 +132,63 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass = false,
     ): ?Schema {
+        $json = $jsonSchema->getJson();
+
         if (
-            (!isset($jsonSchema->getJson()['type']) || $jsonSchema->getJson()['type'] !== 'object') &&
-            !array_intersect(array_keys($jsonSchema->getJson()), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
+            ($json['type'] ?? null) !== 'object' &&
+            !array_intersect(array_keys($json), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
         ) {
-            // skip the JSON schema as neither an object, a reference nor a composition is defined on the root level
-            return null;
+            // Neither an object, a reference nor a composition is defined on the root level. Only a root which
+            // describes an object without declaring it is of interest: the flag generates its class as if the type
+            // was declared, otherwise it is skipped like every other root which defines no class - but not silently.
+            if (!$this->describesObject($jsonSchema, $dictionary)) {
+                return null;
+            }
+
+            if (!$this->generatorConfiguration->isImplicitObjectCompositionAllowed()) {
+                $this->reportSkippedRoot($jsonSchema, $className);
+
+                return null;
+            }
+
+            // The type is stated explicitly, so the class is identical to the one which a reference to the schema
+            // generates (PropertyFactory::createObjectProperty() states it as well) and the two share it.
+            $jsonSchema = $jsonSchema->withJson(['type' => 'object'] + $json);
         }
 
         return $this->generateModel($classPath, $className, $jsonSchema, $dictionary, $initialClass);
+    }
+
+    /**
+     * Whether a schema which declares no type constrains objects only by its keywords (properties, required, ...), see
+     * ObjectShapeResolver. Such a schema is satisfied by every value which is no object, too.
+     */
+    private function describesObject(JsonSchema $jsonSchema, SchemaDefinitionDictionary $dictionary): bool
+    {
+        return ObjectShapeResolver::forDictionary(
+            $this,
+            $dictionary,
+            $this->generatorConfiguration->getBuiltDraft($jsonSchema),
+        )->resolve($jsonSchema->getJson()) === ObjectShape::ObjectDescribing;
+    }
+
+    private function reportSkippedRoot(JsonSchema $jsonSchema, string $className): void
+    {
+        $rootKey = $jsonSchema->getFile() . '#' . $jsonSchema->getPointer();
+
+        if (isset($this->reportedSkippedRoots[$rootKey])) {
+            return;
+        }
+
+        $this->reportedSkippedRoots[$rootKey] = true;
+
+        $this->generatorConfiguration->getLogger()->warning(
+            "Schema for '{class}' in file {file} carries object-constraining keywords (eg. 'properties',"
+                . " 'required') without a 'type' declaration and no class is generated for it: add an explicit"
+                . " '\"type\": \"object\"' constraint, or enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to generate it",
+            ['class' => $className, 'file' => $jsonSchema->getFile()],
+        );
     }
 
     /**
@@ -319,7 +374,7 @@ class SchemaProcessor
 
         if (!in_array($shape, $acceptedShapes, true)) {
             $message = sprintf(
-                "Composition for '%s' in file '%s' does not resolve to a definite object and"
+                "Composition for '%s' in file %s does not resolve to a definite object and"
                     . ' cannot be represented as a generated class',
                 $className,
                 $jsonSchema->getFile(),
@@ -724,6 +779,8 @@ class SchemaProcessor
                     true,
                 )
             ) {
+                $this->registerAffectedPropertiesOfNonTransferringComposition($validator);
+
                 continue;
             }
 
@@ -865,6 +922,38 @@ class SchemaProcessor
                     );
                 });
             }
+        }
+    }
+
+    /**
+     * A composition which doesn't transfer its branch properties to the schema (not) still caches the result of each
+     * branch for updates, and a branch is only evaluated again if an update changes one of its affected properties.
+     * The properties of the branch are registered as affected without transferring them: a not branch must not add
+     * properties to the schema.
+     *
+     * Registering nothing was rejected: the cached result of a branch which didn't match would never be invalidated,
+     * so an update which makes the not branch match (e.g. adding the property the branch requires) was accepted
+     * although the constructor rejects the resulting data.
+     */
+    private function registerAffectedPropertiesOfNonTransferringComposition(
+        AbstractComposedPropertyValidator $validator,
+    ): void {
+        foreach ($validator->getComposedProperties() as $composedProperty) {
+            $composedProperty->onResolve(static function () use ($composedProperty): void {
+                $nestedSchema = $composedProperty->getNestedSchema();
+
+                if (!$nestedSchema) {
+                    return;
+                }
+
+                $nestedSchema->onAllPropertiesResolved(
+                    static function () use ($composedProperty, $nestedSchema): void {
+                        foreach ($nestedSchema->getProperties() as $branchProperty) {
+                            $composedProperty->appendAffectedObjectProperty($branchProperty);
+                        }
+                    },
+                );
+            });
         }
     }
 

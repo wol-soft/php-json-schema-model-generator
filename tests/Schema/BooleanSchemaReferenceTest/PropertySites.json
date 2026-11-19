@@ -1,0 +1,123 @@
+{
+  "type": "object",
+  "definitions": {
+    "yes": true,
+    "no": false
+  },
+  "properties": {
+    "anything": {
+      "$ref": "#/definitions/yes"
+    },
+    "nothing": {
+      "$ref": "#/definitions/no"
+    },
+    "stringOrAnything": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/yes"
+        }
+      ]
+    },
+    "stringOrNothing": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/no"
+        }
+      ]
+    },
+    "stringAndAnything": {
+      "allOf": [
+        {
+          "type": "string",
+          "minLength": 2
+        },
+        {
+          "$ref": "#/definitions/yes"
+        }
+      ]
+    },
+    "stringAndNothing": {
+      "allOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/no"
+        }
+      ]
+    },
+    "exactlyOneOfStringAndAnything": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/yes"
+        }
+      ]
+    },
+    "exactlyOneOfStringAndNothing": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/no"
+        }
+      ]
+    },
+    "notNothing": {
+      "not": {
+        "$ref": "#/definitions/no"
+      }
+    },
+    "conditionOnAnything": {
+      "type": "string",
+      "if": {
+        "$ref": "#/definitions/yes"
+      },
+      "then": {
+        "minLength": 3
+      }
+    },
+    "conditionOnNothing": {
+      "type": "string",
+      "if": {
+        "$ref": "#/definitions/no"
+      },
+      "else": {
+        "minLength": 3
+      }
+    },
+    "listOfAnything": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/yes"
+      }
+    },
+    "listOfNothing": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/no"
+      }
+    },
+    "mapOfAnything": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/yes"
+      }
+    },
+    "mapOfNothing": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/no"
+      }
+    }
+  }
+}
