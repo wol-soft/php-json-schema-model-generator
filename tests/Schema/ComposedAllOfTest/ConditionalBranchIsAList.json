@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "if": {
+        "type": "string"
+      },
+      "else": [
+        1,
+        2
+      ]
+    }
+  }
+}

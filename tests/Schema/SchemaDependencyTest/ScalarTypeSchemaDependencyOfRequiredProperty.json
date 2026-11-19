@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": [
+    "credit_card"
+  ],
+  "dependencies": {
+    "credit_card": {
+      "type": "array"
+    }
+  }
+}

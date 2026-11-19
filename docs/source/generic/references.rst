@@ -93,6 +93,41 @@ Draft 2019-09 introduced ``$defs`` as the standard replacement for ``definitions
         }
     }
 
+Boolean schema reference
+------------------------
+
+A definition can be a boolean schema instead of an object (``"definitions": {"anything": true, "nothing": false}``). A reference to it behaves like the boolean literal at the position of the reference: ``true`` accepts every value, ``false`` accepts no value.
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "anything": true,
+            "nothing": false
+        },
+        "type": "object",
+        "properties": {
+            "extension": {
+                "$ref": "#/definitions/anything"
+            },
+            "removed": {
+                "$ref": "#/definitions/nothing"
+            }
+        }
+    }
+
+The ``extension`` property accepts any value. Providing the ``removed`` property is rejected with a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException*. As for the boolean literals, a branch which references ``true`` in a composition (``allOf``, ``anyOf``, ``oneOf``) matches any value and is reported with a warning during the generation.
+
+.. note::
+
+    Unlike the literal ``false`` of a ``properties`` entry, a property which references ``false`` is part of the generated class (the getter always returns ``null``). A ``null`` value of such a property is treated like a missing value when implicit null is enabled, as for every other optional property.
+
+A reference on base level (the whole model) and the reference of a schema dependency have to lead to an object definition, a boolean schema is rejected with a **SchemaException**:
+
+* A referenced schema on base level must provide an object definition [Citizen]
+
+Keywords next to a reference to a boolean schema follow the rules of the reference to any other definition without a type, see `$ref with sibling keywords`_.
+
 Self-reference (recursive schemas)
 -----------------------------------
 
@@ -284,6 +319,15 @@ A property schema with ``$ref`` pointing to a string definition and a sibling ``
 
 Both constraints are enforced: the effective minimum length is ``5`` (the sibling tightens
 the ref's ``minLength: 1``).
+
+.. note::
+
+    The siblings are merged with a referenced definition which declares a ``type``. For a reference to a definition
+    without a ``type`` (an empty definition, a definition which only carries annotations, or a boolean schema) the
+    siblings which depend on a type (``type`` itself, ``minLength``, ...) and a sibling ``default`` are currently not
+    applied in Draft 2019-09+. Sibling ``properties`` and ``required`` are rejected with a **SchemaException** during
+    the generation, as the reference doesn't resolve to an object. Declare the constraints in the definition itself or
+    combine the reference with the constraints in an ``allOf``.
 
 Property and item evaluation propagation
 ----------------------------------------

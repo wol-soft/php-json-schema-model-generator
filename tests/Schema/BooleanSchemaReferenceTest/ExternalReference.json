@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "anything": {
+      "$ref": "../BooleanSchemaReferenceTest_external/booleans.json#/definitions/yes"
+    },
+    "nothing": {
+      "$ref": "../BooleanSchemaReferenceTest_external/booleans.json#/definitions/no"
+    }
+  }
+}

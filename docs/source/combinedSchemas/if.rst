@@ -203,6 +203,14 @@ While the branch is active the declared type is still enforced. A property which
 
 .. note::
 
+    An ``if``, ``then`` or ``else`` schema which declares no ``type`` inherits the ``type`` of its schema (a schema
+    root always has ``"type": "object"`` applied to it). An ``enum`` or ``const`` of such a schema which lists no
+    value of the inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema) can never be satisfied: an
+    ``if`` which can't match always selects the ``else`` schema, a ``then`` or ``else`` which can't be satisfied
+    rejects every value it is applied to. The generator emits a warning at generation time.
+
+.. note::
+
     For object-level ``if``/``then``/``else`` compositions, when a property appears in the
     ``required`` array of **both** ``then`` and ``else``, the generator promotes that property to
     non-nullable. Exactly one of the two branches applies at runtime, and both guarantee the

@@ -212,7 +212,7 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'person' in file '.*': sibling structural object keywords"
+            "/Property 'person' in file .*: sibling structural object keywords"
             . ".*require the \\\$ref to resolve to an object/s",
         );
 

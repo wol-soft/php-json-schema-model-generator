@@ -107,6 +107,7 @@ class RefResolver implements PropertyProducerInterface
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
                     $isArrayItem,
+                    $propertySchema->isObjectAssertedByContext(),
                 );
 
                 // Use the reference site's pointer (where $ref appears in the schema) rather
@@ -171,11 +172,12 @@ class RefResolver implements PropertyProducerInterface
 
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
 
+        // The referenced schema becomes (the base of) the class of this schema, so it describes an object.
         $property = $this->resolveReference(
             $schemaProcessor,
             $schema,
             $propertyName,
-            $propertySchema,
+            $propertySchema->withObjectAssertedByContext(),
             $required,
             $isArrayItem,
         );

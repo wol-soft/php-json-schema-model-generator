@@ -25,6 +25,7 @@ use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use Throwable;
 
 #[ApplicableDrafts]
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
@@ -308,7 +309,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
                     : $accessor->set($property, $value);
             }
             $this->fail("Expected $expectedException");
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->assertInstanceOf($expectedException, $exception);
             $this->assertStringContainsString($expectedExceptionMessage, $exception->getMessage());
             $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
@@ -501,10 +502,14 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $object->additionalProperties()->set('extra', 'not-an-integer');
             $this->fail('Expected the branch additionalProperties claim to reject the value');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains invalid additional properties
+                      - invalid additional property 'extra'
+                        * Invalid type for 'additional property': requires 'int', got 'string'
                 MSG,
                 $exception->getMessage(),
             );

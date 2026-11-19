@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "not": [
+        1,
+        2
+      ]
+    }
+  }
+}

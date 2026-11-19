@@ -85,6 +85,15 @@
         {}
       ]
     },
+    "allOfBranchInheritingParentType": {
+      "type": "string",
+      "allOf": [
+        {
+          "minLength": 2
+        },
+        {}
+      ]
+    },
     "notBranchInheritingParentType": {
       "type": "string",
       "not": {}
