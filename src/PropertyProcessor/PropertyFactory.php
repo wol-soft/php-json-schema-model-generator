@@ -324,20 +324,7 @@ class PropertyFactory
             return null;
         }
 
-        // Nothing is implied where an enclosing schema asserts the object, see JsonSchema::isObjectAssertedByContext():
-        // the schema is represented the same way, but there is no non-object value which could pass unnoticed.
-        if (!$propertySchema->isObjectAssertedByContext()) {
-            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-                "Property '{property}' at '{pointer}' in file {file} carries object-constraining keywords"
-                    . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain"
-                    . ' non-object values',
-                [
-                    'property' => $propertyName,
-                    'pointer' => $propertySchema->getPointer(),
-                    'file' => $propertySchema->getFile(),
-                ],
-            );
-        }
+        $this->warnAboutObjectKeywordsWithoutType($schemaProcessor, $propertyName, $propertySchema);
 
         $objectJson = $json;
         $objectJson['type'] = 'object';
@@ -350,6 +337,33 @@ class PropertyFactory
             $required,
             $isArrayItem,
             guarded: true,
+        );
+    }
+
+    /**
+     * Object keywords without a type describe the object values of the property and let every other value pass, which
+     * may not be what the author meant. Nothing is implied where an enclosing schema asserts the object, see
+     * JsonSchema::isObjectAssertedByContext(): the schema is represented the same way, but there is no non-object value
+     * which could pass unnoticed.
+     */
+    private function warnAboutObjectKeywordsWithoutType(
+        SchemaProcessor $schemaProcessor,
+        string $propertyName,
+        JsonSchema $propertySchema,
+    ): void {
+        if ($propertySchema->isObjectAssertedByContext()) {
+            return;
+        }
+
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            "Property '{property}' at '{pointer}' in file {file} carries object-constraining keywords"
+                . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain"
+                . ' non-object values',
+            [
+                'property' => $propertyName,
+                'pointer' => $propertySchema->getPointer(),
+                'file' => $propertySchema->getFile(),
+            ],
         );
     }
 
@@ -487,6 +501,12 @@ class PropertyFactory
      * 3. Scalar/array merge (ref→non-object): a fresh property is built from the sibling
      *    schema and the ref's type and validators are merged into it non-mutably.
      *
+     * A ref to a definition without a type takes neither path 1 nor a type intersection: the
+     * siblings apply like the keywords of a property without the reference, the pre-created
+     * merged Schema holds structural siblings (see applyObjectSiblingsNextToAnUntypedReference()
+     * and applySiblingKeywordsNextToAnUntypedReference()). Structural siblings next to a ref to a
+     * definition of another type are rejected.
+     *
      * @param array<string, PropertyProducerInterface> $producers
      *
      * @throws SchemaException
@@ -605,6 +625,21 @@ class PropertyFactory
 
                 $this->wireObjectProperty($schemaProcessor, $schema, $targetProperty, $siblingSchema);
                 $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+
+                return;
+            }
+
+            if ($mergedSchema !== null && $refProperty->getType(true) === null) {
+                $this->applyObjectSiblingsNextToAnUntypedReference(
+                    $targetProperty,
+                    $refProperty,
+                    $siblingSchema,
+                    $mergedSchema,
+                    $propertySchema->getJson()['$ref'] ?? null,
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                );
 
                 return;
             }
@@ -765,6 +800,69 @@ class PropertyFactory
         // the narrowed effective type. Transferring them would corrupt the value before the
         // effective-type TypeCheck can inspect it.
         $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: true);
+    }
+
+    /**
+     * Apply object keywords (`properties`, `required`, ...) next to a `$ref` to a definition which declares no type (an
+     * empty definition, `true`, a definition with keywords of other types): the merged class built from the keywords
+     * next to the reference describes the object values, the definition adds its validators. The object type next to
+     * the reference makes the property hold the model of the class; without a type the class validates the object
+     * values and every other value passes, like the same keywords without the reference. Another type next to the
+     * reference excludes objects, the object keywords never apply and the merged class stays unused.
+     *
+     * Rejecting the schema was rejected: a definition without a type doesn't exclude objects, the schema is valid. A
+     * reference to a definition of another type keeps the rejection (see mergeProducedPropertyWithSiblings()).
+     *
+     * @throws SchemaException
+     */
+    private function applyObjectSiblingsNextToAnUntypedReference(
+        PropertyInterface $targetProperty,
+        PropertyInterface $refProperty,
+        JsonSchema $siblingSchema,
+        Schema $mergedSchema,
+        ?string $reference,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+    ): void {
+        $siblingType = $siblingSchema->getJson()['type'] ?? null;
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($siblingSchema);
+
+        if ($siblingType === 'object') {
+            $targetProperty->setNestedSchema($mergedSchema);
+            $schemaProcessor->generateClassFile($mergedSchema);
+
+            $this->wireObjectProperty($schemaProcessor, $schema, $targetProperty, $siblingSchema);
+            $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+        } elseif ($siblingType === null) {
+            if (!$this->hasNonObjectTypeApplicator($builtDraft, $siblingSchema->getJson())) {
+                $this->warnAboutObjectKeywordsWithoutType($schemaProcessor, $propertyName, $siblingSchema);
+            }
+
+            $schemaProcessor->generateClassFile($mergedSchema);
+
+            $this->wireGuardedObjectClass($schemaProcessor, $schema, $targetProperty, $siblingSchema, $mergedSchema);
+            $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+            $this->applyUntypedScalarModifiers(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $this->withReference($siblingSchema, $reference),
+                $builtDraft,
+            );
+        } else {
+            $this->applySiblingKeywordsNextToAnUntypedReference(
+                $targetProperty,
+                $siblingSchema,
+                $reference,
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+            );
+        }
+
+        // Type-conversion decorators of the ref are skipped for the same reason as in the typed path
+        $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: false);
     }
 
     /**
@@ -1212,6 +1310,22 @@ class PropertyFactory
             // @codeCoverageIgnoreEnd
         }
 
+        $this->wireGuardedObjectClass($schemaProcessor, $schema, $property, $propertySchema, $nestedSchema);
+    }
+
+    /**
+     * Let the class of the object keywords of an untyped property validate the object values of the property, every
+     * other value passes untouched.
+     *
+     * @throws SchemaException
+     */
+    private function wireGuardedObjectClass(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+        Schema $nestedSchema,
+    ): void {
         $property->setNestedSchema($nestedSchema);
 
         // ObjectModifier attaches the array→Nested instantiation decorator and the instanceof guard;

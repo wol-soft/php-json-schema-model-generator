@@ -22,6 +22,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -72,15 +73,6 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Property-level object×object merge (Draft 2019-09+)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Draft 2019-09+: a property-level {$ref→object, properties: {city}} merges into a single
-     * nested class containing all properties from the ref (street, zip) and the sibling (city).
-     * Both 'street' (from ref) and 'city' (from sibling required) must be present.
-     */
     /**
      * A definition without a type has no type to intersect with the keywords next to the reference: they apply like
      * the keywords of a property without the reference (typed by their own type, a type list like a multi type
@@ -186,6 +178,120 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Object keywords (`properties`, `required`) next to a reference to a definition without a type (an empty
+     * definition, `true`, a definition with keywords of other types) describe the object values of the property: the
+     * class of the property holds them, the keywords of the definition apply alongside. With the object type next to
+     * the reference the property holds the model; without a type it validates the object values by the class and
+     * passes every other value, like a property which declares the object keywords without the reference. Rejecting
+     * the schema was rejected: a definition without a type doesn't exclude objects, the schema is valid.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testObjectKeywordsNextToAReferenceToADefinitionWithoutTypeDescribeTheObjectValues(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'StructuralSiblingsOfAReferenceToAnUntypedDefinition.json',
+            $configuration,
+        );
+
+        $object = new $className([
+            'objectType' => ['name' => 'a'],
+            'withoutType' => ['name' => 'b'],
+            'booleanDefinition' => ['name' => 'c'],
+            'definitionWithKeywords' => ['name' => 'd'],
+        ]);
+        $this->assertSame('a', $object->getObjectType()->getName());
+        $this->assertSame('b', $object->getWithoutType()->getName());
+        $this->assertSame('c', $object->getBooleanDefinition()->getName());
+        $this->assertSame('d', $object->getDefinitionWithKeywords()->getName());
+
+        // without a type next to the reference a value which isn't an object passes
+        $object = new $className(['withoutType' => 5, 'booleanDefinition' => 'x', 'definitionWithKeywords' => 'abc']);
+        $this->assertSame(5, $object->getWithoutType());
+        $this->assertSame('x', $object->getBooleanDefinition());
+        $this->assertSame('abc', $object->getDefinitionWithKeywords());
+
+        $rejections = [
+            [
+                ['objectType' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'objectType': requires 'object', got 'string'",
+            ],
+            // the keyword of the definition
+            [
+                ['definitionWithKeywords' => 'ab'],
+                MinLengthException::class,
+                "Value for 'definitionWithKeywords' must not be shorter than 3",
+            ],
+        ];
+
+        foreach ($rejections as [$input, $exceptionClass, $message]) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                $input,
+                $this->getExpectedExceptionClass($configuration, $exceptionClass),
+                $message,
+            );
+        }
+
+        // the class validates an object value
+        foreach (['objectType', 'withoutType'] as $propertyName) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$propertyName => []],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                $configuration->collectErrors()
+                    ? <<<MSG
+                    Invalid nested object for property '$propertyName':
+                      - Missing required value for 'name'
+                      - Invalid type for 'name': requires 'string', got 'NULL'
+                    MSG
+                    : <<<MSG
+                    Invalid nested object for property '$propertyName':
+                      - Missing required value for 'name'
+                    MSG,
+            );
+        }
+    }
+
+    /**
+     * Object keywords without a type next to a reference to a definition without a type let every value which isn't an
+     * object pass, as without the reference: the same warning is logged. The object type next to the reference
+     * asserts the object, nothing is logged for it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testObjectKeywordsWithoutTypeNextToAReferenceToADefinitionWithoutTypeAreReported(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'StructuralSiblingsOfAReferenceToAnUntypedDefinition.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $warning = "Property '{property}' at '{pointer}' in file {file} carries object-constraining keywords"
+            . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain non-object values";
+
+        foreach (['withoutType', 'booleanDefinition', 'definitionWithKeywords'] as $propertyName) {
+            $this->assertTrue(
+                $this->hasLogEntry(
+                    $logger->getEntries(),
+                    'warning',
+                    $warning,
+                    ['property' => $propertyName, 'pointer' => "/properties/$propertyName"],
+                ),
+                "Expected the warning for '$propertyName'",
+            );
+        }
+
+        $this->assertFalse(
+            $this->hasLogEntry($logger->getEntries(), 'warning', $warning, ['property' => 'objectType']),
+            "The object type next to the reference asserts the object, no warning expected for 'objectType'",
+        );
+    }
+
+    /**
      * The items a referenced definition evaluates count for an unevaluatedItems next to the reference, per schema
      * object: the tuple of the definition, its additionalItems and `items: true` (no validator, read from the JSON of
      * the definition). Reading the schema next to the reference only was rejected: it rejected every item of the
@@ -240,6 +346,15 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    // -------------------------------------------------------------------------
+    // Property-level object×object merge (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: a property-level {$ref→object, properties: {city}} merges into a single
+     * nested class containing all properties from the ref (street, zip) and the sibling (city).
+     * Both 'street' (from ref) and 'city' (from sibling required) must be present.
+     */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPropertyLevelObjectRefAndSiblingPropertiesMerged(): void
     {
@@ -409,14 +524,21 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
      * Draft 2019-09+: when a property-level schema has structural sibling keywords
      * ('properties') alongside a $ref that resolves to a non-object type (string),
      * schema generation must fail with a SchemaException: these are contradictory constraints.
+     * A reference to a definition without a type is no contradiction, see
+     * testObjectKeywordsNextToAReferenceToADefinitionWithoutTypeDescribeTheObjectValues().
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPropertyLevelStructuralSiblingWithNonObjectRefThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'person' in file .*: sibling structural object keywords"
-            . ".*require the \\\$ref to resolve to an object/s",
+            '/^' . preg_quote("Property 'person' in file ", '/') . '.+\.json'
+                . preg_quote(
+                    ": sibling structural object keywords ('properties', 'required', …) require the \$ref to resolve to"
+                        . ' an object, but it resolved to a non-object type',
+                    '/',
+                )
+                . '$/',
         );
 
         $this->generateClassFromFile('PropertyLevelStructuralSiblingNonObjectRef.json');

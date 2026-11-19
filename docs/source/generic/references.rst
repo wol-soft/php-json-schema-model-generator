@@ -406,9 +406,11 @@ the ref's ``minLength: 1``).
 
     For a reference to a definition without a ``type`` (an empty definition, a definition which only carries
     annotations, or a boolean schema) the property is what the siblings make of it (``type``, ``minLength``,
-    ``default``, ...) plus the validators of the definition. Sibling ``properties`` and ``required`` without a sibling
-    ``"type": "object"`` are currently rejected with a **SchemaException** during the generation. Declare the object
-    type next to them or combine the reference with the constraints in an ``allOf``.
+    ``default``, ``properties``, ...) plus the validators of the definition. Sibling ``properties`` and ``required``
+    without a sibling ``type`` describe the object values of the property: an object is validated by the generated
+    class, every other value passes, and a warning is logged during the generation, as for the same keywords without
+    the reference. Next to a reference to a definition of another type (e.g. ``"type": "string"``) they are rejected
+    with a **SchemaException**.
 
 Property and item evaluation propagation
 ----------------------------------------
