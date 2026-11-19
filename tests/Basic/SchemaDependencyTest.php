@@ -522,11 +522,40 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getCreditCard());
     }
 
+    /**
+     * The schema of a schema dependency is validated against the object which holds the property, so of the type list
+     * ["object", "null"] only "object" can ever apply: the dependency behaves exactly like one which declares
+     * "type": "object" and is generated as such instead of being rejected.
+     */
+    public function testSchemaDependencyWithATypeListIncludingObjectIsNarrowedToObject(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MultiTypeSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+
+        $object = new $className(['credit_card' => 12345, 'billing_address' => 'Main Street']);
+        $this->assertSame(12345, $object->getCreditCard());
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Missing required value for 'billing_address'
+            ERROR,
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
     public static function nonObjectSchemaDependencyDataProvider(): array
     {
         return [
             'scalar type' => ['ScalarTypeSchemaDependency.json', "the type 'string'"],
-            'type list including object' => ['MultiTypeSchemaDependency.json', "the types 'object', 'null'"],
+            'type list without object' => ['NonObjectTypeListSchemaDependency.json', "the types 'string', 'null'"],
             'dependency of a required property which isn\'t declared' => [
                 'ScalarTypeSchemaDependencyOfRequiredProperty.json',
                 "the type 'array'",
@@ -535,10 +564,10 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * The schema of a schema dependency is validated against the object which holds the property, so it has to
-     * describe an object. A dependency which declares another type (also a type list which merely includes "object")
-     * can't be represented by a generated class and has to be rejected during the generation instead of failing with a
-     * TypeError.
+     * The schema of a schema dependency is validated against the object which holds the property. A dependency whose
+     * declared type excludes "object" is valid JSON Schema which forbids the property, but the generator doesn't
+     * support it: it is rejected during the generation (instead of failing with a TypeError) and points at `false` as
+     * the supported way to forbid the property.
      */
     #[DataProvider('nonObjectSchemaDependencyDataProvider')]
     public function testSchemaDependencyWithoutAnObjectTypeIsRejected(string $schemaFile, string $declaredType): void
@@ -547,8 +576,9 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessageMatches(
             '/^' . preg_quote("Schema dependency of property 'credit_card' in file ", '/') . ".+\.json"
                 . preg_quote(
-                    ' must be an object schema, a composition or a reference to an object schema but declares '
-                        . $declaredType,
+                    " declares $declaredType, which the object holding the property can never satisfy: a schema"
+                        . ' dependency which only forbids the property is not supported, declare the dependency as'
+                        . ' false instead',
                     '/',
                 )
                 . ' at line \d+, column \d+$/',

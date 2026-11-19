@@ -735,7 +735,7 @@ As stated above the dependency declaration is not bidirectional. If the presence
 Schema Dependencies
 ^^^^^^^^^^^^^^^^^^^
 
-Schema dependencies allow you to define a schema which must be fulfilled if a given property is present. The schema provided for the property must be either an object schema, a composition schema or a reference to an object schema. The schema is validated against the object which holds the property, so a schema which declares another type (e.g. ``"type": "string"``) or a type list (e.g. ``["object", "null"]``) is rejected with a **SchemaException** during the generation.
+Schema dependencies allow you to define a schema which must be fulfilled if a given property is present. The schema is validated against the object which holds the property, so it describes an object: an object schema, a composition schema or a reference to an object schema. A type list which includes ``object`` (e.g. ``["object", "null"]``) is treated as ``"type": "object"``, as the other types can never apply. A schema whose type excludes ``object`` (e.g. ``"type": "string"``) is valid JSON Schema, but no object can satisfy it, so it merely forbids the property. The generator doesn't support this spelling and rejects it with a **SchemaException** during the generation; use the dependency ``false`` to forbid a property explicitly.
 
 .. code-block:: json
 

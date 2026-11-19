@@ -58,9 +58,14 @@ trait PropertyDependencyTrait
             return;
         }
 
+        // The dependency schema is validated against the object which holds the property, so an untyped dependency is
+        // an object schema, and a type list which includes "object" is narrowed to "object": the other members of the
+        // list can never apply. Rejecting such a type list was considered and dropped, as it refuses a valid schema
+        // which behaves exactly like the narrowed one.
         $json = $dependencyJsonSchema->getJson();
-        if (!isset($json['type'])) {
-            $dependencyJsonSchema = $dependencyJsonSchema->withJson($json + ['type' => 'object']);
+        $declaredType = $json['type'] ?? null;
+        if ($declaredType === null || (is_array($declaredType) && in_array('object', $declaredType, true))) {
+            $dependencyJsonSchema = $dependencyJsonSchema->withJson(['type' => 'object'] + $json);
         }
 
         $dependencySchema = $schemaProcessor->processSchema(
@@ -71,15 +76,16 @@ trait PropertyDependencyTrait
         );
 
         // processSchema() skips a schema which neither declares "type": "object" nor carries a composition or a
-        // reference. An untyped dependency received the object type above, so only a dependency which declares another
-        // type ends up here. A type list which merely includes "object" is rejected as well instead of being narrowed
-        // to "object": the other listed types can never apply to the object which holds the property, and accepting
-        // the wider declaration is not part of the documented contract of a schema dependency.
+        // reference, so only a dependency whose declared type excludes "object" ends up here. Such a schema is valid
+        // JSON Schema: no object satisfies it, so it forbids the property. The generator doesn't map it onto the
+        // denial of a `false` dependency, as a type which can never apply is far more likely a mistake than a way to
+        // forbid the property, so it is rejected as unsupported, pointing at `false` as the explicit spelling.
         if ($dependencySchema === null) {
             throw new SchemaException(
                 sprintf(
-                    "Schema dependency of property '%s' in file %s must be an object schema, a composition or a"
-                        . ' reference to an object schema but declares %s',
+                    "Schema dependency of property '%s' in file %s declares %s, which the object holding the property"
+                        . ' can never satisfy: a schema dependency which only forbids the property is not supported,'
+                        . ' declare the dependency as false instead',
                     $property->getName(),
                     $dependencyJsonSchema->getFile(),
                     $this->formatDeclaredTypes($dependencyJsonSchema->getJson()['type']),

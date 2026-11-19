@@ -119,9 +119,11 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     A branch which declares no ``type`` inherits the ``type`` of its schema (a schema root always has
     ``"type": "object"`` applied to it) and has to be satisfiable together with it. An ``enum`` or ``const`` of
     the branch which lists no value of the inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema)
-    can never hold. As every ``allOf`` branch has to hold, the schema is unsatisfiable and the generator throws a
-    ``SchemaException`` at generation time. The branches of the other composition keywords are only dead in this
-    case, so the generator emits a warning for them instead.
+    can never hold. As every ``allOf`` branch has to hold, the schema carrying the composition is unsatisfiable. That
+    is still valid JSON Schema: on a property it merely forbids the property, so the object without it is accepted.
+    The generator treats the contradiction as a mistake rather than as a way to forbid a value and throws a
+    ``SchemaException`` at generation time; use the schema ``false`` to forbid a property explicitly. The branches of
+    the other composition keywords are only dead in this case, so the generator emits a warning for them instead.
 
 .. note::
 
