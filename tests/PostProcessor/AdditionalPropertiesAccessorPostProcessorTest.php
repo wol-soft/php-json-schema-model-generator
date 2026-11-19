@@ -21,8 +21,10 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessor
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 #[ApplicableDrafts]
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
@@ -149,6 +151,59 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertSame('Hello', $accessor->get('property1'));
         $this->assertSame('World', $accessor->get('property2'));
         $this->assertNull($accessor->get('property3'));
+    }
+
+    /**
+     * A base-level $ref transfers the additionalProperties validator of the referenced schema, so the internal post
+     * processor declares the `_additionalProperties` field of the referencing class. The accessor post processor
+     * declares it for a class whose own JSON lacks the keyword as well. The second declaration must be harmless: the
+     * second registration of the property must not be reported, and the field must be declared so the additional
+     * properties are stored without creating a dynamic property.
+     */
+    public function testAccessorOnAClassWithATransferredAdditionalPropertiesValidatorDeclaresTheFieldOnce(): void
+    {
+        $this->addPostProcessor(true);
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'BaseRefAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($logger),
+        );
+
+        $this->assertSame(
+            [],
+            array_values(array_filter(
+                $logger->getEntries(),
+                static fn(array $entry): bool => $entry['level'] === 'warning',
+            )),
+        );
+        $this->assertTrue((new ReflectionClass($className))->hasProperty('_additionalProperties'));
+
+        $deprecations = [];
+        set_error_handler(static function (int $errorNumber, string $errorMessage) use (&$deprecations): bool {
+            $deprecations[] = $errorMessage;
+
+            return true;
+        });
+
+        try {
+            $object = new $className(['zz' => 's']);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+        $this->assertSame('s', $object->additionalProperties()->get('zz'));
+
+        // the transferred validator still validates the additional properties
+        $this->expectException(InvalidAdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(<<<'MSG'
+        /^Provided JSON for '\S+' contains invalid additional properties
+          - invalid additional property 'zz'
+            \* Invalid type for 'additional property': requires 'string', got 'integer'$/
+        MSG);
+
+        new $className(['zz' => 5]);
     }
 
     public static function additionalPropertiesAccessorPostProcessorConfigurationDataProvider(): array

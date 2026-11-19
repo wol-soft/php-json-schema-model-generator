@@ -11,6 +11,31 @@ use PHPModelGenerator\Utils\SchemaSignatureNormalizer;
 
 class JsonSchema
 {
+    /**
+     * The top-level keywords of a schema node which make the class generated for it differ. Two nodes whose
+     * fields in this list are identical are mapped to one class (SchemaProcessor::generateModel() and
+     * createMergedProperty()), so a keyword missing here is a keyword the deduplication is free to ignore: the second
+     * of two nodes differing only in it silently receives the class of the first, losing or gaining the keyword.
+     *
+     * A keyword belongs here when a validator factory, a modifier or a post processor reads it from the node's own
+     * JSON and thereby changes the code of the class. Every other keyword was checked by generating the nested class
+     * of a node with and without it and comparing the sources:
+     *  - Not part of the class at all, because the validator sits on the property in the enclosing class: `enum`,
+     *    `const`, `default`, `filter`. The enclosing class carries them whichever class the node is mapped to.
+     *  - Without effect on an object class, whose instances are always objects: `items`, `prefixItems`,
+     *    `additionalItems`, `contains`, `dependentSchemas` and `dependentRequired` (the last two are not implemented
+     *    yet; whoever implements them adds them here).
+     *  - Documentation only: `title` and `description`. `title` names the class of the first node, which is the
+     *    purpose of the deduplication.
+     *
+     * `unevaluatedProperties` is validated by the class itself. `unevaluatedItems` has no validation effect on an
+     * object class either, but the post processor activates the evaluation tracking of the class when it finds it, so
+     * the generated code differs (the class gains the evaluation trait).
+     *
+     * A keyword added here only ever reduces the deduplication - one more identical class - while a keyword missing
+     * here generates wrong code, see SchemaSignatureNormalizer. Whoever registers a keyword that changes the code of
+     * a class adds it to this list as well.
+     */
     private const array SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
         'type',
         'properties',
@@ -29,6 +54,8 @@ class JsonSchema
         'maxProperties',
         'dependencies',
         'patternProperties',
+        'unevaluatedProperties',
+        'unevaluatedItems',
     ];
 
     protected array $json;

@@ -15,7 +15,9 @@ use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\TrailingItemsValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 
 class ItemsValidatorFactory extends AbstractValidatorFactory
 {
@@ -35,6 +37,41 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $itemsSchema = $json[$this->key];
+
+        // Checked before anything else reads the value, and also where the keyword is about to stand down: a
+        // value of the wrong shape used to be read as the schema form (a single schema where `prefixItems` needs
+        // a list, silently dropping a sibling `items`) or crashed with a TypeError (a scalar).
+        if (!$this->hasValidShape($itemsSchema)) {
+            throw new SchemaException(
+                sprintf(
+                    "Invalid %s %s for property '%s' in file %s",
+                    $this->key,
+                    str_replace("\n", '', var_export($itemsSchema, true)),
+                    $property->getName(),
+                    $propertySchema->getFile(),
+                ),
+                $propertySchema,
+            );
+        }
+
+        // With a `prefixItems` tuple present, `items` is the tuple's tail schema and the prefixItems pass
+        // registers a validator for it. Falling through here as well would additionally validate
+        // every entry against that tail schema — including the entries the tuple already covers
+        // with their own, usually different, positional subschemas.
+        //
+        // Only where the draft in play actually knows `prefixItems`, though. Before Draft 2020-12
+        // it is an unknown keyword, which the spec says to ignore — standing down on sight of it
+        // there would turn an ignorable key into a switch that silently disables `items` entirely.
+        if ($this->key === 'items' && $this->prefixItemsCarryTheTuple($schemaProcessor, $propertySchema, $json)) {
+            return;
+        }
+
+        // A tuple without entries evaluates nothing by position, so `items` is not demoted to a tail schema (see
+        // above) and governs every entry on its own.
+        if ($this->key === 'prefixItems' && $itemsSchema === []) {
+            return;
+        }
+
         $itemsPointer = $propertySchema->getPointer() . '/' . $this->key;
 
         if (is_bool($itemsSchema)) {
@@ -77,6 +114,40 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
     }
 
     /**
+     * `prefixItems` is a list of schemas (the 2020-12 meta-schema requires at least one entry, but `[]` and `{}` are
+     * the same empty array after decoding, so the empty value is let through and read as a tuple without entries).
+     * `items` is a boolean, a schema or, in the tuple form of the drafts before 2020-12, a list of schemas. Anything
+     * else is not a schema of either shape.
+     */
+    private function hasValidShape(mixed $value): bool
+    {
+        return $this->key === 'prefixItems'
+            ? is_array($value) && ($value === [] || array_is_list($value))
+            : is_bool($value) || is_array($value);
+    }
+
+    /**
+     * Whether `prefixItems` carries the tuple for this schema node, which is what demotes a
+     * sibling `items` to the trailing-entry schema. Asks the draft rather than testing for the
+     * key alone: the keyword only has that meaning from Draft 2020-12 on, and the same factory
+     * instance serves every draft. Tests for an actual tuple as well: a `prefixItems` without
+     * entries registers no validator, so an `items` standing down for it would validate nothing.
+     *
+     * @param array<string, mixed> $json
+     */
+    private function prefixItemsCarryTheTuple(
+        SchemaProcessor $schemaProcessor,
+        JsonSchema $propertySchema,
+        array $json,
+    ): bool {
+        return is_array($json['prefixItems'] ?? null)
+            && $json['prefixItems'] !== []
+            && ArrayItemsCoverage::registersPrefixItems(
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+            );
+    }
+
+    /**
      * @throws SchemaException
      */
     private function addTupleValidator(
@@ -87,8 +158,9 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         string $itemsPointer,
     ): void {
         $json = $propertySchema->getJson();
+        $tailKeyword = ArrayItemsCoverage::TAIL_KEYWORD[$this->key];
 
-        if (isset($json['additionalItems']) && $json['additionalItems'] !== true) {
+        if (isset($json[$tailKeyword]) && $json[$tailKeyword] !== true) {
             $this->addAdditionalItemsValidator($schemaProcessor, $schema, $property, $propertySchema);
         }
 
@@ -112,11 +184,16 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
-        $additionalItemsPointer = $propertySchema->getPointer() . '/additionalItems';
+        $tailKeyword = ArrayItemsCoverage::TAIL_KEYWORD[$this->key];
+        $additionalItemsPointer = $propertySchema->getPointer() . '/' . $tailKeyword;
 
-        if (!is_bool($json['additionalItems'])) {
+        if (!is_bool($json[$tailKeyword])) {
+            $validatorClass = $tailKeyword === 'additionalItems'
+                ? AdditionalItemsValidator::class
+                : TrailingItemsValidator::class;
+
             $property->addValidator(
-                (new AdditionalItemsValidator(
+                (new $validatorClass(
                     $schemaProcessor,
                     $schema,
                     $propertySchema,

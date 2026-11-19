@@ -126,6 +126,7 @@ class IfValidatorFactory
                     $compositionSchema,
                     $property->isRequired(),
                 ),
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($compositionSchema),
             );
 
             // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
@@ -196,6 +197,7 @@ class IfValidatorFactory
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by

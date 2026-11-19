@@ -23,6 +23,7 @@ use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use Throwable;
 
 /**
  * Verifies the runtime behaviour of `unevaluatedProperties`: keys not claimed by `properties`,
@@ -83,6 +84,53 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 'NotBranchContributesNothing.json',
                 ['foo' => 'hello'],
             ],
+            // The referenced schema's additionalProperties evaluates every key it does not declare itself, so the
+            // keys `b` (the sibling's) and `zz` are evaluated at the referencing schema.
+            'sibling $ref to additionalProperties schema claims every key' => [
+                'SiblingRefAdditionalPropertiesUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 's'],
+            ],
+            'sibling $ref to additionalProperties true claims every key' => [
+                'SiblingRefAdditionalPropertiesTrueUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 5],
+            ],
+            // The schema form of the keyword (which requires an integer) validates only keys nothing evaluated:
+            // the string `zz` is claimed by the referenced additionalProperties, so it must not reach it.
+            'sibling $ref to additionalProperties claims the keys of an unevaluatedProperties schema' => [
+                'SiblingRefAdditionalPropertiesSchemaFormUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'zz' => 's'],
+            ],
+            // Only `inner` declares additionalProperties; the claim travels through `middle` to the root.
+            'chained $ref carries the additionalProperties claim' => [
+                'ChainedSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['a' => 'x', 'b' => 'y', 'c' => 'z', 'zz' => 's'],
+            ],
+            // The merged class of a property-level reference is assembled by a different path.
+            'property-level $ref carries the additionalProperties claim' => [
+                'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['inner' => ['a' => 'x', 'b' => 'y', 'zz' => 's']],
+            ],
+            // `dependencies` written inside a composition branch contributes exactly as it does on the schema
+            // itself: the trigger `kind` is present, so the dependent subschema's `extra` is evaluated.
+            'branch-level dependencies credit the dependent names' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            'dependencies of a branch of a branch credit the dependent names' => [
+                'BranchOfBranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            // The first anyOf branch succeeds, so its dependent subschema applies.
+            'dependencies of a succeeding anyOf branch credit the dependent names' => [
+                'FailingBranchDependenciesUnevaluated.json',
+                ['kind' => 'a', 'extra' => 1],
+            ],
+            // A dependent subschema with a non-false additionalProperties claims every remaining key while its
+            // trigger is present.
+            'branch-level dependent additionalProperties claims every key while the trigger is present' => [
+                'BranchLevelDependenciesAdditionalPropertiesUnevaluated.json',
+                ['kind' => 'a', 'zz' => 's'],
+            ],
         ];
     }
 
@@ -103,7 +151,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
      * the offending key(s). The regex pattern is anchored on the full message so a different
      * exception body cannot accidentally satisfy it.
      *
-     * @return array<string, array{0: string, 1: array<string, mixed>, 2: class-string<\Throwable>, 3: string}>
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: class-string<Throwable>, 3: string}>
      */
     public static function rejectionProvider(): array
     {
@@ -156,12 +204,60 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 UnevaluatedPropertiesException::class,
                 $notAllowed('forbidden'),
             ],
+            // Crediting the key must not lift the validation of the referenced schema's additionalProperties.
+            'adopted additionalProperties still validates the keys it claims' => [
+                'SiblingRefAdditionalPropertiesUnevaluated.json',
+                ['zz' => 5],
+                InvalidAdditionalPropertiesException::class,
+                "/^Provided JSON for '.*' contains invalid additional properties\n/",
+            ],
+            // The trigger is absent, so the branch's dependent subschema never applies and `extra` stays unevaluated.
+            'branch-level dependent name without its trigger stays unevaluated' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['extra' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('extra'),
+            ],
+            'branch-level dependencies credit only what the dependent subschema declares' => [
+                'BranchLevelDependenciesUnevaluated.json',
+                ['kind' => 'a', 'stray' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('stray'),
+            ],
+            'branch-level dependent additionalProperties claims nothing without its trigger' => [
+                'BranchLevelDependenciesAdditionalPropertiesUnevaluated.json',
+                ['zz' => 's'],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('zz'),
+            ],
+            'dependent name without its trigger stays unevaluated in a branch of a branch' => [
+                'BranchOfBranchLevelDependenciesUnevaluated.json',
+                ['extra' => 1],
+                UnevaluatedPropertiesException::class,
+                $notAllowed('extra'),
+            ],
+            // The first anyOf branch fails (`kind` is not "a"), so its dependent subschema is not evaluated and
+            // must credit nothing: `kind` (declared only by the failed branch) and `extra` stay unevaluated,
+            // `other` is claimed by the second branch.
+            'dependencies of a failing anyOf branch credit nothing' => [
+                'FailingBranchDependenciesUnevaluated.json',
+                ['kind' => 'b', 'other' => 'x', 'extra' => 1],
+                UnevaluatedPropertiesException::class,
+                "/^Provided JSON for '.*' contains not allowed unevaluated properties \['kind', 'extra'\]$/",
+            ],
+            'adopted additionalProperties of a property-level $ref still validates the keys it claims' => [
+                'PropertyLevelSiblingRefAdditionalPropertiesUnevaluated.json',
+                ['inner' => ['zz' => 5]],
+                NestedObjectException::class,
+                "/^Invalid nested object for property 'inner':\n  - Provided JSON for '.*' contains invalid additional"
+                    . ' properties\n/',
+            ],
         ];
     }
 
     /**
      * @param array<string, mixed>     $input
-     * @param class-string<\Throwable> $exceptionClass
+     * @param class-string<Throwable> $exceptionClass
      */
     #[DataProvider('rejectionProvider')]
     public function testRejectedInputThrows(
@@ -246,11 +342,11 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
             $requiredErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof RequiredValueException,
+                static fn(Throwable $error): bool => $error instanceof RequiredValueException,
             ));
             $unevaluatedErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
+                static fn(Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
             ));
 
             $this->assertCount(1, $requiredErrors, 'expected one RequiredValueException');
@@ -502,6 +598,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertStringNotContainsString('property_exists', $patternOnlySource);
         $this->assertStringContainsString('$this->_patternProperties', $patternOnlySource);
         $this->assertStringNotContainsString('_evaluatedPropertyKeys', $patternOnlySource);
+        // The branch declares no property names, so there is nothing to loop over.
+        $this->assertStringNotContainsString('foreach ([] as', $patternOnlySource);
 
         $evaluatedKeysClassName = $this->generateClassFromFile('NestedUnevaluatedInBranchPropagatesClaims.json');
         $evaluatedKeysSource = $this->getEvaluatedPropertiesMethodSource(
@@ -511,6 +609,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertStringNotContainsString('property_exists', $evaluatedKeysSource);
         $this->assertStringNotContainsString('_patternProperties', $evaluatedKeysSource);
         $this->assertStringContainsString('$this->_evaluatedPropertyKeys', $evaluatedKeysSource);
+        $this->assertStringNotContainsString('foreach ([] as', $evaluatedKeysSource);
 
         $bothClassName = $this->generateClassFromFile('BranchWithPatternAndUnevaluatedSchema.json');
         $bothSource = $this->getEvaluatedPropertiesMethodSource($this->resolveNestedClassName($bothClassName));
@@ -526,6 +625,30 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A branch class which declares no property names, no pattern, no evaluated keys and no composition of its own can
+     * contribute nothing statically, so its method is `return [];`: the empty accumulator, the loop over an empty
+     * list and the conversion of the accumulator back into a list are dead code around it. Only the parts of the
+     * method which can contribute are emitted for every other shape, see the test above.
+     */
+    public function testEvaluatedPropertiesMethodOfABranchContributingNothingIsAnEmptyList(): void
+    {
+        $className = $this->generateClassFromFile('BranchContributingNothingStatically.json');
+
+        $source = $this->getEvaluatedPropertiesMethodSource($this->resolveNestedClassName($className));
+
+        $this->assertStringContainsString('return [];', $source);
+        $this->assertStringNotContainsString('foreach', $source);
+        $this->assertStringNotContainsString('$evaluated', $source);
+
+        // The branch evaluates nothing by itself, so the enclosing keyword rejects every key of an accepted value.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['a']",
+        );
+        new $className(['a' => 1]);
+    }
+
+    /**
      * @return string the source of `_getEvaluatedProperties()` as rendered into the nested class
      */
     private function getEvaluatedPropertiesMethodSource(string $nestedClassName): string
@@ -537,7 +660,10 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->assertSame(
             1,
             preg_match(
-                '/function _getEvaluatedProperties\(\): array.*?return array_keys\(\$evaluated\);/s',
+                '/function _getEvaluatedProperties\(\): array
+    \{.*?
+    }
+/s',
                 $source,
                 $matches,
             ),
@@ -706,6 +832,24 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $className = $this->generateClassFromFile('NotBranchExemptFromUnsupportedDownPropagation.json');
 
         $this->assertSame(['name' => 'Alice'], (new $className(['name' => 'Alice']))->meta()->rawInput());
+    }
+
+    /**
+     * Draft 7 does not know `unevaluatedProperties`, so a composition branch carrying it is inert
+     * there. The down-propagation guard exists to stop a branch from computing a wrong
+     * "unevaluated" set — on a draft that evaluates nothing there is no set to get wrong, and
+     * rejecting the schema turns an ignorable keyword into a generation failure. The guard must
+     * therefore only ask about keywords the draft registers; on the drafts that do register it the
+     * same schema is still rejected (see testUnsupportedDownPropagationThrowsAcrossCompositionKeywords).
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testUnknownBranchUnevaluatedPropertiesBesideSiblingPropertiesGeneratesOnDraft07(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedPropertiesBesideProperties.json');
+
+        // The keyword is ignored, so a key declared nowhere is not unevaluated-rejected.
+        $instance = new $className(['a' => 'x', 'zz' => 1]);
+        $this->assertSame(['a' => 'x', 'zz' => 1], $instance->meta()->rawInput());
     }
 
     /**
@@ -1379,5 +1523,542 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
         );
         new $className(['kind' => 'X', 'stray' => 5]);
+    }
+
+    /**
+     * A composition nested inside another composition's branch renders as its own class, and the
+     * enclosing accumulator learns what that class evaluated through its
+     * `_getEvaluatedProperties()` method. When the nested composition is *disjunctive*
+     * (anyOf/oneOf/if-then-else), only the branches that actually succeeded may contribute — a
+     * name declared solely by a branch that failed is still unevaluated and must be rejected.
+     *
+     * The equivalent composition written directly on the outer schema already behaves correctly
+     * (see `AnyOfSelectsSuccessfulBranches.json` / `IfThenElseEvaluation.json`), so these rows pin
+     * the nested case specifically.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: array<string, mixed>, 3: string}>
+     *   [fixture, accepted input, rejected input, name expected in the rejection message]
+     */
+    public static function nestedDisjunctiveCompositionProvider(): array
+    {
+        return [
+            // anyOf branch 1 succeeds ('a' is a string); branch 2 fails ('b' is not an integer).
+            // Only 'a' is evaluated, so 'b' must be reported as unevaluated.
+            'anyOf nested inside an allOf branch' => [
+                'NestedAnyOfInAllOfBranch.json',
+                ['base' => 'x', 'a' => 'y'],
+                ['base' => 'x', 'a' => 'y', 'b' => 'not-an-integer'],
+                'b',
+            ],
+            // kind='a' selects `then` (declaring aOnly); `else` (declaring bOnly) never runs, so
+            // bOnly contributes nothing to the evaluated set.
+            'if/then/else nested inside an allOf branch' => [
+                'NestedIfThenElseInAllOfBranch.json',
+                ['kind' => 'a', 'aOnly' => 'y'],
+                ['kind' => 'a', 'bOnly' => 'y'],
+                'bOnly',
+            ],
+            // The idiomatic real-world shape: a single allOf branch referencing a discriminated
+            // oneOf. kind='click' selects the first variant, so 'code' — declared only by the
+            // second — is unevaluated.
+            'allOf branch referencing a discriminated oneOf' => [
+                'RefToDiscriminatorBranch.json',
+                ['id' => 'i', 'kind' => 'click', 'x' => 1],
+                ['id' => 'i', 'kind' => 'click', 'x' => 1, 'code' => 'z'],
+                'code',
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $acceptedInput
+     * @param array<string, mixed> $rejectedInput
+     */
+    #[DataProvider('nestedDisjunctiveCompositionProvider')]
+    public function testNestedDisjunctiveCompositionCreditsOnlySuccessfulBranches(
+        string $schemaFile,
+        array $acceptedInput,
+        array $rejectedInput,
+        string $unevaluatedName,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile);
+
+        $instance = new $className($acceptedInput);
+        $this->assertSame($acceptedInput, $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['{$unevaluatedName}']",
+        );
+        new $className($rejectedInput);
+    }
+
+    /**
+     * The mirror of the disjunctive case: a key-claiming keyword declared inside a composition
+     * that is itself nested inside a branch still claims its keys, so the enclosing accumulator
+     * must credit them. Declaring the same keyword one level up (a direct branch of the outer
+     * schema) already works — see `BranchLevelAdditionalProperties.json` and
+     * `BranchPatternPropertiesClaim.json` — so these rows pin the extra level of nesting.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function nestedKeyClaimingKeywordProvider(): array
+    {
+        return [
+            // additionalProperties: true claims every key the branch did not declare, so `extra`
+            // is evaluated and unevaluatedProperties: false must not fire.
+            'additionalProperties two levels down claims every key' => [
+                'NestedAdditionalPropertiesTwoLevels.json',
+                ['base' => 'x', 'extra' => 'y'],
+            ],
+            // The pattern matches `x_1` and its value validates, so the key is evaluated.
+            'patternProperties two levels down claims matching keys' => [
+                'NestedPatternPropertiesTwoLevels.json',
+                ['base' => 'x', 'x_1' => 'y'],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    #[DataProvider('nestedKeyClaimingKeywordProvider')]
+    public function testNestedKeyClaimingKeywordCreditsTheOuterAccumulator(
+        string $schemaFile,
+        array $input,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile);
+
+        $instance = new $className($input);
+        $this->assertSame($input, $instance->meta()->rawInput());
+    }
+
+    /**
+     * From Draft 2019-09 on, `$ref` is a positive applicator that applies alongside its siblings
+     * rather than replacing them. The referenced schema's evaluated set therefore contributes to
+     * the enclosing schema's accumulator exactly as an inline branch of the same shape would —
+     * which is what `docs/source/generic/references.rst` promises.
+     *
+     * `a` comes from the referenced schema and `b` from the sibling `properties`; both are
+     * evaluated. `c` is claimed by neither and must be rejected.
+     */
+    public function testSiblingRefContributesEvaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('SiblingRefUnevaluated.json');
+
+        $instance = new $className(['a' => 'x', 'b' => 'y']);
+        $this->assertSame(['a' => 'x', 'b' => 'y'], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['c']",
+        );
+        new $className(['a' => 'x', 'c' => 'y']);
+    }
+
+    /**
+     * A `$ref` to a schema declaring a non-false `additionalProperties` claims every key: the referenced schema
+     * evaluates what it declares through `properties` and everything else through `additionalProperties`. The
+     * crediting must not lift the validation, in either error mode: `zz` still has to satisfy the referenced
+     * schema's `additionalProperties`.
+     */
+    public function testSiblingRefAdditionalPropertiesClaimHoldsInCollectErrorsMode(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SiblingRefAdditionalPropertiesUnevaluated.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $input = ['a' => 'x', 'b' => 'y', 'zz' => 's'];
+        $this->assertSame($input, (new $className($input))->meta()->rawInput());
+
+        try {
+            new $className(['zz' => 5]);
+            $this->fail('A key violating the referenced additionalProperties must be rejected');
+        } catch (ErrorRegistryException $registry) {
+            $errors = $registry->getErrors();
+
+            $this->assertCount(1, $errors);
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $errors[0]);
+        }
+    }
+
+    /**
+     * `patternProperties` on the referenced schema is adopted the same way its `properties` are:
+     * the pattern applies at the referencing schema's instance location, so a key it matches is
+     * evaluated there. `x_1` is matched by the adopted pattern and `b` by the local `properties`;
+     * `other` is claimed by neither.
+     */
+    public function testSiblingRefContributesEvaluatedPatternProperties(): void
+    {
+        $className = $this->generateClassFromFile('SiblingRefPatternPropertiesUnevaluated.json');
+
+        // The referenced schema's pattern validator runs on this class, so the field it writes
+        // must be declared on it — a `$ref` is the one way that validator reaches a class whose
+        // own JSON never spells `patternProperties`. Without the declaration the generated code
+        // creates the field dynamically, which PHP 8.2 deprecates and PHP 9 rejects.
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_patternProperties'),
+            'The field the transferred pattern validator writes must be declared on the class.',
+        );
+
+        $instance = new $className(['x_1' => 'v', 'b' => 'y']);
+        $this->assertSame(['x_1' => 'v', 'b' => 'y'], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']",
+        );
+        new $className(['other' => 'v']);
+    }
+
+    /**
+     * A chain of conjunctive references: the root references `middle`, which carries its own
+     * base-level `$ref` to `inner` plus its own `properties`, and each level adds a sibling
+     * declaration of its own. Every name and pattern along the chain is evaluated at the root,
+     * which only holds if each link passes on what it adopted from the link below it rather than
+     * just what it declares itself — `a` and the `^p_` pattern reach the root only through
+     * `middle`, which declares neither.
+     *
+     * A pattern is only credited once the validator that matched it has recorded the key, so the
+     * chain has to carry `inner`'s pattern validator along as well, together with the field it
+     * writes.
+     */
+    public function testChainedSiblingRefsCarryEveryAdoptedNameAndPattern(): void
+    {
+        $className = $this->generateClassFromFile('ChainedSiblingRefUnevaluated.json');
+
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_patternProperties'),
+            'The field the transferred pattern validator writes must be declared on the class.',
+        );
+
+        $accepted = ['a' => 'x', 'b' => 'y', 'c' => 'z'];
+        $instance = new $className($accepted);
+        $this->assertSame($accepted, $instance->meta()->rawInput());
+
+        // `a` is adopted from `inner` through `middle`, `p_1` is matched by the pattern of `inner`.
+        $acceptedWithPattern = ['a' => 'x', 'p_1' => 'w'];
+        $instance = new $className($acceptedWithPattern);
+        $this->assertSame($acceptedWithPattern, $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['d']",
+        );
+        new $className(['d' => 'stray']);
+    }
+
+    /**
+     * The same sibling-`$ref` merge on a nested property rather than at the schema root. The
+     * merged class is assembled by a different code path than the root-level case, so it gets its
+     * own coverage.
+     */
+    public function testSiblingRefOnNestedPropertyContributesEvaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('PropertyLevelSiblingRefUnevaluated.json');
+
+        $instance = new $className(['inner' => ['a' => 'x', 'b' => 'y']]);
+        $this->assertSame(['inner' => ['a' => 'x', 'b' => 'y']], $instance->meta()->rawInput());
+
+        try {
+            new $className(['inner' => ['a' => 'x', 'c' => 'y']]);
+            $this->fail('An undeclared key inside the merged nested object must be rejected');
+        } catch (NestedObjectException $exception) {
+            $nested = $exception->getNestedException();
+            $this->assertInstanceOf(UnevaluatedPropertiesException::class, $nested);
+            $this->assertSame(['c'], $nested->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * The schema form of `dependencies` is a positive applicator: while the trigger key is present
+     * on the instance, the dependent subschema applies at the same instance location and the names
+     * it evaluates flow into the enclosing accumulator.
+     *
+     * Three shapes:
+     *   1. `{kind, extra}` — the trigger key is present, so the dependent subschema's `extra`
+     *      declaration applies and the accumulator credits it.
+     *   2. `{kind, stray}` — the trigger key is present but `stray` is declared nowhere, so it
+     *      stays unevaluated. Proves the dependency only credits what its subschema declares.
+     *   3. `{extra}` — the trigger key is absent, so the dependent subschema never applies and
+     *      `extra` is unevaluated. Proves the crediting is gated on the trigger key.
+     *
+     * `dependentSchemas`, the Draft 2019-09 spelling of the same applicator, is a separate keyword
+     * the schema processor does not recognise at all — see
+     * testDependentSchemasContributionCreditsDependentPropertiesToAccumulator.
+     */
+    public function testSchemaDependencyContributionCreditsDependentPropertiesToAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('DependenciesWithUnevaluated.json');
+
+        $instance = new $className(['kind' => 'X', 'extra' => 5]);
+        $this->assertSame(['kind' => 'X', 'extra' => 5], $instance->meta()->rawInput());
+
+        try {
+            new $className(['kind' => 'X', 'stray' => 5]);
+            $this->fail('A key the dependent subschema does not declare must stay unevaluated');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
+                $exception->getMessage(),
+            );
+        }
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+        );
+        new $className(['extra' => 5]);
+    }
+
+    /**
+     * A dependent subschema contributes the names it declares directly. Names it only reaches
+     * through a composition or a `$ref` are not credited: the dependency validator runs during the
+     * trigger property's validation pass, after the phase where unevaluatedProperties evaluates,
+     * so there is no dependency result to read back — and a static harvest would credit branches
+     * that never ran.
+     *
+     * The shortfall over-rejects rather than over-accepts, so it is reported at generation time
+     * instead of being silent. This test pins both halves: the warning naming the keyword, and the
+     * rejection it predicts — so the day the contribution is implemented, this test fails and says
+     * exactly what to update.
+     */
+    public function testDependencyReachingThroughCompositionWarnsAndDoesNotCredit(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'kind', 'keywords' => 'allOf'],
+            ),
+            'The uncredited dependent contribution must be reported at generation time.',
+        );
+
+        // Spec-wise `{kind, extra}` is valid — the allOf branch inside the dependent subschema
+        // evaluates `extra`. The generator cannot see that, which is what the warning announces.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+        );
+        new $className(['kind' => 'X', 'extra' => 5]);
+    }
+
+    /**
+     * @return array<string, array{0: bool}>
+     */
+    public static function collectErrorsModeProvider(): array
+    {
+        return [
+            'direct exception mode' => [false],
+            'error collection mode' => [true],
+        ];
+    }
+
+    /**
+     * A dependent subschema's `patternProperties` cannot be credited. A pattern match counts as
+     * evaluated only when the key is recorded in the enclosing class's own `_patternProperties`
+     * with the value that is currently in the model, because that record is what tells a key whose
+     * value passed the pattern's subschema from one whose value failed it. The dependent
+     * subschema's `PatternPropertiesValidator` writes that record into the *dependency schema's*
+     * class, so the enclosing class never sees it.
+     *
+     * Crediting a dependent pattern match on the regex alone was rejected: a `p_a` whose value
+     * failed `{"type": "integer"}` would count as evaluated and the accumulator would accept an
+     * invalid instance, which is worse than the over-rejection pinned here.
+     *
+     * So the generated accumulator must not be handed a dependent pattern list it cannot honour,
+     * and the shortfall is reported at generation time instead. The dependent subschema's
+     * `properties` — credited on plain key presence — must keep working next to it.
+     *
+     * Spec-wise `{trigger, p_a}` is valid. This test pins the rejection and says so, so the day
+     * the contribution is implemented it fails and names what to update.
+     */
+    #[DataProvider('collectErrorsModeProvider')]
+    public function testDependentPatternPropertiesWarnAndDoNotCredit(bool $collectErrors): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DependenciesWithPatternProperties.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors($collectErrors),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'trigger', 'keywords' => 'patternProperties'],
+            ),
+            'A dependent subschema\'s patternProperties must be reported as uncredited at generation time.',
+        );
+
+        // The names half of the channel is untouched: `extra` is declared directly under the
+        // dependent subschema's `properties`, so it is credited while the trigger is present.
+        $instance = new $className(['trigger' => 1, 'extra' => 2]);
+        $this->assertSame(['trigger' => 1, 'extra' => 2], $instance->meta()->rawInput());
+
+        // Spec-wise valid — the dependent subschema's pattern evaluates `p_a` — but the generator
+        // cannot credit it, which is what the warning announces.
+        $this->assertRejectedAsUnevaluated($className, ['trigger' => 1, 'p_a' => 2], ['p_a']);
+
+        // Right today and must stay right: without the trigger the dependent subschema never
+        // applies, so its pattern evaluates nothing.
+        $this->assertRejectedAsUnevaluated($className, ['p_a' => 2], ['p_a']);
+
+        // Matches neither the declared names nor the dependent pattern.
+        $this->assertRejectedAsUnevaluated($className, ['trigger' => 1, 'q' => 2], ['q']);
+
+        // The emitted accumulator call must not carry the dependent pattern: the enclosing class
+        // has no `_patternProperties` record to back it, so a pattern argument there would be a
+        // credit promised in the generated code that the runtime can never give.
+        $this->assertStringNotContainsString(
+            '^p_',
+            file_get_contents((new ReflectionClass($className))->getFileName()),
+        );
+    }
+
+    /**
+     * Asserts that constructing the model rejects the input with exactly one
+     * UnevaluatedPropertiesException, whichever way the configured error mode delivers it.
+     *
+     * @param array<string, mixed> $input
+     * @param string[]             $unevaluatedKeys
+     */
+    private function assertRejectedAsUnevaluated(string $className, array $input, array $unevaluatedKeys): void
+    {
+        try {
+            new $className($input);
+            $this->fail('The input must be rejected as containing unevaluated properties');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertCount(1, $registry->getErrors());
+            $exception = $registry->getErrors()[0];
+        } catch (UnevaluatedPropertiesException $exception) {
+            // direct exception mode delivers the rejection itself
+        }
+
+        $this->assertInstanceOf(UnevaluatedPropertiesException::class, $exception);
+        $this->assertSame(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['"
+                . implode("', '", $unevaluatedKeys) . "']",
+            $exception->getMessage(),
+        );
+    }
+
+    /**
+     * The shortfall is reported where an accumulator actually consults the schema, not where the schema happens to
+     * spell the keyword. The dependent subschema of a composition *branch* is consulted by the `unevaluatedProperties`
+     * of the schema the branch belongs to, so the warning has to appear there as well — silently over-rejecting the
+     * same JSON written on the schema itself would be inconsistent.
+     *
+     * A schema which no accumulator consults gets no warning: nothing can over-reject there.
+     */
+    public function testDependencyShortfallIsReportedWhereAnAccumulatorConsultsTheSchema(): void
+    {
+        $branchLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'BranchLevelDependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($branchLogger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $branchLogger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'kind', 'keywords' => 'allOf'],
+            ),
+            'The branch-level dependent subschema is consulted by the enclosing unevaluatedProperties.',
+        );
+
+        $unconsultedLogger = new RecordingLogger();
+        $this->generateClassFromFile(
+            'DependencyReachingThroughCompositionWithoutUnevaluated.json',
+            (new GeneratorConfiguration())->setLogger($unconsultedLogger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $unconsultedLogger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+            ),
+            'No unevaluatedProperties consults this schema, so nothing can over-reject.',
+        );
+    }
+
+    /**
+     * Draft 7 does not know `unevaluatedProperties`, so it produces no validator there and the dependency shortfall
+     * cannot over-reject anything: the warning is noise on a draft which ignores the keyword.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testDependencyShortfallIsNotReportedOnDraftsWithoutUnevaluatedProperties(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'DependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} evaluates properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+            ),
+            'unevaluatedProperties is unknown on this draft, so the shortfall must not be reported.',
+        );
+    }
+
+    /**
+     * `warnIfVacuousBranch()` decides whether a branch carries any validation keyword by asking
+     * the Draft which types register the keyword. `$ref` is resolved by a producer rather than a
+     * type modifier, so the lookup does not see it — and from Draft 2019-09 on, where `$ref` no
+     * longer swallows its siblings, a `$ref`-only branch's own JSON carries nothing else either.
+     * A branch that references a schema full of constraints is the opposite of vacuous and must
+     * not be reported as matching any value.
+     *
+     * Uses the fixture whose `allOf` branch is exactly `{"$ref": "#/$defs/extension"}` — the most
+     * common composition idiom in real schemas.
+     */
+    public function testRefOnlyCompositionBranchIsNotReportedAsVacuous(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'RefResolvedBranchContributesAnnotations.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+            ),
+            'A branch consisting only of a $ref carries the referenced schema\'s constraints and '
+            . 'must not be flagged as vacuous.',
+        );
     }
 }

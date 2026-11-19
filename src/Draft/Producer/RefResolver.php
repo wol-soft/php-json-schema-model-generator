@@ -232,6 +232,8 @@ class RefResolver implements PropertyProducerInterface
             $schema->addProperty($refProperty, $compositionProcessor, $refProperty->getJsonSchema(), $schemaProcessor);
         }
 
+        $schema->adoptEvaluatedPropertiesOfReferencedSchema($property->getNestedSchema());
+
         return $property;
     }
 

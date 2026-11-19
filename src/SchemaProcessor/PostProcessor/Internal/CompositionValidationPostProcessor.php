@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
@@ -50,6 +51,40 @@ class CompositionValidationPostProcessor extends PostProcessor
         }
 
         $this->addValidationStateProperty($schema, $compositionValidatorKeys);
+    }
+
+    /**
+     * Scopes the composition validator to the schema right before the method renders its check.
+     *
+     * The scope set while the schema is post processed is not enough: a composition validator which is transferred
+     * onto a second class (a `$ref` merged with siblings, or a base-level `$ref`) is one instance that is post
+     * processed once per class, and the methods render after all of them, so it kept the scope of the class which
+     * was processed last. The helper methods the check registers on its scope then landed on that class only and
+     * the other class called methods it did not define.
+     *
+     * Rendering the validator through RenderHelper::renderValidator() instead - which scopes it on every render -
+     * was rejected: a composition validator is an extracted-method validator there, so the inline check of every
+     * validation method would become a separate generated method.
+     */
+    private function scopedToSchema(
+        AbstractComposedPropertyValidator $validator,
+        Schema $schema,
+        MethodInterface $method,
+    ): MethodInterface {
+        return new class ($validator, $schema, $method) implements MethodInterface {
+            public function __construct(
+                private readonly AbstractComposedPropertyValidator $validator,
+                private readonly Schema $schema,
+                private readonly MethodInterface $method,
+            ) {}
+
+            public function getCode(): string
+            {
+                $this->validator->setScope($this->schema);
+
+                return $this->method->getCode();
+            }
+        };
     }
 
     /**
@@ -100,22 +135,28 @@ class CompositionValidationPostProcessor extends PostProcessor
 
             $schema->addMethod(
                 "_validateComposition_$validatorIndex",
-                new RenderedMethod(
+                $this->scopedToSchema(
+                    $compositionValidator,
                     $schema,
-                    $generatorConfiguration,
-                    'CompositionValidation.phptpl',
-                    [
-                        'validator' => $compositionValidator,
-                        'schema' => $schema,
-                        'index' => $validatorIndex,
-                        'viewHelper' => new RenderHelper($generatorConfiguration),
-                        'branchFilteredKeys' => $filteredKeys === [] ? '' : RenderHelper::varExportArray($filteredKeys),
-                        'branchFilteredKeyComponents' => RenderHelper::varExportArray(
-                            $compositionValidator->getFilteredKeyComponents(),
-                        ),
-                        'publishesFilterSources' => $publishesFilterSources,
-                    ],
-                )
+                    new RenderedMethod(
+                        $schema,
+                        $generatorConfiguration,
+                        'CompositionValidation.phptpl',
+                        [
+                            'validator' => $compositionValidator,
+                            'schema' => $schema,
+                            'index' => $validatorIndex,
+                            'viewHelper' => new RenderHelper($generatorConfiguration),
+                            'branchFilteredKeys' => $filteredKeys === []
+                                ? ''
+                                : RenderHelper::varExportArray($filteredKeys),
+                            'branchFilteredKeyComponents' => RenderHelper::varExportArray(
+                                $compositionValidator->getFilteredKeyComponents(),
+                            ),
+                            'publishesFilterSources' => $publishesFilterSources,
+                        ],
+                    ),
+                ),
             );
         }
 

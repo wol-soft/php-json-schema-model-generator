@@ -1,0 +1,22 @@
+{
+  "definitions": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "type": "object",
+  "$ref": "#/definitions/base",
+  "properties": {
+    "b": {
+      "type": "string"
+    }
+  }
+}

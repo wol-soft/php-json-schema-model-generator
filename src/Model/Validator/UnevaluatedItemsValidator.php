@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -34,6 +35,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
+        ArrayItemsCoverage $siblingCoverage,
     ) {
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
@@ -49,6 +51,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 
         parent::__construct(
             $property,
+            $siblingCoverage,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
             ['&$invalidItems'],

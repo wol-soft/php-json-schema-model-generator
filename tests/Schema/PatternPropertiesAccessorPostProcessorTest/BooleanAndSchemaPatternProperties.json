@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^any_.*": true,
+    "^num_.*": {
+      "type": "integer"
+    }
+  }
+}

@@ -19,7 +19,9 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
+use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -66,6 +68,22 @@ class Schema
 
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
+
+    /** @var array<string, true> Used as a set; see addUnconditionallyEvaluatedPropertyName() */
+    private array $unconditionallyEvaluatedPropertyNames = [];
+    /** @var array<string, true> Used as a set; see addUnconditionallyEvaluatedPropertyPattern() */
+    private array $unconditionallyEvaluatedPropertyPatterns = [];
+
+    private bool $claimsEveryKeyThroughReference = false;
+
+    /**
+     * @var array<string, array{names: string[], claimsEveryKey: bool}>
+     *      Keyed by the trigger property name; see addDependentEvaluatedProperties()
+     */
+    private array $dependentEvaluatedProperties = [];
+
+    /** @var array<int, array{trigger: string, keywords: string[]}> See addDependentContributionShortfall() */
+    private array $dependentContributionShortfalls = [];
 
     /**
      * Maps the lowercased attribute → raw property name and attribute; used to detect property-vs-property
@@ -387,6 +405,46 @@ class Schema
     }
 
     /**
+     * The validators which record the matches of a schema pattern in the `_patternProperties` field. The field is
+     * only written by these, so whether it is declared (PatternPropertiesPostProcessor) and whether the generated
+     * code reads it unconditionally (PatternPropertiesAccessorPostProcessor) both follow from this list rather than
+     * from the `patternProperties` keyword of the schema's own JSON: a base-level `$ref` transfers the referenced
+     * schema's validators, and a keyword whose patterns are all boolean produces none.
+     *
+     * @return PatternPropertiesValidator[]
+     */
+    public function getPatternPropertiesValidators(): array
+    {
+        return array_values(array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool => $validator instanceof PatternPropertiesValidator,
+        ));
+    }
+
+    /**
+     * The validators which validate (and, once switched to collecting, store) the additional properties against a
+     * schema. Together with the validator which stores them for a schema without one
+     * (UpdateAdditionalPropertiesValidator) these are what writes the `_additionalProperties` field. Whether the
+     * field is declared therefore follows from the validators and not from the `additionalProperties` keyword of
+     * the schema's own JSON alone: a base-level `$ref` transfers the referenced schema's validators, so one can run
+     * on a class whose own JSON never mentions the keyword.
+     *
+     * The transferred instance is the one the referenced schema owns and keeps its state (collecting, and the names
+     * the referenced schema declares). Cloning it for the referencing class was rejected: its template values hold a
+     * reference to the collecting flag, which a clone would keep sharing with the original.
+     *
+     * @return AdditionalPropertiesValidator[]
+     */
+    public function getAdditionalPropertiesValidators(): array
+    {
+        return array_values(array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool =>
+                $validator instanceof AdditionalPropertiesValidator,
+        ));
+    }
+
+    /**
      * The base validators except the compositions: they validate the object itself (e.g. additionalProperties,
      * maxProperties) and are rendered into _executeObjectValidators(). Keys are kept.
      *
@@ -422,6 +480,198 @@ class Schema
         }
 
         return $dependencyValidators;
+    }
+
+    /**
+     * Records a property name this schema evaluates at its own instance location without any
+     * runtime condition, even though the name does not appear in the schema's own `properties`
+     * keyword. From Draft 2019-09 on a `$ref` applies alongside its siblings instead of replacing
+     * them, and the referenced schema's properties are merged into this one — the merged names are
+     * evaluated exactly as locally declared ones are, so `unevaluatedProperties` must credit them.
+     *
+     * Deliberately a dedicated channel rather than reading `getProperties()`: that list also holds
+     * names transferred purely for accessibility from anyOf/oneOf/if branches, which are evaluated
+     * only when their branch succeeds and must stay under the composition slots' runtime control.
+     */
+    public function addUnconditionallyEvaluatedPropertyName(string $propertyName): self
+    {
+        $this->unconditionallyEvaluatedPropertyNames[$propertyName] = true;
+
+        return $this;
+    }
+
+    /**
+     * The `patternProperties` counterpart of {@see addUnconditionallyEvaluatedPropertyName()}:
+     * patterns merged in from a referenced schema, whose matches this schema evaluates too.
+     */
+    public function addUnconditionallyEvaluatedPropertyPattern(string $pattern): self
+    {
+        $this->unconditionallyEvaluatedPropertyPatterns[$pattern] = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getUnconditionallyEvaluatedPropertyNames(): array
+    {
+        return array_keys($this->unconditionallyEvaluatedPropertyNames);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getUnconditionallyEvaluatedPropertyPatterns(): array
+    {
+        return array_keys($this->unconditionallyEvaluatedPropertyPatterns);
+    }
+
+    /**
+     * Adopts what a conjunctively-referenced schema evaluates. A `$ref` applies at the same
+     * instance location as the schema carrying it, so from Draft 2019-09 on — where the reference
+     * no longer replaces its siblings — the referenced schema's declarations are evaluated here
+     * too and a sibling `unevaluatedProperties` must credit them.
+     *
+     * Reads the referenced schema's own JSON rather than its resolved property list: the list also
+     * carries names its own composition branches contributed, which are conditional on those
+     * branches succeeding and are accounted for through the base validators the merge transfers.
+     * Its own unconditional set is carried over as well, so a chain of references still arrives
+     * intact when an intermediate schema contributed nothing of its own.
+     */
+    public function adoptEvaluatedPropertiesOfReferencedSchema(Schema $referencedSchema): self
+    {
+        $referencedJson = $referencedSchema->getJsonSchema()->getJson();
+
+        foreach (array_keys($referencedJson['properties'] ?? []) as $propertyName) {
+            $this->addUnconditionallyEvaluatedPropertyName((string) $propertyName);
+        }
+        foreach ($referencedSchema->getUnconditionallyEvaluatedPropertyNames() as $propertyName) {
+            $this->addUnconditionallyEvaluatedPropertyName($propertyName);
+        }
+
+        foreach (array_keys($referencedJson['patternProperties'] ?? []) as $pattern) {
+            $this->addUnconditionallyEvaluatedPropertyPattern((string) $pattern);
+        }
+        foreach ($referencedSchema->getUnconditionallyEvaluatedPropertyPatterns() as $pattern) {
+            $this->addUnconditionallyEvaluatedPropertyPattern($pattern);
+        }
+
+        // A non-false `additionalProperties` evaluates every key the referenced schema does not declare itself,
+        // which together with its `properties` is every key of the instance — a claim of the same kind as the one
+        // of a dependent subschema, and one no name list can express.
+        if (
+            (isset($referencedJson['additionalProperties']) && $referencedJson['additionalProperties'] !== false)
+            || $referencedSchema->claimsEveryKeyThroughReference()
+        ) {
+            $this->claimsEveryKeyThroughReference = true;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Whether a referenced schema (directly or further down a chain of references) declares a non-false
+     * `additionalProperties`, so that this schema evaluates every key of its instance. Rendered as an unconditional
+     * short-circuit by the unevaluatedProperties check and by `_getEvaluatedProperties()`.
+     */
+    public function claimsEveryKeyThroughReference(): bool
+    {
+        return $this->claimsEveryKeyThroughReference;
+    }
+
+    /**
+     * Records what the schema form of `dependencies` evaluates while its trigger property is
+     * present on the instance. The dependent subschema applies at the same instance location as
+     * the schema declaring it, so the names it claims are evaluated there — but only while the
+     * trigger key is actually present, which is why this cannot join the unconditional set.
+     *
+     * There is deliberately no pattern list. A pattern match is credited only when the key is
+     * recorded in the enclosing class's own `_patternProperties` with the value currently in the
+     * model, and the dependent subschema's `PatternPropertiesValidator` writes that record into
+     * the dependency schema's class instead. Handing the accumulator the regexes anyway would
+     * promise a credit it can never give; crediting on the regex alone would credit a key whose
+     * value failed the pattern's subschema, so an invalid instance would be accepted.
+     *
+     * @param string[] $names          Names the dependent subschema's `properties` declares
+     * @param bool     $claimsEveryKey Whether it declares a non-false `additionalProperties`, which
+     *                                 claims every remaining key rather than a nameable set
+     */
+    public function addDependentEvaluatedProperties(
+        string $triggerPropertyName,
+        array $names,
+        bool $claimsEveryKey,
+    ): self {
+        $this->dependentEvaluatedProperties[$triggerPropertyName] = [
+            'names' => $names,
+            'claimsEveryKey' => $claimsEveryKey,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * The names of the dependent subschemas by their trigger property, for the triggers which have any. Both places
+     * which render the dependent contribution (the unevaluatedProperties check and a branch class's
+     * `_getEvaluatedProperties()`) read it from here, so they agree on what is credited.
+     *
+     * @return array<string, string[]>
+     */
+    public function getDependentEvaluatedNamesByTrigger(): array
+    {
+        return array_map(
+            static fn(array $dependency): array => $dependency['names'],
+            array_filter(
+                $this->dependentEvaluatedProperties,
+                static fn(array $dependency): bool => $dependency['names'] !== [],
+            ),
+        );
+    }
+
+    /**
+     * The trigger properties whose dependent subschema claims every remaining key (a non-false
+     * `additionalProperties`), which only holds while the trigger is present.
+     *
+     * @return string[]
+     */
+    public function getDependentAllKeysTriggerNames(): array
+    {
+        return array_map(
+            strval(...),
+            array_keys(array_filter(
+                $this->dependentEvaluatedProperties,
+                static fn(array $dependency): bool => $dependency['claimsEveryKey'],
+            )),
+        );
+    }
+
+    /**
+     * Records that a dependent subschema evaluates properties through keywords the dependent contribution cannot
+     * credit (see addDependentEvaluatedProperties()). Reported by the post processor once it knows whether an
+     * unevaluatedProperties accumulator consults this schema; the schema itself cannot know yet, since a composition
+     * branch gets its accumulator from the schema it belongs to.
+     *
+     * @param string[] $keywords
+     */
+    public function addDependentContributionShortfall(string $triggerPropertyName, array $keywords): self
+    {
+        $this->dependentContributionShortfalls[] = ['trigger' => $triggerPropertyName, 'keywords' => $keywords];
+
+        return $this;
+    }
+
+    /**
+     * Hands out the recorded shortfalls and forgets them, so each is reported once however many enclosing schemas
+     * reach this schema.
+     *
+     * @return array<int, array{trigger: string, keywords: string[]}>
+     */
+    public function takeDependentContributionShortfalls(): array
+    {
+        $shortfalls = $this->dependentContributionShortfalls;
+        $this->dependentContributionShortfalls = [];
+
+        return $shortfalls;
     }
 
     /**
@@ -547,9 +797,19 @@ class Schema
         return $this->traits;
     }
 
+    /**
+     * Registration is idempotent: a trait can be requested through more than one activation path,
+     * a schema's own activation and the branch-class activation of an enclosing schema. Duplicate
+     * trait use is legal PHP, so this is about the generated file's readability and the coding
+     * standard run over it, not about avoiding an error. Do NOT remove the guard as unnecessary on
+     * the grounds that PHP tolerates the duplicate: the class would render the trait twice.
+     */
     public function addTrait(string $trait): self
     {
-        $this->traits[] = $trait;
+        if (!in_array($trait, $this->traits, true)) {
+            $this->traits[] = $trait;
+        }
+
         $this->addUsedClass($trait);
 
         return $this;

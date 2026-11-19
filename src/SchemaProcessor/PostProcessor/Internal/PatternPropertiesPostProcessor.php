@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\ConstructorBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
@@ -24,59 +23,73 @@ class PatternPropertiesPostProcessor extends PostProcessor
     {
         $json = $schema->getJsonSchema()->getJson();
 
-        if (!isset($json['patternProperties'])) {
-            return;
-        }
-
         $patternHashes = [];
         $schemaProperties = array_keys($json['properties'] ?? []);
 
-        foreach ($schema->getBaseValidators() as $validator) {
-            if (is_a($validator, PatternPropertiesValidator::class)) {
-                if (array_key_exists($validator->getKey(), $patternHashes)) {
-                    $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
+        foreach ($schema->getPatternPropertiesValidators() as $validator) {
+            if (array_key_exists($validator->getKey(), $patternHashes)) {
+                $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
 
-                    throw new SchemaException(
-                        "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}",
-                        $schema->getJsonSchema(),
-                    );
-                }
-
-                $patternHashes[$validator->getKey()] = array_reduce(
-                    $schema->getProperties(),
-                    static function (
-                        array $carry,
-                        PropertyInterface $property,
-                    ) use (
-                        $schemaProperties,
-                        $validator
-                    ): array {
-                        if (
-                            in_array($property->getName(), $schemaProperties) &&
-                            preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
-                        ) {
-                            $carry[] = $property;
-                        }
-
-                        return $carry;
-                    },
-                    [],
+                throw new SchemaException(
+                    "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}",
+                    $schema->getJsonSchema(),
                 );
             }
+
+            $patternHashes[$validator->getKey()] = array_reduce(
+                $schema->getProperties(),
+                static function (
+                    array $carry,
+                    PropertyInterface $property,
+                ) use (
+                    $schemaProperties,
+                    $validator
+                ): array {
+                    if (
+                        in_array($property->getName(), $schemaProperties) &&
+                        preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
+                    ) {
+                        $carry[] = $property;
+                    }
+
+                    return $carry;
+                },
+                [],
+            );
+        }
+
+        // Driven by the validators rather than by the schema's own `patternProperties` keyword: a
+        // base-level `$ref` transfers the referenced schema's base validators onto the referencing
+        // schema, so a PatternPropertiesValidator can run on a class whose own JSON never mentions
+        // the keyword. The field it writes has to follow the validator, otherwise the generated
+        // class creates `$_patternProperties` dynamically — deprecated since PHP 8.2 and an error
+        // in PHP 9. Keying off the keyword also kept the fields off every unrelated class, which
+        // the emptiness check preserves.
+        //
+        // A class that only *reads* the field without any validator writing it (the pattern
+        // properties accessor of a schema whose patterns are all boolean) declares it itself, see
+        // declareCollectionProperty().
+        if ($patternHashes === []) {
+            return;
         }
 
         $this->initObjectPropertiesMatchingPatternProperties($schema, $patternHashes);
 
-        $this->addPatternPropertiesCollectionProperty($schema, array_keys($patternHashes));
+        self::declareCollectionProperty($schema, array_keys($patternHashes));
         $this->addPatternPropertiesMapProperty($schema);
     }
 
     /**
-     * Adds an internal array property to the schema which holds all pattern properties grouped by key
+     * Adds an internal array property to the schema which holds all pattern properties grouped by key.
+     *
+     * Public so that generated code which reads the field without a validator writing it can declare it as well:
+     * whoever emits code that reads `$_patternProperties` must make sure the class declares it.
+     *
+     * @param string[] $patternHashes
      *
      * @throws SchemaException
      */
-    private function addPatternPropertiesCollectionProperty(
+    public static function declareCollectionProperty(
         Schema $schema,
         array $patternHashes,
     ): void {
