@@ -30,6 +30,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntegralFloatToIntCastDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
@@ -474,6 +475,7 @@ class PropertyFactory
             $targetProperty,
             $refProperty,
             $siblingSchema,
+            $propertySchema,
             $schemaProcessor,
             $schema,
             $propertyName,
@@ -535,6 +537,7 @@ class PropertyFactory
                 $targetProperty,
                 $refProperty,
                 $siblingSchema,
+                $propertySchema->getJson()['$ref'] ?? null,
                 $schemaProcessor,
                 $schema,
                 $propertyName,
@@ -567,12 +570,19 @@ class PropertyFactory
      * 5. Transfer non-TypeCheck validators from the ref property that PropertyMerger didn't
      *    already cover (e.g. enum, const, or filter validators on the referenced definition).
      *
+     * A definition without a type has nothing to intersect with: see
+     * applySiblingKeywordsNextToAnUntypedReference().
+     *
+     * The type-specific sibling modifiers see the `$ref` next to the siblings (see
+     * withReference()), the `$ref` itself is never produced again here.
+     *
      * @throws SchemaException
      */
     private function applyScalarSiblingMerge(
         PropertyInterface $targetProperty,
         PropertyInterface $refProperty,
         JsonSchema $siblingSchema,
+        ?string $reference,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $propertyName,
@@ -580,8 +590,16 @@ class PropertyFactory
         $producedType = $refProperty->getType(true);
 
         if ($producedType === null) {
-            // Truly untyped ref property: transfer validators directly; skip type-conversion
-            // decorators for the same reason as the typed path.
+            $this->applySiblingKeywordsNextToAnUntypedReference(
+                $targetProperty,
+                $siblingSchema,
+                $reference,
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+            );
+
+            // Type-conversion decorators of the ref are skipped for the same reason as in the typed path
             $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: false);
 
             return;
@@ -641,7 +659,7 @@ class PropertyFactory
                 $schemaProcessor,
                 $schema,
                 $targetProperty,
-                $siblingSchema->withJson(array_merge($siblingJson, ['type' => $effectiveTypeJsonSchemaName])),
+                $this->withReference($siblingSchema, $reference, ['type' => $effectiveTypeJsonSchemaName]),
                 typeOnly: true,
             );
         }
@@ -658,6 +676,99 @@ class PropertyFactory
         // the narrowed effective type. Transferring them would corrupt the value before the
         // effective-type TypeCheck can inspect it.
         $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: true);
+    }
+
+    /**
+     * Apply the keywords next to a `$ref` to a definition which declares no type (`{"minItems": 1}`): there is no
+     * type to intersect with, the siblings apply like the keywords of a property without the reference - typed by the
+     * type of the siblings, a type list like a multi type property, self-gating per type without a type. The
+     * validators of the definition are added by the caller.
+     *
+     * Transferring the validators of the definition only (and dropping the siblings) was rejected: from Draft 2019-09
+     * on the siblings apply alongside the reference, `{"type": "array", "$ref": <untyped>, "maxItems": 1}` accepted
+     * every value.
+     *
+     * @throws SchemaException
+     */
+    private function applySiblingKeywordsNextToAnUntypedReference(
+        PropertyInterface $targetProperty,
+        JsonSchema $siblingSchema,
+        ?string $reference,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+    ): void {
+        $siblingType = $siblingSchema->getJson()['type'] ?? null;
+        $siblingSchemaWithReference = $this->withReference($siblingSchema, $reference);
+
+        if (is_array($siblingType)) {
+            $this->populateMultiTypeProperty(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $propertyName,
+                $siblingSchemaWithReference,
+                $siblingType,
+            );
+
+            return;
+        }
+
+        if ($siblingType === 'object') {
+            // An object property holds the model of a nested class (empty here: structural object keywords next to
+            // the reference take the merged-schema path), the keywords of the definition validate the provided data
+            $this->populateObjectProperty($schemaProcessor, $schema, $targetProperty, $propertyName, $siblingSchema);
+
+            return;
+        }
+
+        if (is_string($siblingType)) {
+            $this->checkType($siblingType, $schema);
+
+            $type = new PropertyType(TypeConverter::jsonSchemaToPHP($siblingType));
+            $targetProperty->setType($type, $type);
+
+            $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+            $this->applyModifiers(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $siblingSchemaWithReference,
+                typeOnly: true,
+            );
+
+            return;
+        }
+
+        $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+        $this->applyUntypedScalarModifiers(
+            $schemaProcessor,
+            $schema,
+            $targetProperty,
+            $siblingSchemaWithReference,
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($siblingSchema),
+        );
+    }
+
+    /**
+     * The schema of the keywords next to a `$ref`, with the reference: the unevaluatedItems of the siblings evaluates
+     * the items of the referenced definitions as well (see UnevaluatedItemsValidatorFactory). Only the modifiers of
+     * the types see the schema, the producer which resolves the `$ref` doesn't run again.
+     *
+     * @param array<string, mixed> $additionalJson
+     */
+    private function withReference(
+        JsonSchema $siblingSchema,
+        ?string $reference,
+        array $additionalJson = [],
+    ): JsonSchema {
+        $json = array_merge($siblingSchema->getJson(), $additionalJson);
+
+        if ($reference !== null) {
+            $json['$ref'] = $reference;
+        }
+
+        return $siblingSchema->withJson($json);
     }
 
     /**
@@ -750,7 +861,6 @@ class PropertyFactory
         bool $guarded = false,
         bool $applyUniversalModifiers = true,
     ): PropertyInterface {
-        $json     = $propertySchema->getJson();
         $property = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
@@ -759,6 +869,36 @@ class PropertyFactory
             $required,
             $isArrayItem,
         );
+
+        $this->populateObjectProperty(
+            $schemaProcessor,
+            $schema,
+            $property,
+            $propertyName,
+            $propertySchema,
+            $guarded,
+            $applyUniversalModifiers,
+        );
+
+        return $property;
+    }
+
+    /**
+     * Generate the nested class of an object property and wire it onto the given property. Also used for the keywords
+     * next to a `$ref` to a definition without a type, which declare the type object.
+     *
+     * @throws SchemaException
+     */
+    private function populateObjectProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $guarded = false,
+        bool $applyUniversalModifiers = true,
+    ): void {
+        $json = $propertySchema->getJson();
 
         $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
             $propertyName,
@@ -800,8 +940,6 @@ class PropertyFactory
         if ($applyUniversalModifiers) {
             $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
         }
-
-        return $property;
     }
 
     /**
@@ -1148,7 +1286,6 @@ class PropertyFactory
         bool $required,
         bool $isArrayItem = false,
     ): PropertyInterface {
-        $json     = $propertySchema->getJson();
         $property = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
@@ -1157,6 +1294,32 @@ class PropertyFactory
             $required,
             $isArrayItem,
         );
+
+        $this->populateMultiTypeProperty($schemaProcessor, $schema, $property, $propertyName, $propertySchema, $types);
+
+        return $property;
+    }
+
+    /**
+     * Wire the types of a multi type property onto the given (untyped) property: a sub property per type, whose
+     * validators are collected into the property, and the type check of all types once every sub property resolved.
+     * Also used for the keywords next to a `$ref` to a definition without a type, which declare a type list.
+     *
+     * @param string[] $types
+     *
+     * @throws SchemaException
+     */
+    private function populateMultiTypeProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $types,
+    ): void {
+        $json        = $propertySchema->getJson();
+        $required    = $property->isRequired();
+        $isArrayItem = $property->isArrayItem();
 
         $collectedTypes   = [];
         $typeHints        = [];
@@ -1215,6 +1378,7 @@ class PropertyFactory
                 $propertySchema,
                 $totalSubCount,
                 $type,
+                $types,
                 $hasSchemaLevelComposition,
                 &$collectedTypes,
                 &$typeHints,
@@ -1245,6 +1409,15 @@ class PropertyFactory
                     );
                 }
 
+                if ($type === 'integer' && in_array('number', $types, true)) {
+                    // A type list with number holds a number as float: casting an integral float to int for the
+                    // integer variant would change the type the number variant accepts as it is
+                    $subProperty->filterDecorators(
+                        static fn(PropertyDecoratorInterface $decorator): bool =>
+                            !($decorator instanceof IntegralFloatToIntCastDecorator),
+                    );
+                }
+
                 if ($subProperty->getDecorators()) {
                     $property->addDecorator(new PropertyTransferDecorator($subProperty));
                 }
@@ -1266,8 +1439,6 @@ class PropertyFactory
                 );
             });
         }
-
-        return $property;
     }
 
     /**

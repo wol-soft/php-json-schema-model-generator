@@ -344,6 +344,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
      * not-yet-instantiated JSON-object-shaped array, so only the property-level composition
      * validator instantiates.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testMultiTypePropertyWithCompositionArrayBranchGeneratesAndValidatesArrayInput(): void
     {
         $className = $this->generateClassFromFile('MultiTypePropertyWithOneOfArrayBranch.json');
@@ -355,6 +356,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hans', $objectObject->getProperty()->getName());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('invalidCompositionArrayBranchDataProvider')]
     public function testInvalidMultiTypePropertyCompositionArrayBranchThrowsAnException(
         mixed $propertyValue,
@@ -391,6 +393,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testInvalidMultiTypePropertyCompositionObjectBranchThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);

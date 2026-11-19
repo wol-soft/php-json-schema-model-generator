@@ -16,12 +16,16 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class NoUnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 {
-    public function __construct(PropertyInterface $property)
+    /**
+     * @param array<int, array<string, mixed>> $siblingSchemaJsons see AbstractUnevaluatedItemsValidator
+     */
+    public function __construct(PropertyInterface $property, array $siblingSchemaJsons)
     {
         $this->isResolved = true;
 
         parent::__construct(
             $property,
+            $siblingSchemaJsons,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'NoUnevaluatedItems.phptpl',
             UnevaluatedItemsException::class,
             ['&$unevaluatedItems'],

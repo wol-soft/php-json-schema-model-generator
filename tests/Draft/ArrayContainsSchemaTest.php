@@ -20,7 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class ArrayContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
-    #[ApplicableDrafts]
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testContainsWithATupleSchema(GeneratorConfiguration $configuration): void
     {
@@ -51,7 +51,7 @@ class ArrayContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testContainsWithATupleSchemaAndMinAndMaxContains(GeneratorConfiguration $configuration): void
     {
@@ -131,6 +131,43 @@ class ArrayContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
                 $this->getExpectedExceptionClass($configuration, ContainsException::class),
                 "No item in array '$property' matches the 'contains' constraint",
             );
+        }
+    }
+
+    /**
+     * minContains is unknown before Draft 2019-09: `minContains: 0` doesn't lift the requirement of one matching item
+     * in Draft 7, an empty array fails the contains. Testing the keyword in the schema without asking the draft was
+     * rejected: it accepted the empty array in Draft 7.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMinContainsZeroIsIgnoredBeforeDraft2019(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ContainsWithMinContainsZero.json', $configuration);
+
+        $this->assertSame(['a'], (new $className(['property' => ['a']]))->getProperty());
+
+        foreach ([[], [1]] as $propertyValue) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['property' => $propertyValue],
+                $this->getExpectedExceptionClass($configuration, ContainsException::class),
+                "No item in array 'property' matches the 'contains' constraint",
+            );
+        }
+    }
+
+    /**
+     * From Draft 2019-09 on `minContains: 0` accepts arrays without a matching item.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMinContainsZeroAcceptsAnArrayWithoutAMatch(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ContainsWithMinContainsZero.json', $configuration);
+
+        foreach ([[], [1], ['a']] as $propertyValue) {
+            $this->assertSame($propertyValue, (new $className(['property' => $propertyValue]))->getProperty());
         }
     }
 }

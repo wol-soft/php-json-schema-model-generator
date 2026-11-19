@@ -19,9 +19,6 @@
         $slotKey = '{{ viewHelper.escapeSingleQuoted(compositionValidator.getSlotKey()) }}';
         $compositionEvaluatedIndices = [];
     {% endif %}
-    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
-        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
-    {% endif %}
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -38,9 +35,9 @@
     {% if compositionValidator.tracksEvaluatedItems() %}
         {#
             The branches evaluate their items in a scope of their own, see ComposedItem.phptpl: the indices of a
-            branch which fails are discarded, the indices of the succeeding condition and branch are handed to the
-            enclosing array once the conditional as a whole succeeded. A condition which succeeds followed by a then
-            branch which fails provides no annotations.
+            branch which fails are discarded, the indices of the condition and the branch which succeeded are handed
+            to the enclosing array, also if the conditional as a whole fails (a condition which succeeds keeps its
+            annotations when its then branch fails).
         #}
         $evaluatedItemIndicesBeforeComposition = $this->_evaluatedItemIndices;
         $evaluatedItemIndicesOfSucceededBranches = [];
@@ -92,13 +89,6 @@
                 $compositionEvaluatedIndices += array_fill(
                     0,
                     min({{ ifProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
-                    true,
-                );
-            {% endif %}
-            {% if not ifProperty.branchClaimsAllIndices() and ifProperty.branchHasNonFalseAdditionalItems() %}
-                $compositionEvaluatedIndices += array_fill(
-                    {{ ifProperty.getBranchTupleItemsCount() }},
-                    max(0, count($originalModelData) - {{ ifProperty.getBranchTupleItemsCount() }}),
                     true,
                 );
             {% endif %}
@@ -195,13 +185,6 @@
                             true,
                         );
                     {% endif %}
-                    {% if not thenProperty.branchClaimsAllIndices() and thenProperty.branchHasNonFalseAdditionalItems() %}
-                        $compositionEvaluatedIndices += array_fill(
-                            {{ thenProperty.getBranchTupleItemsCount() }},
-                            max(0, count($originalModelData) - {{ thenProperty.getBranchTupleItemsCount() }}),
-                            true,
-                        );
-                    {% endif %}
                     {% if thenProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
                     {% endif %}
@@ -295,13 +278,6 @@
                         $compositionEvaluatedIndices += array_fill(
                             0,
                             min({{ elseProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
-                            true,
-                        );
-                    {% endif %}
-                    {% if not elseProperty.branchClaimsAllIndices() and elseProperty.branchHasNonFalseAdditionalItems() %}
-                        $compositionEvaluatedIndices += array_fill(
-                            {{ elseProperty.getBranchTupleItemsCount() }},
-                            max(0, count($originalModelData) - {{ elseProperty.getBranchTupleItemsCount() }}),
                             true,
                         );
                     {% endif %}
@@ -409,12 +385,10 @@
     $conditionalResult = $thenException || $elseException;
 
     {% if compositionValidator.tracksEvaluatedItems() %}
-        if (!$conditionalResult) {
-            $this->_evaluatedItemIndices = array_replace_recursive(
-                $this->_evaluatedItemIndices,
-                $evaluatedItemIndicesOfSucceededBranches,
-            );
-        }
+        $this->_evaluatedItemIndices = array_replace_recursive(
+            $this->_evaluatedItemIndices,
+            $evaluatedItemIndicesOfSucceededBranches,
+        );
     {% endif %}
 
     {#
@@ -431,15 +405,13 @@
         $value = $originalModelData;
     }
 
+    {#
+        A conditional which fails as a whole keeps the annotations of its parts which succeeded (the condition, a
+        branch), like a failed allOf/anyOf/oneOf does, see ComposedItem.phptpl. The evaluations of a part which
+        failed are already discarded.
+    #}
     {% if compositionValidator.getSlotKey() %}
-        $this->_compositionAnnotated[$slotKey] = $conditionalResult ? [] : $compositionEvaluatedIndices;
-    {% endif %}
-    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
-        // A conditional that fails as a whole contributes no annotations: drop the claims its
-        // passing "if" condition already wrote, as a failed allOf/anyOf/oneOf does.
-        if ($conditionalResult) {
-            $this->_compositionEvaluations = $originalCompositionEvaluations;
-        }
+        $this->_compositionAnnotated[$slotKey] = $compositionEvaluatedIndices;
     {% endif %}
 
     return $conditionalResult;

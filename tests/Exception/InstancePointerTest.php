@@ -39,6 +39,7 @@ class InstancePointerTest extends AbstractPHPModelGeneratorTestCase
      * The keys of the invalid tuples are 1-based (the message reports the first tuple item as "invalid tuple #1"),
      * a pointer addresses the 0-based index of the array.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testTuplePositionsAreReportedAsZeroBasedPointers(GeneratorConfiguration $configuration): void
     {
@@ -78,6 +79,7 @@ class InstancePointerTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalTupleItemsAreReportedAtTheirIndexBelowTheArray(
         GeneratorConfiguration $configuration,

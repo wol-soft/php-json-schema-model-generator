@@ -35,6 +35,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts]
 class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
 {
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsNestedInAdditionalItems(GeneratorConfiguration $configuration): void
     {
@@ -212,7 +213,7 @@ class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsNestedInUnevaluatedItems(GeneratorConfiguration $configuration): void
     {
@@ -450,6 +451,7 @@ class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
      * the additional items and of the additional properties both list their invalid entries: the values of one
      * additional property must not change the entries of the other additional properties.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsInTheValuesOfAdditionalProperties(GeneratorConfiguration $configuration): void
     {
@@ -501,6 +503,7 @@ class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsInTheValuesOfPatternProperties(GeneratorConfiguration $configuration): void
     {
@@ -540,7 +543,7 @@ class NestedKeywordTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsInTheValuesOfUnevaluatedProperties(GeneratorConfiguration $configuration): void
     {

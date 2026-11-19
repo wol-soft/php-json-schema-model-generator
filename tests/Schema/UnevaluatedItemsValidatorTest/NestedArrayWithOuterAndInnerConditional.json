@@ -14,9 +14,13 @@
             ]
           },
           "then": {
-            "contains": {
-              "const": "x"
-            }
+            "items": [
+              true,
+              {
+                "const": "x"
+              }
+            ],
+            "minItems": 2
           },
           "else": {
             "items": [
@@ -29,19 +33,30 @@
         }
       ],
       "if": {
-        "contains": {
-          "const": 5
-        }
+        "items": [
+          true,
+          {
+            "const": 5
+          }
+        ]
       },
       "then": {
-        "contains": {
-          "const": 6
-        }
+        "items": [
+          true,
+          true,
+          {
+            "const": 6
+          }
+        ],
+        "minItems": 3
       },
       "else": {
-        "contains": {
-          "const": 7
-        }
+        "items": [
+          true,
+          {
+            "const": 7
+          }
+        ]
       },
       "unevaluatedItems": false
     }

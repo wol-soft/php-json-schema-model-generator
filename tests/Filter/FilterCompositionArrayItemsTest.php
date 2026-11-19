@@ -107,6 +107,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => ['20201010']], $transformed->toArray());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleItemFilterInAllOfBranchPersistsAcceptsTransformedValuesAndSerializes(): void
     {
         $className = $this->generateClassFromFile(
@@ -130,7 +131,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => ['20200202', 'other']], $object->toArray());
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInAllOfBranchPersistsAcceptsTransformedValuesAndSerializes(): void
     {
         $className = $this->generateClassFromFile(
@@ -171,6 +172,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * Two branches filter different tuple indices: the slots don't overlap, both serializers are generated into
      * the single serialization method of the property.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleIndicesFilteredInDifferentBranchesAreCombined(): void
     {
         $className = $this->generateClassFromFile(
@@ -192,6 +194,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * serializer must not run a second time on the index which both slots cover, the serializer of the filter
      * receives the already serialized string and fails.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSchemaFormItemsAndTupleIndexReachingTheSameFilterAreSerializedOnce(): void
     {
         $className = $this->generateClassFromFile(
@@ -211,7 +214,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The tuple of a branch evaluates index 0, unevaluatedItems of the property the remaining indices: different
      * slots, each filtered by its own declaration.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testBranchTupleFilterAndUnevaluatedItemsFilterOfThePropertyAreCombined(): void
     {
         $className = $this->generateClassFromFile(
@@ -351,6 +354,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The tuple index is only filtered while the oneOf branch which declares it is the matching one, the guard of the
      * serializer of the index passes the items of the other branch through.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleIndexFilterInConditionallyActiveBranchIsOnlyAppliedWhileTheBranchIsActive(): void
     {
         $className = $this->generateClassFromFile(
@@ -374,7 +378,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The unevaluatedItems of a branch which may be inactive: the serializer of the credited indices is guarded. Only a
      * single branch can declare it, a branch with unevaluatedItems next to a sibling branch is not supported.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInConditionallyActiveBranchIsSerializedByItsOutputType(): void
     {
         $className = $this->generateClassFromFile(
@@ -625,6 +629,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      *
      * @param class-string<ValidationException> $expectedException
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('recursiveBranchProvider')]
     public function testRecursiveBranchWithAnItemFilterPersistsTransformedItemsOnEveryLevelAndSerializes(
         string $schemaFile,
@@ -689,6 +694,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * Every declaration filters the items on its own: the item would be filtered twice (allOf, the property and a
      * branch) or the serializer of the stored value can't be attributed to a declaration (anyOf, oneOf, then/else).
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('itemSlotFilteredMoreThanOnceProvider')]
     public function testItemSlotWhichIsFilteredByMoreThanOneDeclarationThrowsSchemaException(
         string $schemaFile,
@@ -738,6 +744,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * run while the branch is evaluated and never transform the stored value. Accepting the schema would generate
      * a model which holds the value as provided, but widens the type check for the output of the filter.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('itemFilterInValidationOnlyBranchProvider')]
     public function testItemFilterInValidationOnlyBranchThrowsSchemaException(
         string $schemaFile,
@@ -750,7 +757,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The same rejection for unevaluatedItems, which only exist from Draft 2019-09. Draft 07 ignores the keyword, so
      * there is no filter on any items to reject.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInNotBranchThrowsSchemaException(): void
     {
         $this->assertItemFilterInValidationOnlyBranchIsRejected(
@@ -791,6 +798,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * raised once the definition is complete. The failure is raised inside of the referenced definitions, the
      * references don't restate it: the exception names the real cause.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('itemFilterReachedThroughRecursionProvider')]
     public function testItemFilterReachedOnlyThroughARecursiveReferenceInValidationOnlyBranchThrowsSchemaException(
         string $schemaFile,

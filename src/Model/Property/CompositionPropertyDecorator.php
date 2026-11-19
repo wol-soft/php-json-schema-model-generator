@@ -296,9 +296,16 @@ class CompositionPropertyDecorator extends PropertyProxy
 
     /**
      * True when a successful branch evaluates every index of the validated array: `items` as a
-     * schema object, an explicit `items: true`, an empty `items` (`{}`), or an explicit
-     * `unevaluatedItems: true`. Each validates trivially or per index and annotates the whole
-     * array; only an omitted keyword produces no annotation.
+     * schema object, an explicit `items: true`, an empty `items` (`{}`), an explicit
+     * `unevaluatedItems: true`, or a tuple with an `additionalItems` other than `false` next to it
+     * in the same schema object (the tuple evaluates the leading indices, additionalItems every
+     * index behind them). Each validates trivially or per index and annotates the whole array; only
+     * an omitted keyword produces no annotation.
+     *
+     * Every schema object of the branch (the branch, the definitions it references) is judged on
+     * its own: additionalItems only has an effect behind a tuple of its own schema object. Pooling
+     * the keywords of the objects was rejected: the additionalItems of a definition would extend
+     * the tuple written next to the reference and credit items nothing evaluates.
      *
      * An empty PHP array is treated as the empty schema `{}`, never as an empty tuple `[]`:
      * json_decode(..., true) maps both to the same value, and the sibling-applicator path
@@ -309,17 +316,22 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         foreach ($this->getBranchJsons() as $branchJson) {
             $items = $branchJson['items'] ?? null;
+            $isTuple = is_array($items) && $items !== [] && array_is_list($items);
 
             if (
                 ($branchJson['unevaluatedItems'] ?? null) === true
                 || $items === true
-                || (is_array($items) && ($items === [] || !array_is_list($items)))
+                || (is_array($items) && !$isTuple)
+                || ($isTuple && ($branchJson['additionalItems'] ?? false) !== false)
             ) {
                 return true;
             }
         }
 
-        return $this->getBranchValidatorsOfType(ArrayItemValidator::class) !== [];
+        // An AdditionalItemsValidator only exists next to the tuple of its own schema object (see
+        // ItemsValidatorFactory), so it claims the indices behind that tuple.
+        return $this->getBranchValidatorsOfType(ArrayItemValidator::class) !== []
+            || $this->getBranchValidatorsOfType(AdditionalItemsValidator::class) !== [];
     }
 
     /**
@@ -346,35 +358,24 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * True when the branch declares `additionalItems` as anything other than `false`. The
-     * `false` value rejects tail indices; any other value (true or schema object) accepts
-     * them and contributes them to the evaluated set.
-     */
-    public function branchHasNonFalseAdditionalItems(): bool
-    {
-        foreach ($this->getBranchJsons() as $branchJson) {
-            if (array_key_exists('additionalItems', $branchJson) && $branchJson['additionalItems'] !== false) {
-                return true;
-            }
-        }
-
-        return $this->getBranchValidatorsOfType(AdditionalItemsValidator::class) !== [];
-    }
-
-    /**
-     * True when the branch declares the `contains` keyword. The actual matched indices are
-     * collected at runtime by the contains validator into a local accumulator; the composition
-     * template unions that accumulator into the branch's evaluated set on success.
+     * True when the branch has a `contains` whose matched items count as evaluated (Draft 2020-12 on, see
+     * ArrayContainsValidator::evaluatesItems()). The actual matched indices are collected at runtime by the contains
+     * validator into a local accumulator; the composition template unions that accumulator into the branch's
+     * evaluated set on success.
+     *
+     * Asks the validators only, not the JSON of the branch: whether the keyword evaluates items depends on the draft,
+     * which the validator knows. Every `contains` of the branch or of a definition it references has a validator, but
+     * `contains: false`, which matches nothing.
      */
     public function branchHasContains(): bool
     {
-        foreach ($this->getBranchJsons() as $branchJson) {
-            if (array_key_exists('contains', $branchJson)) {
+        foreach ($this->getBranchValidatorsOfType(ArrayContainsValidator::class) as $containsValidator) {
+            if ($containsValidator->evaluatesItems()) {
                 return true;
             }
         }
 
-        return $this->getBranchValidatorsOfType(ArrayContainsValidator::class) !== [];
+        return false;
     }
 
     /**
@@ -388,7 +389,6 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         $hasArrayApplicator = $this->getBranchTupleItemsCount() > 0
             || $this->branchClaimsAllIndices()
-            || $this->branchHasNonFalseAdditionalItems()
             || $this->branchHasContains();
         $hasObjectApplicator = false;
 

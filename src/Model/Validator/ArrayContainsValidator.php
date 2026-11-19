@@ -31,6 +31,7 @@ class ArrayContainsValidator extends PropertyTemplateValidator
         GeneratorConfiguration $generatorConfiguration,
         bool $countMatches,
         bool $allowNoMatch,
+        private readonly bool $evaluatesItems = false,
     ) {
         parent::__construct(
             $property,
@@ -67,6 +68,16 @@ class ArrayContainsValidator extends PropertyTemplateValidator
     public function getNestedProperty(): PropertyInterface
     {
         return $this->nestedProperty;
+    }
+
+    /**
+     * Whether the matched items count as evaluated for unevaluatedItems. From Draft 2020-12 on `contains` annotates
+     * the indices it matched; Draft 2019-09 gives the keyword no annotation, its unevaluatedItems only sees items,
+     * additionalItems and unevaluatedItems. The draft decides by the factory it registers (see Draft_2020_12).
+     */
+    public function evaluatesItems(): bool
+    {
+        return $this->evaluatesItems;
     }
 
     /**

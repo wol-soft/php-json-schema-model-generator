@@ -60,9 +60,19 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
 
         $unevaluatedPointer = $propertySchema->getPointer() . '/' . $this->key;
 
+        // The schema objects next to the keyword: the schema itself and, if the schema carries a `$ref` (a reference
+        // next to other keywords is applied alongside them from Draft 2019-09 on, where unevaluatedItems exists), the
+        // definitions along the chain of references. Their items evaluate the items of the array as well. Reading the
+        // schema itself only was rejected: `{"$ref": <tuple>, "unevaluatedItems": false}` rejected every item of the
+        // tuple of the definition.
+        $siblingSchemaJsons = [
+            $json,
+            ...$schema->getSchemaDictionary()->getReferencedSchemaChain($propertySchema, $schemaProcessor),
+        ];
+
         if ($unevaluatedItems === false) {
             $property->addValidator(
-                (new NoUnevaluatedItemsValidator($property))->withJsonPointer($unevaluatedPointer),
+                (new NoUnevaluatedItemsValidator($property, $siblingSchemaJsons))->withJsonPointer($unevaluatedPointer),
                 self::VALIDATOR_PRIORITY,
             );
 
@@ -70,7 +80,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema))
+            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema, $siblingSchemaJsons))
                 ->withJsonPointer($unevaluatedPointer),
             self::VALIDATOR_PRIORITY,
         );

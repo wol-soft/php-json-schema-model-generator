@@ -17,13 +17,6 @@
         }
       ],
       "unevaluatedItems": false
-    },
-    "strictContaining": {
-      "type": "array",
-      "contains": {
-        "type": "integer"
-      },
-      "unevaluatedItems": false
     }
   },
   "properties": {
@@ -38,12 +31,6 @@
     },
     "strictPairB": {
       "$ref": "#/definitions/strictPair"
-    },
-    "strictContainingA": {
-      "$ref": "#/definitions/strictContaining"
-    },
-    "strictContainingB": {
-      "$ref": "#/definitions/strictContaining"
     }
   }
 }

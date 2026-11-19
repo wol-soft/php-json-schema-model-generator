@@ -35,6 +35,42 @@ class RenderHelperTest extends TestCase
     }
 
     /**
+     * The literals evaluate to the value and never span multiple lines (the indentation of the generated code would
+     * become part of a value which contains a line break). The bell and the backspace pin the explicit escape
+     * sequences: addcslashes() would write them as `\a` and `\b`, which PHP keeps as a backslash and a letter.
+     */
+    #[DataProvider('stringWithControlCharactersDataProvider')]
+    public function testLiteralsOfStringsWithControlCharactersEvaluateToTheString(string $value): void
+    {
+        $exportedValue = RenderHelper::varExportArray($value);
+        $exportedKeyedValue = RenderHelper::varExportArray([$value => $value]);
+        $singleQuotedValue = "'" . RenderHelper::escapeSingleQuoted($value) . "'";
+
+        foreach ([$exportedValue, $exportedKeyedValue, $singleQuotedValue] as $literal) {
+            $this->assertDoesNotMatchRegularExpression('/[\r\n]/', $literal);
+        }
+
+        $this->assertSame($value, eval("return $exportedValue;"));
+        $this->assertSame([$value => $value], eval("return $exportedKeyedValue;"));
+        $this->assertSame($value, eval("return $singleQuotedValue;"));
+    }
+
+    public static function stringWithControlCharactersDataProvider(): array
+    {
+        return [
+            'line feed' => ["a\nb"],
+            'carriage return and line feed' => ["a\r\nb"],
+            'tab, vertical tab and form feed' => ["a\t\v\fb"],
+            'bell and backspace' => ["a\x07\x08b"],
+            'escape' => ["\e[0m"],
+            'null byte' => ["a\0b"],
+            'delete' => ["a\x7Fb"],
+            'quotes, backslash and dollar next to a line break' => ["'\"\\\$x\n{\$y}"],
+            'control characters at the start and the end' => ["\nab\n"],
+        ];
+    }
+
+    /**
      * PHP rejects "?null" as a type declaration: the null type already contains null, so a property
      * which only accepts null never renders the nullable shorthand (whatever makes the property
      * nullable), while the shorthand is still rendered for every other single type.

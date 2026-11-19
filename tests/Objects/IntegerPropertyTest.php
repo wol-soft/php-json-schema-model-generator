@@ -5,18 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
-use stdClass;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Override;
+use stdClass;
 
-/**
- * Class IntPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class IntegerPropertyTest extends AbstractNumericPropertyTestCase
 {
@@ -83,19 +79,135 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         return [
             'bool' => [true],
             'float' => [0.92],
+            // an integral float which doesn't fit into an int
+            'float beyond the int range' => [1.0E19],
+            'infinity' => [INF],
+            'not a number' => [NAN],
             'array' => [[]],
             'object' => [new stdClass()],
             'string' => ['1']
         ];
     }
 
-    #[\Override]
+    /**
+     * An integral float is an integer (Draft 6 on, an integer is a number with a zero fractional part): it is accepted
+     * and held as int. Rejecting it was rejected: data decoded from JSON which notes the number as `1.0` failed the
+     * type check of every integer property.
+     */
+    #[DataProvider('integralFloatDataProvider')]
+    public function testIntegralFloatIsAcceptedAsInt(float $input, int $expected): void
+    {
+        $className = $this->generateClassFromFile('IntegerProperty.json');
+
+        $this->assertSame($expected, (new $className(['property' => $input]))->getProperty());
+    }
+
+    public static function integralFloatDataProvider(): array
+    {
+        return [
+            'one' => [1.0, 1],
+            'zero' => [0.0, 0],
+            'negative zero' => [-0.0, 0],
+            'negative' => [-3.0, -3],
+            // the largest integer a float holds exactly
+            'two to the power of 53' => [9007199254740992.0, 9007199254740992],
+        ];
+    }
+
+    /**
+     * The integral float is held as int before the keywords validate it: the range of an integer, an integer variant
+     * of a type list and the int type derived from an enum or a const. A type list with integer and number holds a
+     * number as float.
+     */
+    public function testIntegralFloatIsValidatedAsInt(): void
+    {
+        $className = $this->generateClassFromFile('IntegralFloats.json');
+
+        $object = new $className([
+            'count' => 3.0,
+            'countOrString' => 2.0,
+            'countOrNumber' => 2.0,
+            'fixed' => 1.0,
+            'choice' => 2.0,
+            'mixedChoice' => 1.0,
+        ]);
+        $this->assertSame(3, $object->getCount());
+        $this->assertSame(2, $object->getCountOrString());
+        $this->assertSame(2.0, $object->getCountOrNumber());
+        $this->assertSame(1, $object->getFixed());
+        $this->assertSame(2, $object->getChoice());
+        $this->assertSame(1, $object->getMixedChoice());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['count' => 1.0],
+            ValidationException::class,
+            "Value for 'count' must not be smaller than 2",
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['countOrString' => 2.5],
+            ValidationException::class,
+            "Invalid type for 'countOrString': requires ['int', 'string'], got 'double'",
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['choice' => 3.0],
+            ValidationException::class,
+            "Value for 'choice' must be one of [1,2,null], got 3",
+        );
+    }
+
+    /**
+     * A property which holds integers and floats compares an integral float with the allowed values like the integer
+     * it equals: JSON Schema compares numbers by value. The property holds the number as before: derived from an enum
+     * of both types as it is provided, with a type list of integer and number as float. Comparing by the type was
+     * rejected: the float 1.0 didn't equal the allowed 1, and an allowed value noted as 1.0 didn't equal the provided
+     * 1 (held as float by the type list).
+     */
+    public function testIntegralFloatEqualsAnAllowedIntOfAPropertyHoldingIntAndFloat(): void
+    {
+        $className = $this->generateClassFromFile('IntegralFloats.json');
+
+        $object = new $className([
+            'numberChoice' => 1.0,
+            'countOrNumberConst' => 1.0,
+            'countOrNumberChoice' => 1,
+        ]);
+        $this->assertSame(1.0, $object->getNumberChoice());
+        $this->assertSame(1.0, $object->getCountOrNumberConst());
+        $this->assertSame(1.0, $object->getCountOrNumberChoice());
+
+        $object = new $className([
+            'numberChoice' => 2.5,
+            'countOrNumberConst' => 1,
+            'countOrNumberChoice' => 1.0,
+        ]);
+        $this->assertSame(2.5, $object->getNumberChoice());
+        $this->assertSame(1.0, $object->getCountOrNumberConst());
+        $this->assertSame(1.0, $object->getCountOrNumberChoice());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['numberChoice' => 2.0],
+            ValidationException::class,
+            "Value for 'numberChoice' must be one of [1,2.5,null], got 2",
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['countOrNumberConst' => 1.5],
+            ValidationException::class,
+            "Value for 'countOrNumberConst' must be 1, got 1.5",
+        );
+    }
+
+    #[Override]
     protected function getMultipleOfFile(): string
     {
         return 'IntegerPropertyMultipleOf.json';
     }
 
-    #[\Override]
+    #[Override]
     public static function validMultipleOfDataProvider(): iterable
     {
         return [
@@ -108,7 +220,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidMultipleOfDataProvider(): iterable
     {
         return [
@@ -121,13 +233,13 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     protected function getRangeFile(bool $exclusive): string
     {
         return $exclusive ? 'IntegerPropertyRangeExclusive.json' : 'IntegerPropertyRange.json';
     }
 
-    #[\Override]
+    #[Override]
     public static function validRangeDataProvider(): iterable
     {
         return [
@@ -138,7 +250,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidRangeDataProvider(): iterable
     {
         return [
@@ -147,7 +259,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function validExclusiveRangeDataProvider(): iterable
     {
         return [
@@ -156,7 +268,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidExclusiveRangeDataProvider(): iterable
     {
         return [

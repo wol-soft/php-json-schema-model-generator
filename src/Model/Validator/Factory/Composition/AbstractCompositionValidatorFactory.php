@@ -168,42 +168,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * The JSON of the definitions a branch references, following a chain of references (a definition which is a
-     * reference itself). The property of a referencing branch doesn't carry the JSON of the definition: in Draft
-     * 2019-09 and later a reference next to other keywords (also the type a branch inherits) is merged into a property
-     * built from the keywords next to the reference, which only takes over the validators of the definition. A keyword
-     * without a validator (`items: true`) is only visible in the JSON of the definition.
-     *
-     * @return array<int, array<string, mixed>>
-     *
-     * @throws SchemaException
-     */
-    protected function getReferencedBranchJsons(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        JsonSchema $branchSchema,
-    ): array {
-        $referencedJsons = [];
-        $visitedLocations = [];
-        $dictionary = $schema->getSchemaDictionary();
-
-        while (($referenced = $dictionary->getReferencedSchema($branchSchema, $schemaProcessor)) !== null) {
-            [$branchSchema, $dictionary] = $referenced;
-            $location = $branchSchema->getFile() . '#' . $branchSchema->getPointer();
-
-            // A chain of references leading back to a definition of the chain is rejected by the cycle detection
-            if (isset($visitedLocations[$location])) {
-                break;
-            }
-
-            $visitedLocations[$location] = true;
-            $referencedJsons[] = $branchSchema->getJson();
-        }
-
-        return $referencedJsons;
-    }
-
-    /**
      * Reject a single-schema composition keyword whose value is neither a schema nor a boolean.
      *
      * The array-shaped counterpart of assertCompositionBranchesAreWellFormed(), for the keywords
@@ -527,7 +491,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $compositionSchema,
                     $requiredBranches || $property->isRequired(),
                 ),
-                $this->getReferencedBranchJsons($schemaProcessor, $schema, $compositionSchema),
+                $schema->getSchemaDictionary()->getReferencedSchemaChain($compositionSchema, $schemaProcessor),
             );
 
             // Only branches that resolve synchronously (i.e. right here, not deferred to a later

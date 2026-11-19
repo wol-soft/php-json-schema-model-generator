@@ -57,6 +57,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
     /**
      * The tuples with a schema for the additional items are required, the other properties are optional.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testArrayKeywordsReportTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
     {
@@ -192,24 +193,21 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testArrayKeywordsSince2019ReportTheNameOfTheReferencingProperty(
         GeneratorConfiguration $configuration,
     ): void {
         $className = $this->generateClassFromFile('ArrayKeywordsSince2019.json', $configuration);
 
-        // The indices evaluated by the contains keyword are tracked for the property which is validated
         foreach (self::REFERENCES as $reference) {
             $object = new $className([
                 'counted' . $reference => [1, 2],
                 'strictPair' . $reference => ['a'],
-                'strictContaining' . $reference => [1, 2],
             ]);
 
             $this->assertSame([1, 2], $object->{'getCounted' . $reference}());
             $this->assertSame(['a'], $object->{'getStrictPair' . $reference}());
-            $this->assertSame([1, 2], $object->{'getStrictContaining' . $reference}());
         }
 
         foreach (['countedA', 'countedB'] as $name) {
@@ -237,6 +235,24 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
                 $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
                 "Provided JSON for '$name' contains not allowed unevaluated items [#1]",
             );
+        }
+    }
+
+    /**
+     * The indices the contains of a shared definition matched are tracked for the property which is validated (the
+     * matches count for unevaluatedItems from Draft 2020-12 on).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testContainsCreditsOfASharedDefinitionReportTheNameOfTheReferencingProperty(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('ContainsCreditsSince2020.json', $configuration);
+
+        foreach (self::REFERENCES as $reference) {
+            $object = new $className(['strictContaining' . $reference => [1, 2]]);
+
+            $this->assertSame([1, 2], $object->{'getStrictContaining' . $reference}());
         }
 
         foreach (['strictContainingA', 'strictContainingB'] as $name) {
@@ -275,6 +291,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testCompositionsReportTheNameOfTheReferencingProperty(GeneratorConfiguration $configuration): void
     {
@@ -705,6 +722,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
      * provided is skipped (with implicit null it is validated as null), the property which is provided reports its own
      * name.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodWithImplicitNullDataProvider')]
     public function testArrayKeywordsOfOptionalPropertiesAreSkippedIfThePropertyIsNotProvided(
         GeneratorConfiguration $configuration,
@@ -800,6 +818,7 @@ class SharedDefinitionPropertyNameTest extends AbstractPHPModelGeneratorTestCase
      * class of the items is generated once and processing the definition for each of the properties is no reason for
      * a notice about a duplicated signature.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testDefinitionsReferencedByDifferentlyNamedPropertiesAreNoDuplicatedSchemas(): void
     {
         $recordingLogger = new RecordingLogger();

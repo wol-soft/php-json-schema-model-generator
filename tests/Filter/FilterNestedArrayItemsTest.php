@@ -90,6 +90,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => [[['20201010']]]], $transformed->toArray());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testNestedArrayAtATupleIndexIsSerialized(): void
     {
         $className = $this->generateClassFromFile(
@@ -108,6 +109,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => [['20200101'], 'other']], $object->toArray());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleItemsOfAnInnerArrayAreSerialized(): void
     {
         $className = $this->generateClassFromFile(
@@ -348,6 +350,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
      * nesting transforms the item at index 0, the serialization of the cycle applies the serializer of the filter on
      * every level.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('collectErrorsDataProvider')]
     public function testRecursiveTupleArrayWithAFilterNextToTheRecursionIsTransformedAndSerialized(
         bool $collectErrors,
@@ -439,6 +442,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
      * The recursion starts at index 0 and the filtered item follows at index 1: the serializer of the cycle visits
      * the recursing slot before the filtered one.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testRecursiveTupleArrayWhichRecursesBeforeTheFilteredIndexIsSerialized(): void
     {
         $className = $this->generateClassFromFile(
@@ -471,6 +475,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
      * Two definitions reference each other and filter their first item differently: the serializer of each level
      * applies the filter of its own definition, also when the cycle is run through several times.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testMutuallyRecursiveTupleArraysWithDifferentFiltersAreSerialized(): void
     {
         $className = $this->generateClassFromFile(
@@ -676,7 +681,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
      * tell which items the filter of unevaluatedItems transformed. The schema is rejected instead of serializing
      * every transformed item as an empty array.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('nestedUnevaluatedItemsFilterFixtureDataProvider')]
     public function testTransformingFilterInUnevaluatedItemsOfANestedArrayThrowsAnExceptionWhenSerializing(
         string $schemaFile,
@@ -699,7 +704,7 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
      * Without serialization nothing reads the evaluated indices after the validation: the filter of unevaluatedItems
      * of a nested array transforms the items which are unevaluated in the very inner array, per inner array.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTransformingFilterInUnevaluatedItemsOfANestedArrayTransformsPerInnerArray(): void
     {
         $className = $this->generateClassFromFile(

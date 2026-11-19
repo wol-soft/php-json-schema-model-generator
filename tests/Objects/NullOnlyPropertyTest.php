@@ -299,6 +299,7 @@ class NullOnlyPropertyTest extends AbstractPHPModelGeneratorTestCase
      * @throws RenderException
      * @throws SchemaException
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('implicitNullDataProvider')]
     public function testNullOnlyPropertiesInNestedStructures(bool $implicitNull): void
     {

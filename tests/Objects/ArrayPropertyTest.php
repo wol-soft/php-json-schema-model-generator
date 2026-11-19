@@ -164,6 +164,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
      * @throws RenderException
      * @throws SchemaException
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('optionalArrayPropertyDataProvider')]
     public function testNotProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,
@@ -180,6 +181,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
      * @throws RenderException
      * @throws SchemaException
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('optionalArrayPropertyDataProvider')]
     public function testNullProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,

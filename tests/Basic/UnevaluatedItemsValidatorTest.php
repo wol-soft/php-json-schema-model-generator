@@ -212,6 +212,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * tuple remain for `unevaluatedItems` — per the 2019-09 annotation rules a sibling
      * applicator's claims must be credited even without any composition keyword involved.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSiblingTupleItemsCreditTheirEvaluatedIndices(): void
     {
         $className = $this->generateClassFromFile('SiblingTupleItems.json');
@@ -239,9 +240,32 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Draft 2019-09 gives `contains` no annotation: the unevaluatedItems next to it only sees items, additionalItems
+     * and unevaluatedItems, the item the contains matched stays unevaluated (so the schema accepts no array: the
+     * contains requires an item which unevaluatedItems rejects). Crediting the matches (the meaning of Draft 2020-12)
+     * was rejected for Draft 2019-09: it accepted [5] for `unevaluatedItems: false`.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSiblingContainsEvaluatesNoItemInDraft2019(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('SiblingContains.json', $configuration);
+
+        foreach ([[[5], '#0'], [[5, 'x'], '#0, #1']] as [$tags, $unevaluatedItems]) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                ['tags' => $tags],
+                $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+                "Provided JSON for 'tags' contains not allowed unevaluated items [$unevaluatedItems]",
+            );
+        }
+    }
+
+    /**
      * A sibling `contains` evaluates exactly the indices whose values satisfy its subschema.
      * Matched indices are credited to the accumulator; every other index remains unevaluated.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testSiblingContainsCreditsOnlyMatchingIndices(): void
     {
         $className = $this->generateClassFromFile('SiblingContains.json');
@@ -448,6 +472,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('deadCodeProvider')]
     public function testDeadCodeShapesWarn(string $schemaFile, string $reason): void
     {
@@ -480,6 +505,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * outcome: a tail value is accepted or rejected exactly as `additionalItems` decides, never by
      * the unevaluated schema (here a boolean, which no integer tail value could satisfy).
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSkippedUnevaluatedItemsDoesNotInfluenceTheAdditionalItemsOutcome(): void
     {
         $className = $this->generateClassFromFile('TupleAdditionalSchemaWithUnevaluatedSchema.json');
@@ -639,6 +665,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * index 0, branch 2 covers indices 0-1. When both succeed (string array), the union
      * covers 0-1 and any tail index is reported as unevaluated.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testAllOfBranchesContributeEvaluatedIndices(): void
     {
         $className = $this->generateClassFromFile('AllOfTupleBranches.json');
@@ -673,6 +700,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * UnevaluatedItemsException listing every index as unevaluated (composition contributed
      * no claims on failure).
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testCompositionFailurePreservesArrayValueSoUnevaluatedItemsCheckStillFires(): void
     {
         $className = $this->generateClassFromFile(
@@ -712,6 +740,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * `_compositionEvaluations` (object side). Each accumulator reads from its own field, so
      * cross-contamination between the two paths is impossible by construction.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testArrayAndObjectPropertyCompositionsCoexistOnTheSameClass(): void
     {
         $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
@@ -724,6 +753,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('X', $accepted->getMeta()->getKind());
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testArrayPropertyUnevaluatedItemsRejectsTailIndexWhileObjectPropertyAccepts(): void
     {
         $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
@@ -745,6 +775,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * the fix mixing the validator's object hash into the method name, each composition
      * keeps its own body and writes to its own slot key.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testMultipleSiblingCompositionsContributeIndependently(): void
     {
         $className = $this->generateClassFromFile('MultipleCompositionsOnProperty.json');
@@ -781,6 +812,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * Three-element array `['a', 5, 'c']`: contains matches index 1 (integer). The branch
      * claims {1}; sibling unevaluatedItems reports {0, 2} as unevaluated — not {0, 1, 2}.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testContainsOnlyBranchClaimsMatchedIndex(): void
     {
         $className = $this->generateClassFromFile('ContainsOnlyBranch.json');
@@ -803,29 +835,31 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Items + contains combined branch — tuple items claims index 0, contains matches its
-     * own indices, and the branch's evaluated set is the union of both. Items covers index 0
-     * (string), contains matches index 1 (integer). Together they cover the whole two-
-     * element array — accept.
+     * Tuple items + contains in one branch (Draft 2019-09, the tuple form doesn't exist in Draft 2020-12): the tuple
+     * claims index 0, the contains of Draft 2019-09 produces no annotation and claims nothing although the integer
+     * at index 1 matches it. Crediting the matches of contains was rejected: that's the meaning of Draft 2020-12, in
+     * Draft 2019-09 it accepted ['head', 5] although unevaluatedItems only sees items, additionalItems and
+     * unevaluatedItems.
      */
-    public function testItemsPlusContainsBranchUnionsBothClaimSources(): void
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testTupleOfABranchClaimsItsIndicesButTheContainsOfTheBranchClaimsNothingInDraft2019(): void
     {
         $className = $this->generateClassFromFile('ItemsPlusContainsBranch.json');
 
-        // Items claims index 0, contains claims index 1 → union covers everything → accept.
-        $accepted = new $className(['tags' => ['head', 5]]);
-        $this->assertSame(['head', 5], $accepted->getTags());
-
-        // Three-element array: items covers 0, contains covers 1; index 2 is unevaluated.
-        try {
-            new $className(['tags' => ['head', 5, 'tail']]);
-            $this->fail('Expected UnevaluatedItemsException for unclaimed index');
-        } catch (UnevaluatedItemsException $exception) {
-            $this->assertSame(
-                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
-                $exception->getMessage(),
-            );
-            $this->assertSame([2], $exception->getUnevaluatedItems());
+        foreach ([[['head', 5], [1]], [['head', 5, 'tail'], [1, 2]]] as [$tags, $unevaluatedItems]) {
+            try {
+                new $className(['tags' => $tags]);
+                $this->fail('Expected UnevaluatedItemsException for the index contains matched');
+            } catch (UnevaluatedItemsException $exception) {
+                $this->assertSame(
+                    sprintf(
+                        "Provided JSON for 'tags' contains not allowed unevaluated items [%s]",
+                        implode(', ', array_map(static fn(int $index): string => "#$index", $unevaluatedItems)),
+                    ),
+                    $exception->getMessage(),
+                );
+                $this->assertSame($unevaluatedItems, $exception->getUnevaluatedItems());
+            }
         }
     }
 
@@ -895,6 +929,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * the branch's wrapped property's own validators, the same way the activation step already
      * does) get unioned into the branch's own evaluated set.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testCompositionNestedTwoLevelsDeepCreditsOuterAccumulator(): void
     {
         $className = $this->generateClassFromFile('CompositionNestedTwoLevelsDeepCreditsOuterAccumulator.json');
@@ -989,6 +1024,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      *   - `[1, 'a', 2, 'b', 3]` — indices 0, 2, 4 match the integer contains schema; indices
      *     1, 3 are non-matching and surface as unevaluated.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testContainsWithMinContainsZeroCreditsMatchedIndicesOnly(): void
     {
         $className = $this->generateClassFromFile('ContainsMinContainsZeroBranch.json');
@@ -1027,6 +1063,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      *   - `[1, 2, 3, 4]` — branch 1 succeeds and covers indices 0-2, but index 3 is not
      *     covered by any successful branch. `unevaluatedItems: false` rejects.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testOneOfBranchesOfDifferentTupleLengthsControlEvaluatedSet(): void
     {
         $className = $this->generateClassFromFile('OneOfDifferentTupleLengths.json');
@@ -1063,6 +1100,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      *   - `[5]` — `if` fails (index 0 is not `"typed"`), `else` covers index 0, accepted;
      *   - `[5, 6]` — `if` fails, `else` covers only index 0, index 1 unevaluated.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testIfThenElseArrayCompositionCreditsTheWinningBranchesIndices(): void
     {
         $className = $this->generateClassFromFile('IfThenElseArrayUnevaluatedItems.json');
@@ -1223,6 +1261,7 @@ MSG,
      * credit makes a later `setTags()` call skip the validation of index 1, a value which is rejected at
      * construction time is accepted by the setter.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSetterRevalidatesUnevaluatedItemsOfABranchRegardlessOfPriorPassCredits(): void
     {
         $className = $this->generateClassFromFile(
@@ -1269,6 +1308,7 @@ MSG,
      * because direct-sibling tuple crediting is a separately tracked, currently-broken
      * interaction (see testSiblingTupleItemsCreditTheirEvaluatedIndices) unrelated to this test.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSerializationOfUnevaluatedItemsWithTransformingFilterOnlyAffectsCreditedIndices(): void
     {
         $className = $this->generateClassFromFile(
@@ -1306,6 +1346,7 @@ MSG,
      * dynamic unevaluatedItems branch — proving that defense actually works, not just that the
      * two "happen" not to collide.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSerializationCombinesTupleAndUnevaluatedItemsFiltersWithoutClobbering(): void
     {
         $className = $this->generateClassFromFile(
@@ -1338,6 +1379,7 @@ MSG,
      * those claims can be instance-dependent, unlike the object-side's enclosing-declared-*names*
      * case, which is static.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testBranchUnevaluatedItemsThrowsUnsupportedSchemaFeatureException(): void
     {
         $this->expectException(UnsupportedSchemaFeatureException::class);
@@ -1378,6 +1420,7 @@ MSG,
      * Covers the construction and the setter of a mutable model with direct exceptions, including the state of a
      * rejected setter call.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfANestedArrayAreEvaluatedPerInnerArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -1463,6 +1506,7 @@ MSG,
      * Immutable model with collected errors: all violations of all inner arrays are collected, the errors of one
      * inner array (a violated tuple and a violated unevaluatedItems schema) are reported for that inner array.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfANestedArrayCollectErrorsPerInnerArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -1507,6 +1551,7 @@ MSG,
      * The serialization of a model with nested arrays whose unevaluatedItems declare no filter hands the items
      * through unchanged.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSerializationOfNestedArraysWithUnevaluatedItems(): void
     {
         $className = $this->generateClassFromFile(
@@ -1525,6 +1570,7 @@ MSG,
      * doesn't evaluate, per inner array. The exception of the inner array is reachable from the exception of the
      * outer array.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFalseOfANestedArrayRejectsTheIndicesOfTheInnerArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -1578,6 +1624,7 @@ MSG,
      * Arrays nested three levels deep with the keyword on the two inner levels (different types so a state shared
      * between the levels or between the elements of a level would be visible).
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOnEveryLevelOfThreeNestedArrays(): void
     {
         $className = $this->generateClassFromFile(
@@ -1627,6 +1674,7 @@ MSG,
      * additionalItems, the schema of unevaluatedItems and the schema of contains share the evaluation of the inner
      * arrays the same way.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfArraysInTupleAdditionalUnevaluatedAndContainsSlots(): void
     {
         $className = $this->generateClassFromFile(
@@ -1639,11 +1687,11 @@ MSG,
         $object = new $className([
             'tupleSlot' => [[1, 'a', 'b'], ['x'], ['y']],
             'unevaluatedSlot' => [5, ['a', true, false], ['b', true]],
-            'containsSlot' => [1, ['a', 'b'], ['c']],
+            'containsSlot' => [1, ['a'], ['c']],
         ]);
         $this->assertSame([[1, 'a', 'b'], ['x'], ['y']], $object->getTupleSlot());
         $this->assertSame([5, ['a', true, false], ['b', true]], $object->getUnevaluatedSlot());
-        $this->assertSame([1, ['a', 'b'], ['c']], $object->getContainsSlot());
+        $this->assertSame([1, ['a'], ['c']], $object->getContainsSlot());
 
         // The tuple slot: the inner array at the tuple index and the inner arrays of the additional items.
         $this->assertThrowsWithMessage(
@@ -1693,6 +1741,7 @@ MSG,
      * Arrays held by the values of additionalProperties and patternProperties are validated per array and per key:
      * the schema of the object doesn't have to declare the keyword itself.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfArraysHeldByAdditionalAndPatternProperties(): void
     {
         $className = $this->generateClassFromFile(
@@ -1733,6 +1782,7 @@ MSG,
      * The arrays held by the values of unevaluatedProperties are elements of the object like the values of additional
      * and pattern properties: validated per key, each with its own evaluated indices.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfArraysHeldByUnevaluatedProperties(): void
     {
         $className = $this->generateClassFromFile(
@@ -1759,9 +1809,10 @@ MSG,
 
     /**
      * An outer array and the inner array at its tuple index both carry compositions which track the evaluated
-     * indices: the compositions of the two arrays are tracked independently (the contains of the inner allOf credits
-     * indices of the inner array, the contains of the outer allOf indices of the outer array).
+     * indices: the compositions of the two arrays are tracked independently (the tuples of the inner allOf credit
+     * the indices 0 and 1 of the inner array, the tuple of the outer allOf the indices 0 to 2 of the outer array).
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testCompositionsOfOuterAndInnerArrayCreditTheirOwnIndices(): void
     {
         $className = $this->generateClassFromFile(
@@ -1769,19 +1820,19 @@ MSG,
             (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
         );
 
-        // Outer: index 0 by the tuple, index 1 and 2 by contains (5 matches). Inner: 1 by the tuple, 'x' by contains.
+        // Outer: index 0 by the tuple, index 1 and 2 by the allOf. Inner: 1 by the first, 'x' by the second branch.
         $object = new $className(['tags' => [[1, 'x'], 5, 5]]);
         $this->assertSame([[1, 'x'], 5, 5], $object->getTags());
 
-        // The inner array at index 0 is valid, index 2 of the outer array is not evaluated by anything.
+        // The inner array at index 0 is valid, index 3 of the outer array is not evaluated by anything.
         $this->assertThrowsWithMessage(
-            static fn() => new $className(['tags' => [[1, 'x'], 5, 'surplus']]),
+            static fn() => new $className(['tags' => [[1, 'x'], 5, 5, 'surplus']]),
             UnevaluatedItemsException::class,
-            "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
         );
 
-        // The 5 credited to the outer array at index 1 is not evaluated for the inner array, which is the tuple item
-        // at index 0: index 1 of the inner array is credited by its own contains only.
+        // The index 2 credited to the outer array by its allOf is not evaluated for the inner array, which is the
+        // tuple item at index 0: the inner array evaluates the indices of its own branches only.
         $this->assertThrowsWithMessage(
             static fn() => new $className(['tags' => [[1, 'x', 'surplus'], 5]]),
             InvalidTupleException::class,
@@ -1795,8 +1846,10 @@ MSG,
 
     /**
      * The composition branches of a nested array credit the indices they evaluate to the unevaluatedItems of the
-     * inner array they belong to (a tuple in one branch, contains in the sibling branch).
+     * inner array they belong to (a tuple in one branch, the anyOf of the sibling branch credits the indices 0 to 2 if
+     * its longer tuple matches, the indices 0 and 1 otherwise).
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testCompositionBranchesOfANestedArrayCreditTheIndicesOfTheirInnerArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -1807,7 +1860,8 @@ MSG,
         $object = new $className(['tags' => [[1, 'x', 'x'], [2, 'x']]]);
         $this->assertSame([[1, 'x', 'x'], [2, 'x']], $object->getTags());
 
-        // The indices contains matched in the first inner array are not credited to the second inner array.
+        // The index 2 the longer tuple evaluated in the first inner array is not credited to the second inner array,
+        // where only the shorter tuple matches.
         $this->assertThrowsWithMessage(
             static fn() => new $className(['tags' => [[1, 'x', 'x'], [2, 'x', 'y']]]),
             InvalidItemException::class,
@@ -1841,6 +1895,7 @@ MSG,
      * A sibling contains of a nested array credits the matched indices to the unevaluatedItems of the inner array
      * only: the matches of one inner array don't count for the next one.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testSiblingContainsOfANestedArrayCreditsOnlyTheMatchesOfTheInnerArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -1877,6 +1932,7 @@ MSG,
      * The elements of an array which are objects are validated by a class of their own: the keyword inside that
      * class is evaluated by the class, the enclosing class has no use for the evaluation tracking.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsInTheClassOfAnObjectElementDoNotActivateTheEnclosingClass(): void
     {
         $className = $this->generateClassFromFile(
@@ -1914,6 +1970,7 @@ MSG,
      *   - the credit of contains must survive the validation of the inner arrays: index 0 is still evaluated for the
      *     unevaluatedItems check of the outer array afterwards, only index 1 (which nothing evaluated) is reported.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testEvaluationOfNestedArraysIsIsolatedFromTheEvaluatedIndicesOfTheOuterArray(): void
     {
         $className = $this->generateClassFromFile('NestedArrayBesideSiblingCredits.json');
@@ -1936,6 +1993,7 @@ MSG,
      * A branch which declares the keyword without being able to see the claims of its enclosing schema is rejected
      * for a nested array the same way as for an array property.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testBranchUnevaluatedItemsOfANestedArrayThrowsUnsupportedSchemaFeatureException(): void
     {
         $this->expectException(UnsupportedSchemaFeatureException::class);
@@ -1954,6 +2012,7 @@ MSG,
      * the matched indices, a stale credit of index 0 would skip the check of the string at index 0 of the next value
      * if unevaluatedItems: false doesn't reset the credits like the schema-form keyword does.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testSetterDiscardsTheCreditsOfSiblingContainsForUnevaluatedItemsFalse(): void
     {
         $className = $this->generateClassFromFile(
@@ -1999,13 +2058,13 @@ MSG,
 
     /**
      * An outer array and the inner array at its tuple index both carry an anyOf. Every successful branch credits its
-     * indices (a tuple in one branch, contains in the sibling branch), a failed branch credits nothing. The credits of
-     * the outer array survive the validation of the inner array and the credits of the inner array don't count for the
-     * outer one.
+     * indices (the tuple of the branch), a failed branch credits nothing. The credits of the outer array survive the
+     * validation of the inner array and the credits of the inner array don't count for the outer one.
      *
      * With collected errors a failed composition credits nothing, so the indices of the inner array it would have
      * evaluated are reported as unevaluated in addition to the failure of the composition.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAnyOfBranchesOfOuterAndInnerArrayCreditTheirOwnIndices(
         GeneratorConfiguration $configuration,
@@ -2015,15 +2074,19 @@ MSG,
             (clone $configuration)->setImmutable(false),
         );
 
-        // Both inner branches succeed (tuple: index 0, contains: index 1 and 2), both outer branches succeed.
+        // Both inner branches succeed (index 0, the indices 0 to 2), both outer branches succeed.
         $object = new $className(['tags' => [[1, 'x', 'x'], 5, 6]]);
         $this->assertSame([[1, 'x', 'x'], 5, 6], $object->getTags());
 
-        // Only the tuple branch of the inner array and only the first outer branch succeed.
+        // Only the first branch of the inner array and only the first outer branch succeed.
         $object->setTags([[1], 5]);
         $this->assertSame([[1], 5], $object->getTags());
 
-        // The inner array has an index no branch evaluated, the 5 credited to the outer array doesn't count for it.
+        // Only the second branch of the inner array succeeds and evaluates both of its items.
+        $this->assertSame([['a', 'x'], 5], (new $className(['tags' => [['a', 'x'], 5]]))->getTags());
+
+        // The inner array has indices no branch evaluated (the second branch fails on 'surplus'), the index 1
+        // credited to the outer array doesn't count for it.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => new $className(['tags' => [[1, 'x', 'surplus'], 5]]),
@@ -2031,26 +2094,14 @@ MSG,
             <<<'MSG'
             Invalid tuple item in array 'tags':
               - invalid tuple #1
-                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#2]
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#1, #2]
             MSG,
         );
 
-        // The tuple branch of the inner array fails, only contains evaluates index 1.
+        // The first branch evaluates index 0, the second branch fails.
         $this->assertRejectedWithMessage(
             $configuration,
-            static fn() => new $className(['tags' => [['a', 'x'], 5]]),
-            InvalidTupleException::class,
-            <<<'MSG'
-            Invalid tuple item in array 'tags':
-              - invalid tuple #1
-                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
-            MSG,
-        );
-
-        // The tuple branch evaluates index 0, the contains branch fails.
-        $this->assertRejectedWithMessage(
-            $configuration,
-            static fn() => $object->setTags([[2, 3], 6]),
+            static fn() => $object->setTags([[2, 3], 5]),
             InvalidTupleException::class,
             <<<'MSG'
             Invalid tuple item in array 'tags':
@@ -2083,7 +2134,7 @@ MSG,
                       - invalid tuple #1
                         * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
                   - Composition element #2: Failed
-                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+                    * Array 'tuple item #0 of array tags' must not contain less than 2 items
             MSG,
             <<<'MSG'
             Invalid tuple item in array 'tags':
@@ -2095,7 +2146,7 @@ MSG,
                       - invalid tuple #1
                         * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
                   - Composition element #2: Failed
-                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+                    * Array 'tuple item #0 of array tags' must not contain less than 2 items
                 * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
             MSG,
         );
@@ -2106,9 +2157,10 @@ MSG,
 
     /**
      * An outer array and the inner array at its tuple index both carry a oneOf. Only the single successful branch
-     * credits its indices: the branches which match nothing and the branch which matches next to another one (which
-     * fails the oneOf) credit nothing.
+     * credits its indices (the leading indices of its tuple): a branch which matches nothing credits nothing, and a
+     * oneOf matching no branch credits nothing at all.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testOneOfBranchesOfOuterAndInnerArrayCreditOnlyTheIndicesOfTheSuccessfulBranch(
         GeneratorConfiguration $configuration,
@@ -2118,14 +2170,15 @@ MSG,
             (clone $configuration)->setImmutable(false),
         );
 
-        // Inner: the tuple branch (index 0) is the only one, outer: the first branch (contains 5) is the only one.
+        // Inner: the first branch (index 0) is the only one, outer: the first branch (indices 0 and 1) is the only one.
         $object = new $className(['tags' => [[1], 5]]);
         $this->assertSame([[1], 5], $object->getTags());
 
-        // Inner: the contains branch evaluates every index, outer: the second branch (contains 6) is the only one.
-        $object->setTags([['x', 'x', 'x'], 6, 6]);
-        $this->assertSame([['x', 'x', 'x'], 6, 6], $object->getTags());
+        // Inner: the second branch evaluates both items, outer: the second branch (indices 0 to 2) is the only one.
+        $object->setTags([['x', 'x'], 6, 6]);
+        $this->assertSame([['x', 'x'], 6, 6], $object->getTags());
 
+        // Only the first inner branch matches and evaluates index 0.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 2], 5]),
@@ -2137,7 +2190,7 @@ MSG,
             MSG,
         );
 
-        // Only the contains branch matches and evaluates the indices 0 and 1, index 2 is not evaluated.
+        // Only the second inner branch matches and evaluates the indices 0 and 1, index 2 is not evaluated.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([['x', 'x', 'y'], 5]),
@@ -2149,31 +2202,19 @@ MSG,
             MSG,
         );
 
-        // Only the contains branch matches, the tuple branch which evaluated index 0 failed (maxItems).
+        // The second outer branch matches (the indices 0 to 2), the first outer branch fails (maxItems): index 3 is not
+        // evaluated by any outer branch, the index 1 the inner array evaluated doesn't count for the outer one.
         $this->assertRejectedWithMessage(
             $configuration,
-            static fn() => $object->setTags([[1, 'x', 'x'], 6, 6]),
-            InvalidTupleException::class,
-            <<<'MSG'
-            Invalid tuple item in array 'tags':
-              - invalid tuple #1
-                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
-            MSG,
-        );
-
-        // The second outer branch matches (index 3 is evaluated), the first outer branch fails (maxItems): the 5 which
-        // the first branch would have credited is not evaluated.
-        $this->assertRejectedWithMessage(
-            $configuration,
-            static fn() => $object->setTags([[1], 5, 5, 6]),
+            static fn() => $object->setTags([[1], 5, 6, 7]),
             UnevaluatedItemsException::class,
-            "Provided JSON for 'tags' contains not allowed unevaluated items [#1, #2]",
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
         );
 
         // No branch of the inner array matches.
         $this->assertRejectedWithMessage(
             $configuration,
-            static fn() => $object->setTags([['x', 'x'], 5]),
+            static fn() => $object->setTags([['x'], 5]),
             InvalidTupleException::class,
             <<<'MSG'
             Invalid tuple item in array 'tags':
@@ -2185,7 +2226,7 @@ MSG,
                       - invalid tuple #1
                         * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
                   - Composition element #2: Failed
-                    * Array 'tuple item #0 of array tags' must not contain less than 3 items
+                    * Array 'tuple item #0 of array tags' must not contain less than 2 items
             MSG,
             <<<'MSG'
             Invalid tuple item in array 'tags':
@@ -2197,20 +2238,22 @@ MSG,
                       - invalid tuple #1
                         * Invalid type for 'tuple item #0 of array tuple item #0 of array tags': requires 'int', got 'string'
                   - Composition element #2: Failed
-                    * Array 'tuple item #0 of array tags' must not contain less than 3 items
-                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0, #1]
+                    * Array 'tuple item #0 of array tags' must not contain less than 2 items
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0]
             MSG,
         );
 
         // The rejected values left the model untouched.
-        $this->assertSame([['x', 'x', 'x'], 6, 6], $object->getTags());
+        $this->assertSame([['x', 'x'], 6, 6], $object->getTags());
     }
 
     /**
      * An outer array and the inner array at its tuple index both carry an if/then/else. The condition credits its
      * indices when it succeeds, the then branch when the condition held and the else branch when it didn't. A
-     * conditional which fails as a whole credits nothing, not even the indices of the condition.
+     * conditional which fails keeps the indices of the condition which succeeded (the then branch failed), a failed
+     * part credits nothing.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testConditionalOfOuterAndInnerArrayCreditsTheIndicesOfTheActiveBranches(
         GeneratorConfiguration $configuration,
@@ -2220,15 +2263,17 @@ MSG,
             (clone $configuration)->setImmutable(false),
         );
 
-        // Inner: the condition (tuple) credits index 0, then (contains) credits index 1 and 2.
-        // Outer: the condition (contains 5) credits index 1, then (contains 6) credits index 2.
-        $object = new $className(['tags' => [[1, 'x', 'x'], 5, 6]]);
-        $this->assertSame([[1, 'x', 'x'], 5, 6], $object->getTags());
+        // Inner: the condition credits index 0, then credits the indices 0 and 1.
+        // Outer: the condition credits the indices 0 and 1, then the indices 0 to 2.
+        $object = new $className(['tags' => [[1, 'x'], 5, 6]]);
+        $this->assertSame([[1, 'x'], 5, 6], $object->getTags());
 
-        // Inner: the condition fails, else (tuple) credits index 0. Outer: else (contains 7) credits index 1.
+        // Inner: the condition fails, else credits index 0.
+        // Outer: the condition fails, else credits the indices 0 and 1.
         $object->setTags([['a'], 7]);
         $this->assertSame([['a'], 7], $object->getTags());
 
+        // The inner then branch credits the indices 0 and 1, index 2 is not evaluated.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 'x', 'y'], 5, 6]),
@@ -2252,7 +2297,7 @@ MSG,
             MSG,
         );
 
-        // The outer else branch credits index 1 (7), index 2 (8) is not evaluated.
+        // The outer else branch credits the indices 0 and 1, index 2 (8) is not evaluated.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 'x'], 7, 8]),
@@ -2260,7 +2305,7 @@ MSG,
             "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
         );
 
-        // The outer condition and then branch credit the indices 1 and 2, index 3 is not evaluated.
+        // The outer condition and then branch credit the indices 0 to 2, index 3 is not evaluated.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 'x'], 5, 6, 9]),
@@ -2268,7 +2313,7 @@ MSG,
             "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
         );
 
-        // The condition of the inner array holds, the then branch fails.
+        // The condition of the inner array holds and credits index 0, the then branch fails.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 2], 7]),
@@ -2279,7 +2324,9 @@ MSG,
                 * Invalid value for 'tuple item #0 of array tags' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #2
+                        * Value for 'tuple item #1 of array tuple item #0 of array tags' must be "x", got 2
             MSG,
             <<<'MSG'
             Invalid tuple item in array 'tags':
@@ -2287,12 +2334,14 @@ MSG,
                 * Invalid value for 'tuple item #0 of array tags' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * No item in array 'tuple item #0 of array tags' matches the 'contains' constraint
-                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#0, #1]
+                    * Invalid tuple item in array 'tuple item #0 of array tags':
+                      - invalid tuple #2
+                        * Value for 'tuple item #1 of array tuple item #0 of array tags' must be "x", got 2
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#1]
             MSG,
         );
 
-        // The outer condition holds, the outer then branch fails: the index credited by the condition (1) is reported.
+        // The outer condition holds and credits the indices 0 and 1, the outer then branch fails: index 2 is reported.
         $this->assertRejectedWithMessage(
             $configuration,
             static fn() => $object->setTags([[1, 'x'], 5, 7]),
@@ -2301,14 +2350,18 @@ MSG,
             Invalid value for 'tags' declined by conditional composition constraint
               - Condition: Valid
               - Conditional branch failed:
-                * No item in array 'tags' matches the 'contains' constraint
+                * Invalid tuple item in array 'tags':
+                  - invalid tuple #3
+                    * Value for 'tuple item #2 of array tags' must be 6, got 7
             MSG,
             <<<'MSG'
             Invalid value for 'tags' declined by conditional composition constraint
               - Condition: Valid
               - Conditional branch failed:
-                * No item in array 'tags' matches the 'contains' constraint
-            Provided JSON for 'tags' contains not allowed unevaluated items [#1, #2]
+                * Invalid tuple item in array 'tags':
+                  - invalid tuple #3
+                    * Value for 'tuple item #2 of array tags' must be 6, got 7
+            Provided JSON for 'tags' contains not allowed unevaluated items [#2]
             MSG,
         );
 

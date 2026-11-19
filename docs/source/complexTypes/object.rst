@@ -438,7 +438,11 @@ branch of an adjacent composition (``allOf``, ``anyOf``, ``oneOf``, ``if``/``the
 Unlike ``additionalProperties``, ``unevaluatedProperties`` looks across composition branches:
 a property covered by a branch that ended up succeeding is credited, and a property covered only
 by a branch that failed is not. This makes the keyword suitable for enforcing "no leftovers" at
-the outermost schema level while individual branches are free to declare their own properties.
+the outermost schema level while individual branches are free to declare their own properties. A
+branch which succeeds counts also if its composition fails (an ``allOf`` failing on another branch,
+a conditional whose ``then`` branch fails after the condition succeeded): the object is rejected by
+the failed composition anyway, and with collected errors ``unevaluatedProperties`` doesn't report
+the properties the succeeding branches evaluated.
 
 .. hint::
 

@@ -20,6 +20,14 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 class ItemsValidatorFactory extends AbstractValidatorFactory
 {
     /**
+     * @param bool $supportTupleForm the tuple form of the draft: `items` as an array of schemas and `additionalItems`
+     *                               for the items behind the tuple (up to Draft 2019-09; Draft 2020-12 replaced both
+     *                               by `prefixItems` and the schema form of `items`)
+     */
+    public function __construct(private readonly bool $supportTupleForm = true)
+    {}
+
+    /**
      * @throws SchemaException
      */
     public function modify(
@@ -29,6 +37,10 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
+
+        if (!$this->supportTupleForm) {
+            $this->rejectTupleForm($property, $propertySchema);
+        }
 
         if (!isset($json[$this->key])) {
             return;
@@ -75,6 +87,48 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
                 $property,
             ))->withJsonPointer($itemsPointer),
         );
+    }
+
+    /**
+     * The tuple form doesn't exist in Draft 2020-12: its meta-schema requires `items` to be a schema and doesn't know
+     * `additionalItems`. Generating the 2019-09 meaning anyway was rejected: a 2020-12 schema the meta-schema calls
+     * invalid would generate silently, and `additionalItems`, an unknown keyword there, would be validated. Ignoring
+     * the keywords was rejected as well: a tuple the author wrote would silently validate nothing. The tuple keyword of
+     * Draft 2020-12 (`prefixItems`) isn't supported yet, so a tuple requires an older dialect.
+     *
+     * An empty array is the empty schema (json_decode() can't tell `[]` from `{}`), not a tuple.
+     *
+     * @throws SchemaException
+     */
+    private function rejectTupleForm(PropertyInterface $property, JsonSchema $propertySchema): void
+    {
+        $json = $propertySchema->getJson();
+        $items = $json[$this->key] ?? null;
+
+        if (is_array($items) && $items !== [] && array_is_list($items)) {
+            throw new SchemaException(
+                sprintf(
+                    "The tuple form of 'items' of property '%s' in file %s doesn't exist in Draft 2020-12 "
+                        . "(its tuple keyword 'prefixItems' isn't supported yet): declare Draft 2019-09 or earlier "
+                        . "in '\$schema' to use it",
+                    $property->getName(),
+                    $propertySchema->getFile(),
+                ),
+                $propertySchema,
+            );
+        }
+
+        if (array_key_exists('additionalItems', $json)) {
+            throw new SchemaException(
+                sprintf(
+                    "The keyword 'additionalItems' of property '%s' in file %s doesn't exist in Draft 2020-12: "
+                        . "declare Draft 2019-09 or earlier in '\$schema' to use the tuple form of 'items'",
+                    $property->getName(),
+                    $propertySchema->getFile(),
+                ),
+                $propertySchema,
+            );
+        }
     }
 
     /**

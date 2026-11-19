@@ -163,12 +163,17 @@ Tuples
 
 A tuple array defines the structure of each array item on it's own. A tuple array is defined by providing an array of schemas with the `items` keyword.
 
+.. warning::
+
+    The tuple form of ``items`` and the keyword ``additionalItems`` exist up to Draft 2019-09. Draft 2020-12 replaced them by ``prefixItems`` and the schema form of ``items``. ``prefixItems`` isn't supported yet: a Draft 2020-12 schema which uses the tuple form of ``items`` or ``additionalItems`` is rejected with a *SchemaException*. Draft 2020-12 is also the dialect of a schema which declares no ``$schema``, so a schema with tuples declares Draft 2019-09 (or an older draft) in ``$schema``, as the examples of this section do.
+
 Items
 ^^^^^
 
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -228,6 +233,7 @@ A tuple item also accepts the boolean literals ``true`` and ``false`` instead of
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -259,6 +265,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -313,6 +320,7 @@ If ``additionalItems`` is ``false`` an array which contains more items than the 
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -359,6 +367,7 @@ A tuple item may reference the array which owns the tuple, eg. to describe a lin
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "definitions": {
@@ -449,18 +458,22 @@ Unevaluated Items
 
 The ``unevaluatedItems`` keyword (Draft 2019-09 and later) constrains every index that was not
 evaluated by any positive sibling applicator at the same schema level. Indices claimed by
-``items`` (single-schema or tuple form), by ``additionalItems`` when present, by a passing
-``contains`` match, or by a **successful** composition branch (``allOf``, ``anyOf``, ``oneOf``,
-``if``/``then``/``else``, ``$ref``) count as evaluated. ``not`` is a negative applicator and
-contributes nothing.
+``items`` (single-schema or tuple form), by ``additionalItems`` behind a tuple of the same schema,
+by a passing ``contains`` match (Draft 2020-12 and later; Draft 2019-09 gives ``contains`` no
+annotation, its matches don't count), or by a **successful** composition branch (``allOf``,
+``anyOf``, ``oneOf``, ``if``/``then``/``else``, ``$ref``) count as evaluated. A ``$ref`` next to
+``unevaluatedItems`` counts the same way: the indices the referenced definition evaluates are
+evaluated. ``not`` is a negative applicator and contributes nothing.
 
 Unlike ``additionalItems``, ``unevaluatedItems`` looks across composition branches: an index
 covered by a branch that ended up succeeding is credited, and an index covered only by a branch
 that failed is not. Compositions nested inside a branch contribute their own successful branches
-the same way, to any depth. A branch only counts if its composition succeeds as a whole: an
-``allOf`` which fails on one of its branches, a ``oneOf`` matching more than one branch or a
-conditional whose ``then`` branch fails after the condition succeeded credits nothing, also not
-the indices of the branches which succeeded.
+the same way, to any depth. A branch which succeeds counts also if its composition fails (an
+``allOf`` failing on another branch, a ``oneOf`` matching more than one branch, a conditional whose
+``then`` branch fails after the condition succeeded): the value is rejected by the failed
+composition anyway, and with collected errors the ``unevaluatedItems`` doesn't report the indices
+the succeeding branches evaluated. If the failed composition is itself part of a branch, that
+branch fails and credits nothing.
 
 A composition branch may declare ``unevaluatedItems`` itself. It constrains the indices which the keywords of
 the branch did not evaluate: the ``items``, ``additionalItems`` and ``contains`` of the branch and the compositions
@@ -490,7 +503,8 @@ its ``contains`` matched:
     }
 
 ``["a", "b"]`` is valid, ``["a", 1]`` is rejected: the integer is not matched by the ``contains`` of the branch, so
-the ``unevaluatedItems`` of the branch rejects the index ``1``.
+the ``unevaluatedItems`` of the branch rejects the index ``1``. In Draft 2019-09 the ``contains`` evaluates no item:
+the branch rejects every non-empty array.
 
 A property subschema that declares array applicators but omits ``type: array`` is treated as an
 array property: the keywords apply whenever the provided value is an array, and a value of any
@@ -504,6 +518,7 @@ Setting ``unevaluatedItems: false`` forbids any array index left uncovered by a 
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -561,6 +576,7 @@ against that schema:
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -635,6 +651,7 @@ another inner array or in the outer array.
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "properties": {
@@ -705,6 +722,7 @@ Not only a tuple item may reference the array which owns the keyword: the schema
 .. code-block:: json
 
     {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": "example",
         "type": "object",
         "definitions": {

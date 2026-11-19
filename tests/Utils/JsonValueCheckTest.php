@@ -137,10 +137,33 @@ class JsonValueCheckTest extends TestCase
             'integer property without an integral float' => [[2.5], [2.5], 'int'],
             'float property with a null' => [[1, null], [1.0, null], ['float', 'null']],
             'string property' => [[1, 2.5], [1, 2.5], 'string'],
-            'integer and float property' => [[1, 2.5, 3.0], [1, 2.5, 3.0], ['int', 'float']],
+            // integral numbers are compared as integers, the check casts an integral float the same way
+            'integer and float property' => [[1, 2.5, 3.0], [1, 2.5, 3], ['int', 'float']],
             'integer and string property' => [[1.0, 'a'], [1, 'a'], ['int', 'string']],
             'float and string property' => [[1, 'a'], [1.0, 'a'], ['float', 'string']],
         ];
+    }
+
+    /**
+     * A property which holds integers and floats compares an integral float like the integer it equals (the allowed
+     * values are aligned to integers by alignNumbers()). Other properties compare a number with its type.
+     */
+    public function testIntegralFloatOfAPropertyHoldingIntegersAndFloatsIsComparedAsInteger(): void
+    {
+        $integerAndFloat = new PropertyType(['int', 'float']);
+
+        foreach ([[1, true], [1.0, true], [2.5, true], [2.0, false], ['1', false]] as [$provided, $expected]) {
+            $this->assertSame(
+                !$expected,
+                $this->evaluate(JsonValueCheck::notOneOf([1, 2.5], $integerAndFloat), $provided),
+            );
+        }
+
+        $this->assertFalse($this->evaluate(JsonValueCheck::notEqualTo(1, $integerAndFloat), 1.0));
+        $this->assertTrue($this->evaluate(JsonValueCheck::notEqualTo(1, $integerAndFloat), 1.5));
+
+        // a property which holds integers only gets the integral float cast by its decorator, the check is strict
+        $this->assertSame('$value !== 1', JsonValueCheck::notEqualTo(1, new PropertyType('int')));
     }
 
     private function evaluate(string $code, mixed $value): mixed

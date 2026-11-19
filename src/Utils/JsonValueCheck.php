@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntegralFloatToIntCastDecorator;
 
 /**
  * Renders the checks of an enum and a const which are embedded into the generated code. The checks compare the value
@@ -24,12 +25,17 @@ use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 final class JsonValueCheck
 {
     /**
-     * The check which is true if the value is none of the allowed values
+     * The check which is true if the value is none of the allowed values. The type of the property decides how a
+     * number is compared (see alignNumbers()).
      */
-    public static function notOneOf(array $allowedValues): string
+    public static function notOneOf(array $allowedValues, ?PropertyType $type = null): string
     {
         if (!self::containsStructure($allowedValues)) {
-            return '!in_array($value, ' . RenderHelper::varExportArray($allowedValues) . ', true)';
+            return sprintf(
+                '!in_array(%s, %s, true)',
+                self::comparedValue($type),
+                RenderHelper::varExportArray($allowedValues),
+            );
         }
 
         return sprintf(
@@ -43,13 +49,13 @@ final class JsonValueCheck
     /**
      * The check which is true if the value is not equal to the expected value
      */
-    public static function notEqualTo(mixed $expected): string
+    public static function notEqualTo(mixed $expected, ?PropertyType $type = null): string
     {
         if (!is_array($expected)) {
-            return '$value !== ' . RenderHelper::varExportArray($expected);
+            return self::comparedValue($type) . ' !== ' . RenderHelper::varExportArray($expected);
         }
 
-        return self::notOneOf([$expected]);
+        return self::notOneOf([$expected], $type);
     }
 
     /**
@@ -67,7 +73,9 @@ final class JsonValueCheck
      * Represents the numbers of the allowed values of a property as the PHP type which holds the numbers of the
      * property: a property which holds floats compares floats (an integer is cast to a float by the property), a
      * property which holds integers compares integers (the schema may note an integer as 1.0). A property which holds
-     * both types or no number keeps the values as they are.
+     * both types compares an integral number as an integer: it holds the provided number as it is, the check casts an
+     * integral float to int before comparing it (see comparedValue()). Keeping the values of such a property as they
+     * are was rejected: the provided 1.0 didn't equal the allowed 1, the provided 1 didn't equal the allowed 1.0.
      *
      * Only the values on the top level are aligned, the numbers inside of a structure are compared by value.
      *
@@ -78,18 +86,31 @@ final class JsonValueCheck
         $holdsFloat = $type !== null && in_array('float', $type->getNames(), true);
         $holdsInteger = $type !== null && in_array('int', $type->getNames(), true);
 
-        if ($holdsFloat === $holdsInteger) {
+        if (!$holdsFloat && !$holdsInteger) {
             return $values;
         }
 
         return array_map(
             static fn(mixed $value): mixed => match (true) {
-                $holdsFloat && is_int($value) => (float) $value,
+                !$holdsInteger && is_int($value) => (float) $value,
                 $holdsInteger && self::isIntegralFloat($value) => (int) $value,
                 default => $value,
             },
             $values,
         );
+    }
+
+    /**
+     * The code of the value which is compared with the allowed scalars: a property which holds integers and floats
+     * compares an integral float as the integer it equals (the allowed values are aligned the same way)
+     */
+    private static function comparedValue(?PropertyType $type): string
+    {
+        $holdsIntegerAndFloat = $type !== null
+            && in_array('int', $type->getNames(), true)
+            && in_array('float', $type->getNames(), true);
+
+        return $holdsIntegerAndFloat ? IntegralFloatToIntCastDecorator::cast('$value') : '$value';
     }
 
     private static function containsStructure(array $allowedValues): bool

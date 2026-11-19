@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntegralFloatToIntCastDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonValueCheck;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -38,17 +39,23 @@ class ConstModifier implements ModifierInterface
         // type the property as array although the property holds the model. Testing for a nested schema instead was
         // rejected: the object variant of a multi type property holds the model without owning the nested schema.
         if (!$property instanceof BaseProperty && $property->getDecorators() === []) {
-            $property->setType(new PropertyType(TypeConverter::gettypeToInternal(gettype($const))));
+            $type = TypeConverter::gettypeToInternal(gettype($const));
+            $property->setType(new PropertyType($type));
+
+            // the derived int type accepts an integral float like an integer property does
+            if ($type === 'int') {
+                $property->addDecorator(new IntegralFloatToIntCastDecorator());
+            }
         }
 
         $check = match (true) {
             $property->isRequired()
-                => JsonValueCheck::notEqualTo($const),
+                => JsonValueCheck::notEqualTo($const, $property->getType()),
             $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
-                => JsonValueCheck::notOneOf([$const, null]),
+                => JsonValueCheck::notOneOf([$const, null], $property->getType()),
             default
                 => "array_key_exists('" . RenderHelper::escapeSingleQuoted($property->getName()) . "', \$modelData) && "
-                    . JsonValueCheck::notEqualTo($const),
+                    . JsonValueCheck::notEqualTo($const, $property->getType()),
         };
 
         $validator = (new PropertyValidator(

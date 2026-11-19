@@ -16,6 +16,8 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 class RenderHelper
 {
+    private const string CONTROL_CHARACTERS_PATTERN = '/[\x00-\x1f\x7f]+/';
+
     public function __construct(protected GeneratorConfiguration $generatorConfiguration)
     {}
 
@@ -105,10 +107,42 @@ class RenderHelper
      * single quote are special in a single quoted string. addslashes() was rejected: it also escapes the double
      * quote, which a single quoted string doesn't know: the backslash stays part of the string and the value changes
      * (the key of a property named `say "hi"` would never be found in the provided data).
+     *
+     * A control character (a line break, a tab, ...) leaves the single quoted string and is concatenated as an escape
+     * sequence of a double quoted string (`'a' . "\n" . 'b'`): written as it is, a line break inside the literal
+     * receives the indentation of the generated code and changes the value. Every caller embeds the result into a
+     * single quoted string in the position of an expression, where the concatenation is valid.
      */
     public static function escapeSingleQuoted(string $value): string
     {
-        return addcslashes($value, "'\\");
+        return preg_replace_callback(
+            self::CONTROL_CHARACTERS_PATTERN,
+            static fn(array $match): string => "' . " . self::exportDoubleQuoted($match[0]) . " . '",
+            addcslashes($value, "'\\"),
+        );
+    }
+
+    /**
+     * A double quoted string literal of the given value. Control characters are written as escape sequences;
+     * addcslashes() was rejected, it writes the bell and the backspace as `\a` and `\b`, which a PHP string doesn't
+     * know (the backslash and the letter would become part of the value).
+     */
+    private static function exportDoubleQuoted(string $value): string
+    {
+        return '"' . preg_replace_callback(
+            '/[\x00-\x1f\x7f"\\\\$]/',
+            static fn(array $match): string => match ($match[0]) {
+                "\n" => '\n',
+                "\r" => '\r',
+                "\t" => '\t',
+                "\v" => '\v',
+                "\f" => '\f',
+                "\e" => '\e',
+                '"', '\\', '$' => '\\' . $match[0],
+                default => sprintf('\x%02X', ord($match[0])),
+            },
+            $value,
+        ) . '"';
     }
 
     /**
@@ -401,7 +435,8 @@ class RenderHelper
      * for arrays (recursively, preserving string keys for associative arrays), plain var_export() for everything
      * else. var_export() alone always emits the old array (...) syntax for arrays, which - unlike its output for
      * scalars - is genuinely multi-line and needs the caller to account for indentation; routing every array value
-     * embedded in generated code through this method avoids that.
+     * embedded in generated code through this method avoids that. The literal never spans multiple lines: a string
+     * with a control character is written as a double quoted string with escape sequences (see exportScalar()).
      */
     public static function varExportArray(mixed $values): string
     {
@@ -414,7 +449,7 @@ class RenderHelper
         $entries = [];
         foreach ($values as $key => $value) {
             $exportedValue = is_array($value) ? self::varExportArray($value) : self::exportScalar($value);
-            $entries[] = $isList ? $exportedValue : var_export($key, true) . ' => ' . $exportedValue;
+            $entries[] = $isList ? $exportedValue : self::exportScalar($key) . ' => ' . $exportedValue;
         }
 
         return '[' . implode(', ', $entries) . ']';
@@ -423,10 +458,19 @@ class RenderHelper
     /**
      * var_export(null, true) returns the string "NULL" - unlike its output for true/false, which is already
      * lowercase "true"/"false" - so it's the one scalar case PSR-12's lowercase-constant rule always rejects.
+     *
+     * var_export() writes a control character of a string as it is: a line break would split the literal over two
+     * lines of the generated code, and the indentation of the generated code would become part of the value. Such a
+     * string is written as a double quoted string with escape sequences instead.
      */
     private static function exportScalar(mixed $value): string
     {
-        return $value === null ? 'null' : var_export($value, true);
+        return match (true) {
+            $value === null => 'null',
+            is_string($value) && preg_match(self::CONTROL_CHARACTERS_PATTERN, $value) === 1
+                => self::exportDoubleQuoted($value),
+            default => var_export($value, true),
+        };
     }
 
     /**
@@ -461,7 +505,7 @@ class RenderHelper
             $keyed['/' . addcslashes((string) $rawPattern, '/') . '/'] = $value;
         }
 
-        return var_export($keyed, true);
+        return self::varExportArray($keyed);
     }
 
     public static function filterClassImports(array $imports, string $namespace): array

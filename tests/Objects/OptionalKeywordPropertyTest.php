@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -45,6 +46,7 @@ class OptionalKeywordPropertyTest extends AbstractPHPModelGeneratorTestCase
         'untypedUnevaluatedItems',
     ];
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodWithImplicitNullDataProvider')]
     public function testKeywordsOfPropertiesWhichAreNotProvidedAreSkipped(
         GeneratorConfiguration $configuration,
@@ -67,6 +69,7 @@ class OptionalKeywordPropertyTest extends AbstractPHPModelGeneratorTestCase
      * A property which is provided as null is accepted with implicit null. Without implicit null a typed property
      * rejects null by its type, an untyped property accepts any value.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodWithImplicitNullDataProvider')]
     public function testKeywordsOfPropertiesWhichAreProvidedAsNullAreSkipped(
         GeneratorConfiguration $configuration,

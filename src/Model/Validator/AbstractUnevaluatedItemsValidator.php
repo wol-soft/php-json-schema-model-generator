@@ -28,6 +28,7 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
      */
     public function __construct(
         PropertyInterface $property,
+        array $siblingSchemaJsons,
         string $templatePath,
         string $exceptionClass,
         array $exceptionParams,
@@ -35,9 +36,7 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     ) {
         $this->parentProperty = $property;
 
-        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage(
-            $property->getJsonSchema()->getJson(),
-        );
+        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage($siblingSchemaJsons);
 
         parent::__construct(
             $property,
@@ -55,24 +54,49 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     }
 
     /**
-     * Positional index coverage from a sibling `items` tuple and `additionalItems` on the same
-     * property: a tuple `items` evaluates indices [0, count); a non-false `additionalItems` then
-     * evaluates every index past the tuple. Every other `items` shape is suppressed as dead code
-     * by UnevaluatedItemsValidatorFactory, so it contributes no coverage here.
+     * Positional index coverage of the schema objects next to the keyword: the schema of the
+     * property and, for a `$ref` next to the keyword (Draft 2019-09 on), the definitions along the
+     * chain of references. A tuple `items` evaluates the indices [0, count); a non-false
+     * `additionalItems` of the same schema object then evaluates every index past that tuple; a
+     * schema-form or `true` `items` evaluates every index. Each schema object counts on its own: an
+     * `additionalItems` doesn't extend the tuple of another object (see
+     * CompositionPropertyDecorator::branchClaimsAllIndices()).
      *
-     * @return array{0: int, 1: bool} [tuple length, whether additionalItems covers the tail]
+     * A schema-form `items` of the property itself never reaches this point, the factory suppresses
+     * the keyword as dead code; the one of a referenced definition does.
+     *
+     * @param array<int, array<string, mixed>> $siblingSchemaJsons
+     *
+     * @return array{0: int, 1: bool} [tuple length, whether every index past the tuple is covered]
      */
-    private function siblingItemsCoverage(array $json): array
+    private function siblingItemsCoverage(array $siblingSchemaJsons): array
     {
-        $items = $json['items'] ?? null;
+        $tupleItemsCount = 0;
+        $coversTail = false;
 
-        if (!is_array($items) || $items === [] || !array_is_list($items)) {
-            return [0, false];
+        foreach ($siblingSchemaJsons as $json) {
+            $items = $json['items'] ?? null;
+            $isTuple = is_array($items) && $items !== [] && array_is_list($items);
+
+            if ($items === true || (is_array($items) && !$isTuple)) {
+                $coversTail = true;
+
+                continue;
+            }
+
+            if (!$isTuple) {
+                continue;
+            }
+
+            $tupleItemsCount = max($tupleItemsCount, count($items));
+
+            // the tuple and its additionalItems together evaluate every index
+            if (array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false) {
+                $coversTail = true;
+            }
         }
 
-        $coversTail = array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false;
-
-        return [count($items), $coversTail];
+        return [$coversTail ? 0 : $tupleItemsCount, $coversTail];
     }
 
     /**

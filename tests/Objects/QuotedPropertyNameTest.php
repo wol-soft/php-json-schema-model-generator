@@ -367,7 +367,7 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(["pick's" => '2022-03-03T00:00:00+0000', "other's" => null], $object->toArray());
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsOfArraysWithQuotesInTheNameAreEvaluatedAndSerialized(): void
     {
         $configuration = (new GeneratorConfiguration())
@@ -376,10 +376,9 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
             ->setSerialization(true);
         $className = $this->generateClassFromFile('QuotedPropertyNameUnevaluatedItems.json', $configuration);
 
-        // the contains of the first array, the filter of the unevaluated items of the second array and the filters of
-        // the items and the unevaluated items of the third array are evaluated by the name of the arrays
+        // the filter of the unevaluated items of the first array and the filters of the items and the unevaluated items
+        // of the second array are evaluated by the name of the arrays
         $object = new $className([
-            "tags's" => ['a', 'b'],
             "dates's" => ['x', '2020-01-01', '2021-02-02'],
             "filtered's" => ['2022-03-03'],
         ]);
@@ -387,18 +386,10 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstanceOf(DateTime::class, $object->getFilteredS()[0]);
         $this->assertSame(
             [
-                "tags's" => ['a', 'b'],
                 "dates's" => ['x', '2020-01-01T00:00:00+0000', '2021-02-02T00:00:00+0000'],
                 "filtered's" => ['2022-03-03T00:00:00+0000'],
             ],
             $object->toArray(),
-        );
-
-        $this->assertInstantiationFailsWithMessage(
-            $className,
-            ["tags's" => ['a', 1]],
-            UnevaluatedItemsException::class,
-            "Provided JSON for 'tags's' contains not allowed unevaluated items [#1]",
         );
 
         $this->assertInstantiationFailsWithMessage(
@@ -410,6 +401,29 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
               - invalid unevaluated item #1
                 * Invalid type for 'unevaluated item': requires ['DateTime', 'string'], got 'integer'
             MSG,
+        );
+    }
+
+    /**
+     * The items the contains of an array matched are evaluated by the name of the array (Draft 2020-12, Draft 2019-09
+     * gives contains no annotation).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testContainsCreditsOfArraysWithQuotesInTheNameAreEvaluatedByTheName(): void
+    {
+        $className = $this->generateClassFromFile(
+            'QuotedPropertyNameContainsCredits.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(["tags's" => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $object->getTagsS());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ["tags's" => ['a', 1]],
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags's' contains not allowed unevaluated items [#1]",
         );
 
         // the items credited by a previous validation don't count for the next one
@@ -426,7 +440,7 @@ class QuotedPropertyNameTest extends AbstractPHPModelGeneratorTestCase
      * of a composition which is nested directly inside of a branch is read by the name of the slot, and so are the
      * slots of a conditional composition.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testCompositionsOfArraysWithQuotesInTheNameCreditTheEvaluatedItemsOfTheBranches(): void
     {
         $configuration = (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false);

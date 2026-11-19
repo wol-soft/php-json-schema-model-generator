@@ -19,6 +19,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -444,14 +445,15 @@ class EnumConstValueEqualityTest extends AbstractPHPModelGeneratorTestCase
             'Value for \'integerConst\' must be 2, got 1',
         );
         // the type of a property without a type is inferred from the allowed values: the integer property of an
-        // enum of integers can't hold a float, a float which equals an allowed integer is rejected
+        // enum of integers holds an integral float as the integer it equals
         $this->assertSame(2, (new $className(['untypedIntegerEnum' => 2]))->getUntypedIntegerEnum());
+        $this->assertSame(2, (new $className(['untypedIntegerEnum' => 2.0]))->getUntypedIntegerEnum());
         $this->assertRejected(
             $configuration,
             $className,
-            ['untypedIntegerEnum' => 2.0],
+            ['untypedIntegerEnum' => 2.5],
             EnumException::class,
-            'Value for \'untypedIntegerEnum\' must be one of [1,2,null], got 2',
+            'Value for \'untypedIntegerEnum\' must be one of [1,2,null], got 2.5',
         );
 
         $this->assertSame('a', (new $className(['numberOrStringEnum' => 'a']))->getNumberOrStringEnum());
@@ -634,6 +636,7 @@ class EnumConstValueEqualityTest extends AbstractPHPModelGeneratorTestCase
      * @throws RenderException
      * @throws SchemaException
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testEnumAndConstOfObjectValuesOfOtherSchemaShapes(GeneratorConfiguration $configuration): void
     {

@@ -23,7 +23,7 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-#[ApplicableDrafts]
+#[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
 class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validIncompleteTupleArrayDataProvider')]
@@ -923,7 +923,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * The items not covered by the tuple are unevaluated and rejected on every level of the recursion.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testTupleArrayWhichReferencesItselfWithDisabledUnevaluatedItems(
         GeneratorConfiguration $configuration,
@@ -1325,7 +1325,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
      * The index of a boolean schema belongs to the tuple: the items it covers are evaluated, whether the value is
      * accepted or not.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testBooleanSchemasInTupleItemsAreEvaluatedItems(GeneratorConfiguration $configuration): void
     {

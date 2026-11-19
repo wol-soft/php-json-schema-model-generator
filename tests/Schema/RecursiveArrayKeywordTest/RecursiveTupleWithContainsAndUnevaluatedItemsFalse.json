@@ -3,13 +3,15 @@
   "definitions": {
     "node": {
       "type": "array",
-      "items": [
-        {
-          "$ref": "#/definitions/node"
-        }
-      ],
       "contains": {
-        "type": "integer"
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "$ref": "#/definitions/node"
+          }
+        ]
       },
       "minContains": 0,
       "unevaluatedItems": false

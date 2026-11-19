@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntegralFloatToIntCastDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonValue;
@@ -75,6 +76,12 @@ class EnumValidatorFactory extends AbstractValidatorFactory
             }
 
             $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
+
+            // A derived int type accepts an integral float like an integer property does. Not for a property which
+            // holds floats as well: it holds a number as it is provided, like a type list with integer and number.
+            if (in_array('int', $typesOfEnum, true) && !in_array('float', $typesOfEnum, true)) {
+                $property->addDecorator(new IntegralFloatToIntCastDecorator());
+            }
         }
 
         $allowedValues = JsonValueCheck::alignNumbers($allowedValues, $property->getType());

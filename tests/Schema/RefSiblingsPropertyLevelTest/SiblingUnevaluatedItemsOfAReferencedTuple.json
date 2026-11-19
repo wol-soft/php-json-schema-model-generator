@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "definitions": {
+    "pair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "untypedPair": {
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "openTuple": {
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": true
+    },
+    "anything": {
+      "items": true
+    }
+  },
+  "properties": {
+    "typedReference": {
+      "$ref": "#/definitions/pair",
+      "unevaluatedItems": false
+    },
+    "untypedReferenceWithSiblingTuple": {
+      "$ref": "#/definitions/untypedPair",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "referencedAdditionalItems": {
+      "$ref": "#/definitions/openTuple",
+      "unevaluatedItems": false
+    },
+    "referencedItemsTrue": {
+      "$ref": "#/definitions/anything",
+      "unevaluatedItems": false
+    }
+  }
+}

@@ -279,7 +279,10 @@ depends on the active JSON Schema draft.
     ``properties`` and ``required`` are merged with the referenced object's own properties —
     constraints from both sides apply (type intersection, required union).  At the property
     level, sibling constraints (``type``, ``minLength``, ``enum``, etc.) narrow the referenced
-    type.
+    type. A referenced definition without a ``type`` has nothing to narrow: the siblings apply
+    as they would without the reference (typed by their own ``type``, self-gating per type
+    without one) and the keywords of the definition apply alongside. An ``unevaluatedItems``
+    next to the ``$ref`` sees the items the referenced definition evaluates.
 
 **Draft 7 (siblings silently ignored)**
     Sibling keywords are discarded.  Only the ``$ref`` is effective.  This matches the Draft 7

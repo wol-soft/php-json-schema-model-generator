@@ -598,12 +598,13 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * Enable direct-sibling index crediting on any `contains` validator sitting directly on the
-     * property, so a sibling unevaluatedItems check sees the matched indices as evaluated.
+     * property, so a sibling unevaluatedItems check sees the matched indices as evaluated. Only a
+     * `contains` of a draft which annotates the matched items (Draft 2020-12 on) evaluates them.
      */
     private function enableDirectSiblingContainsTracking(PropertyInterface $property): void
     {
         foreach ($this->getSourceValidators($property) as $validator) {
-            if ($validator instanceof ArrayContainsValidator) {
+            if ($validator instanceof ArrayContainsValidator && $validator->evaluatesItems()) {
                 $validator->setTrackEvaluatedItems();
             }
         }
@@ -655,7 +656,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 continue;
             }
 
-            if ($validator instanceof ArrayContainsValidator) {
+            if ($validator instanceof ArrayContainsValidator && $validator->evaluatesItems()) {
                 $validator->setTrackBranchMatches(true);
 
                 // The unevaluatedItems of the branch itself sees the matched items too, see

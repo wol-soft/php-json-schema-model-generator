@@ -14,7 +14,7 @@ class EnumValidator extends PropertyValidator
     {
         parent::__construct(
             $property,
-            JsonValueCheck::notOneOf($allowedValues),
+            JsonValueCheck::notOneOf($allowedValues, $property->getType()),
             EnumException::class,
             [$allowedValues],
             JsonValueCheck::providedValue($allowedValues),

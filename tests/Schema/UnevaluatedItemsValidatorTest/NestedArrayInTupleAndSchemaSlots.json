@@ -49,9 +49,11 @@
       "type": "array",
       "contains": {
         "type": "array",
-        "contains": {
-          "type": "string"
-        },
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
         "unevaluatedItems": false
       }
     }

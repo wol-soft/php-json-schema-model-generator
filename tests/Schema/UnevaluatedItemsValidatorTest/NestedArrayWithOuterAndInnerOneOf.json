@@ -16,10 +16,15 @@
               "maxItems": 2
             },
             {
-              "contains": {
-                "const": "x"
-              },
-              "minItems": 3
+              "items": [
+                {
+                  "const": "x"
+                },
+                {
+                  "const": "x"
+                }
+              ],
+              "minItems": 2
             }
           ],
           "unevaluatedItems": false
@@ -27,15 +32,22 @@
       ],
       "oneOf": [
         {
-          "contains": {
-            "const": 5
-          },
+          "items": [
+            true,
+            {
+              "const": 5
+            }
+          ],
           "maxItems": 2
         },
         {
-          "contains": {
-            "const": 6
-          },
+          "items": [
+            true,
+            true,
+            {
+              "const": 6
+            }
+          ],
           "minItems": 3
         }
       ],

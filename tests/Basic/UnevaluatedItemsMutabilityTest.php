@@ -35,6 +35,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
      *   - replacing the array with a shorter one whose indices are all covered succeeds
      *     and the new value is observable through the getter.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testWholeArraySetterRevalidatesUnevaluatedItemsAgainstNewArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -69,6 +70,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
      *   - a shorter array (or the same length) whose indices are all covered succeeds and
      *     the new value is observable.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPopulateLengthChangeRevalidatesUnevaluatedItems(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {

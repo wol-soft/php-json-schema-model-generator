@@ -148,6 +148,39 @@ class SchemaDefinitionDictionary extends ArrayObject
     }
 
     /**
+     * The JSON of the schemas the `$ref` of the provided schema leads to, following a chain of references (a definition
+     * which is a reference itself). In Draft 2019-09 and later a reference next to other keywords (also the type a
+     * composition branch inherits) is merged into a property built from the keywords next to the reference, which only
+     * takes over the validators of the definition: a keyword without a validator (`items: true`) is only visible in the
+     * JSON of the definition.
+     *
+     * @return array<int, array<string, mixed>>
+     *
+     * @throws SchemaException A failure of a referenced file which is processed for the lookup
+     */
+    public function getReferencedSchemaChain(JsonSchema $schema, SchemaProcessor $schemaProcessor): array
+    {
+        $referencedJsons = [];
+        $visitedLocations = [];
+        $dictionary = $this;
+
+        while (($referenced = $dictionary->getReferencedSchema($schema, $schemaProcessor)) !== null) {
+            [$schema, $dictionary] = $referenced;
+            $location = $schema->getFile() . '#' . $schema->getPointer();
+
+            // A chain of references leading back to a definition of the chain is rejected by the cycle detection
+            if (isset($visitedLocations[$location])) {
+                break;
+            }
+
+            $visitedLocations[$location] = true;
+            $referencedJsons[] = $schema->getJson();
+        }
+
+        return $referencedJsons;
+    }
+
+    /**
      * @throws SchemaException
      */
     public function getDefinition(

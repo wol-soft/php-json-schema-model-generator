@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
 class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTestCase
 {
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfAnAllOfBranchSeesTheContainsOfTheSameBranch(
         GeneratorConfiguration $configuration,
@@ -70,6 +72,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
         );
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfAnAnyOfBranchSeesTheContainsOfTheSameBranch(
         GeneratorConfiguration $configuration,
@@ -96,6 +99,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
         );
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsSchemaOfAnAllOfBranchSeesTheContainsOfTheSameBranch(
         GeneratorConfiguration $configuration,
@@ -126,6 +130,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
         );
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfABranchSeesTheCompositionNestedInTheSameBranch(
         GeneratorConfiguration $configuration,
@@ -156,6 +161,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
      * the branch is a reference to a definition. Both properties reference the same definition: the first reference
      * creates the property of the definition, the second one is a proxy of it.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testContainsOfAReferencedBranchEvaluatesItemsForTheUnevaluatedItemsOutsideOfTheBranch(
         GeneratorConfiguration $configuration,
@@ -208,6 +214,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
         );
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfAThenBranchSeesTheContainsOfTheSameBranch(
         GeneratorConfiguration $configuration,
@@ -237,6 +244,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
      * The condition evaluates the items of its own contains for its own unevaluatedItems: ['a'] satisfies the
      * condition and takes the then branch, [1] and ['a', 1] fail the condition and take the else branch.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfAnIfConditionSeesTheContainsOfTheSameCondition(
         GeneratorConfiguration $configuration,
@@ -268,6 +276,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
      * before another keyword of the condition rejected the value. Crediting the item would accept ['a']: the
      * condition fails on minItems, the else branch evaluates no item.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testFailedIfConditionCreditsNothingToTheUnevaluatedItemsOfTheEnclosingArray(
         GeneratorConfiguration $configuration,
@@ -343,6 +352,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
      * @param array<int, mixed> $validTags
      * @param array<int, mixed> $invalidTags
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('failedConditionalBranchProvider')]
     public function testFailedThenAndElseBranchesCreditNothingToTheUnevaluatedItemsOfTheEnclosingArray(
         string $schemaFile,
@@ -432,12 +442,15 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * A composition which fails evaluates nothing for the enclosing array, also if some of its branches succeeded:
-     * the first allOf branch evaluates every integer, but the allOf fails on minItems; the condition evaluates every
-     * string, but the conditional fails on its then branch. The composition is a branch of an anyOf which succeeds by
-     * its second branch (evaluating no item), or it is the composition of the property itself, whose failure is
-     * reported next to the unevaluated items if the errors are collected. Crediting the items of the succeeding
-     * branches would accept [1, 2] and ['a', 'b'] although no succeeding composition evaluates them.
+     * A composition which fails inside of a branch evaluates nothing for the enclosing array, also if some of its
+     * branches succeeded: the first allOf branch evaluates every integer, but the allOf fails on minItems; the
+     * condition evaluates every string, but the conditional fails on its then branch. The branch of the anyOf holding
+     * the composition fails, the anyOf succeeds by its second branch (evaluating no item). Crediting the items of the
+     * succeeding branches would accept [1, 2] and ['a', 'b'] although no succeeding branch evaluates them.
+     *
+     * The composition of the property itself rejects the value. Its succeeding branches keep their annotations for
+     * the unevaluatedItems next to it (the spec drops the annotations per failing schema object): with collected
+     * errors only the failed composition is reported.
      */
     #[DataProvider('validationMethodDataProvider')]
     public function testItemsEvaluatedByAFailedCompositionAreNotCreditedToTheEnclosingArray(
@@ -476,48 +489,31 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
             "Provided JSON for 'stringsInBranch' contains not allowed unevaluated items [#0, #1]",
         );
 
-        // the unevaluatedItems of the property is only validated after the failed composition if the errors are
-        // collected
+        // with collected errors the unevaluatedItems of the property is validated after the failed composition as
+        // well: the branches which succeeded evaluated every item
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['integers' => [1, 2]],
             $this->getExpectedExceptionClass($configuration, AllOfException::class),
-            $configuration->collectErrors()
-                ? <<<'MSG'
-                Invalid value for 'integers' declined by composition constraint
-                  Requires to match all composition elements but matched 1 element
-                  - Composition element #1: Valid
-                  - Composition element #2: Failed
-                    * Array 'integers' must not contain less than 3 items
-                Provided JSON for 'integers' contains not allowed unevaluated items [#0, #1]
-                MSG
-                : <<<'MSG'
-                Invalid value for 'integers' declined by composition constraint
-                  Requires to match all composition elements but matched 1 element
-                  - Composition element #1: Valid
-                  - Composition element #2: Failed
-                    * Array 'integers' must not contain less than 3 items
-                MSG,
+            <<<'MSG'
+            Invalid value for 'integers' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Array 'integers' must not contain less than 3 items
+            MSG,
         );
 
         $this->assertInstantiationFailsWithMessage(
             $className,
             ['strings' => ['a', 'b']],
             $this->getExpectedExceptionClass($configuration, ConditionalException::class),
-            $configuration->collectErrors()
-                ? <<<'MSG'
-                Invalid value for 'strings' declined by conditional composition constraint
-                  - Condition: Valid
-                  - Conditional branch failed:
-                    * Array 'strings' must not contain more than 1 items
-                Provided JSON for 'strings' contains not allowed unevaluated items [#0, #1]
-                MSG
-                : <<<'MSG'
-                Invalid value for 'strings' declined by conditional composition constraint
-                  - Condition: Valid
-                  - Conditional branch failed:
-                    * Array 'strings' must not contain more than 1 items
-                MSG,
+            <<<'MSG'
+            Invalid value for 'strings' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Array 'strings' must not contain more than 1 items
+            MSG,
         );
     }
 
@@ -526,6 +522,7 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
      * accepts every item: `additionalItems: true` evaluates every item behind the tuple, `items: true` every item.
      * Written inline the same branches are credited from their own keywords.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testReferencedBranchWithBooleanItemsKeywordsEvaluatesTheItems(
         GeneratorConfiguration $configuration,
@@ -571,11 +568,69 @@ class UnevaluatedItemsBranchEvaluationTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * additionalItems evaluates the items behind the tuple of its own schema object only: without a tuple next to it
+     * the keyword has no effect. A branch which references a definition consists of two schema objects (the branch
+     * and the definition), the additionalItems of one of them doesn't extend the tuple of the other one. Pooling the
+     * keywords of both objects was rejected: it accepted ['a', 1] for a tuple of one item next to a definition with
+     * `additionalItems: true`, which evaluates nothing.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testAdditionalItemsOfABranchEvaluatesItemsOnlyBehindATupleOfTheSameSchemaObject(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'AdditionalItemsNextToATupleOfAnotherSchemaObject.json',
+            $configuration,
+        );
+
+        $object = new $className([
+            'referencedTupleWithSiblingAdditionalItems' => ['a', 'b'],
+            'referencedAdditionalItemsWithSiblingTuple' => ['a'],
+            'additionalItemsWithoutTuple' => ['foo', 'bar'],
+            'tupleWithAdditionalItems' => ['a', 1, true],
+        ]);
+        $this->assertSame(['a', 'b'], $object->getReferencedTupleWithSiblingAdditionalItems());
+        $this->assertSame(['a'], $object->getReferencedAdditionalItemsWithSiblingTuple());
+        $this->assertSame(['foo', 'bar'], $object->getAdditionalItemsWithoutTuple());
+        $this->assertSame(['a', 1, true], $object->getTupleWithAdditionalItems());
+
+        // the tuple of the definition evaluates two items, the additionalItems next to the reference has no tuple
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['referencedTupleWithSiblingAdditionalItems' => ['a', 'b', 'c']],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'referencedTupleWithSiblingAdditionalItems' contains not allowed unevaluated items [#2]",
+        );
+
+        // the tuple next to the reference evaluates one item, the additionalItems of the definition has no tuple
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['referencedAdditionalItemsWithSiblingTuple' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'referencedAdditionalItemsWithSiblingTuple' contains not allowed unevaluated items [#1]",
+        );
+
+        // without a tuple the additionalItems of the branch evaluates nothing, unevaluatedItems validates every item
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['additionalItemsWithoutTuple' => ['foo', 1]],
+            $this->getExpectedExceptionClass($configuration, InvalidUnevaluatedItemsException::class),
+            <<<'MSG'
+            Invalid unevaluated items in array 'additionalItemsWithoutTuple':
+              - invalid unevaluated item #1
+                * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
      * A branch which succeeds hands the items it evaluated (its contains matched every item, its own
      * unevaluatedItems evaluated the rest) to the unevaluatedItems of the enclosing array. A branch which fails
      * evaluates nothing for the enclosing array: the items matched by the contains of a failed branch stay
      * unevaluated. Crediting them would accept ['a'] although no succeeding branch evaluates the item.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testBranchWithItsOwnUnevaluatedItemsCreditsTheEnclosingArrayOnlyIfTheBranchSucceeds(
         GeneratorConfiguration $configuration,

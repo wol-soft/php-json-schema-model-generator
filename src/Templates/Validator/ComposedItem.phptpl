@@ -32,10 +32,6 @@
         $compositionEvaluatedIndices = [];
     {% endif %}
 
-    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
-        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
-    {% endif %}
-
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -44,11 +40,14 @@
         {#
             The branches which read or record evaluated indices are validated in an evaluation scope of their own:
             each one starts without any evaluated index and leaves the indices of the enclosing arrays as it found
-            them. The indices recorded by a branch which succeeds are collected and handed to the enclosing array once
-            the composition as a whole succeeded (the serialization of a filtered unevaluatedItems reads them). A
-            composition which fails provides no annotations, also not the ones of its succeeding branches: an allOf
-            failing on its second branch must not leave the items its first branch evaluated behind for the
-            unevaluatedItems of the enclosing array. A not never hands indices over.
+            them. The indices recorded by a branch which succeeds are collected and handed to the enclosing array
+            (the serialization of a filtered unevaluatedItems reads them), also if the composition as a whole fails:
+            the spec drops the annotations of a schema object which fails, the branch which succeeded keeps them for
+            the keywords next to the composition. The schema object holding a failed composition fails itself: if it
+            is a branch of an enclosing composition, the scope of that branch discards the indices. Handing the
+            indices over only for a composition which succeeds was rejected: with collected errors the
+            unevaluatedItems next to a failed allOf reported the items its passing branch evaluated. A not never
+            hands indices over.
         #}
         $evaluatedItemIndicesBeforeComposition = $this->_evaluatedItemIndices;
         $evaluatedItemIndicesOfSucceededBranches = [];
@@ -160,13 +159,6 @@
                             true,
                         );
                     {% endif %}
-                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.branchHasNonFalseAdditionalItems() %}
-                        $compositionEvaluatedIndices += array_fill(
-                            {{ compositionProperty.getBranchTupleItemsCount() }},
-                            max(0, count($originalModelData) - {{ compositionProperty.getBranchTupleItemsCount() }}),
-                            true,
-                        );
-                    {% endif %}
                     {% if compositionProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
                     {% endif %}
@@ -263,12 +255,10 @@
     $compositionSatisfied = {{ composedValueValidation }};
 
     {% if compositionValidator.tracksEvaluatedItems() and not compositionValidator.isNotComposition() %}
-        if ($compositionSatisfied) {
-            $this->_evaluatedItemIndices = array_replace_recursive(
-                $this->_evaluatedItemIndices,
-                $evaluatedItemIndicesOfSucceededBranches,
-            );
-        }
+        $this->_evaluatedItemIndices = array_replace_recursive(
+            $this->_evaluatedItemIndices,
+            $evaluatedItemIndicesOfSucceededBranches,
+        );
     {% endif %}
 
     {% if publishesFilteredValues %}
@@ -351,16 +341,16 @@
     {#
         A rejected composition doesn't restore the validation state recorded above: the update operation (setter,
         populate, additional property accessors) restores the complete model state of a rejected update. The
-        evaluations of the branches are discarded nevertheless: a failed composition produces no annotations, also
-        if the model is created with collected errors and the unevaluated keys are validated afterwards.
+        evaluations of the branches which succeeded are kept also if the composition fails (the evaluations of a
+        failed branch are already discarded): like the evaluated items above, the unevaluated keys validated next to
+        a failed composition with collected errors see what its passing branches evaluated. A not never contributes:
+        its branch is restored after the evaluation.
     #}
-    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
-        {% if compositionValidator.getSlotKey() %}
-            $this->_compositionAnnotated[$slotKey] = $result ? [] : $compositionEvaluatedIndices;
+    {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() %}
+        {% if compositionValidator.isNotComposition() %}
+            $this->_compositionAnnotated[$slotKey] = [];
         {% else %}
-            if ($result) {
-                $this->_compositionEvaluations = $originalCompositionEvaluations;
-            }
+            $this->_compositionAnnotated[$slotKey] = $compositionEvaluatedIndices;
         {% endif %}
     {% endif %}
 

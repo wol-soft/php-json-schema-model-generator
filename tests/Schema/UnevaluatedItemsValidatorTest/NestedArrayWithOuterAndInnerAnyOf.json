@@ -15,9 +15,16 @@
               ]
             },
             {
-              "contains": {
-                "const": "x"
-              }
+              "items": [
+                true,
+                {
+                  "const": "x"
+                },
+                {
+                  "const": "x"
+                }
+              ],
+              "minItems": 2
             }
           ],
           "unevaluatedItems": false
@@ -25,14 +32,22 @@
       ],
       "anyOf": [
         {
-          "contains": {
-            "const": 5
-          }
+          "items": [
+            true,
+            {
+              "const": 5
+            }
+          ]
         },
         {
-          "contains": {
-            "const": 6
-          }
+          "items": [
+            true,
+            true,
+            {
+              "const": 6
+            }
+          ],
+          "minItems": 3
         }
       ],
       "unevaluatedItems": false

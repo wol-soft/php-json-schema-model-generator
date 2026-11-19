@@ -31,6 +31,8 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
      * array with unevaluatedItems itself) are rendered into a method of their own (see
      * RenderHelper::renderExtractedValidators()), an inner validator never shares the scope of this one.
      *
+     * @param array<int, array<string, mixed>> $siblingSchemaJsons see AbstractUnevaluatedItemsValidator
+     *
      * @throws SchemaException
      */
     public function __construct(
@@ -38,6 +40,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
+        array $siblingSchemaJsons,
     ) {
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
@@ -53,6 +56,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 
         parent::__construct(
             $property,
+            $siblingSchemaJsons,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
             ['&$invalidItems'],

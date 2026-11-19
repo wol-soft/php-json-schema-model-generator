@@ -19,8 +19,15 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 class ContainsValidatorFactory extends AbstractValidatorFactory
 {
-    public function __construct(private readonly bool $supportMinMaxContains = true)
-    {}
+    /**
+     * @param bool $supportMinMaxContains minContains and maxContains are keywords of the draft (from Draft 2019-09 on)
+     * @param bool $evaluatesItems the items the subschema matches count as evaluated for unevaluatedItems (from
+     *                             Draft 2020-12 on; Draft 2019-09 gives `contains` no annotation)
+     */
+    public function __construct(
+        private readonly bool $supportMinMaxContains = true,
+        private readonly bool $evaluatesItems = false,
+    ) {}
 
     /**
      * @throws SchemaException
@@ -78,7 +85,10 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
                 $schema,
                 $schemaProcessor->getGeneratorConfiguration(),
                 $countMatches,
-                ($json['minContains'] ?? 1) === 0,
+                // minContains is unknown before Draft 2019-09: there `minContains: 0` doesn't lift the requirement of
+                // one matching item
+                $this->supportMinMaxContains && ($json['minContains'] ?? 1) === 0,
+                $this->evaluatesItems,
             ))->withJsonPointer($propertySchema->getPointer() . '/contains'),
         );
 

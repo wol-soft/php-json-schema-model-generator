@@ -31,6 +31,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts]
 class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
 {
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsSchemaWhichReferencesItselfIsValidatedOnEveryLevel(
         GeneratorConfiguration $configuration,
@@ -115,6 +116,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     /**
      * Two definitions reference each other: the cycle runs over two arrays which are validated by different tuples.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
         GeneratorConfiguration $configuration,
@@ -156,7 +158,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsSchemaWhichReferencesItselfIsValidatedOnEveryLevel(
         GeneratorConfiguration $configuration,
@@ -234,7 +236,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
         GeneratorConfiguration $configuration,
@@ -361,6 +363,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     /**
      * The cycle runs over the additional items of one definition and the contains keyword of the other definition.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testAdditionalItemsAndContainsSchemasWhichReferenceEachOtherAreValidatedOnEveryLevel(
         GeneratorConfiguration $configuration,
@@ -410,7 +413,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      * indices of a level are credited to the level only: the validation of the items runs the same keywords for the
      * nested arrays.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testItemsMatchedByContainsOfEveryLevelAreEvaluatedForUnevaluatedItems(
         GeneratorConfiguration $configuration,
@@ -452,14 +455,16 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * The first item of a node is a node itself, every other item has to be an integer matched by contains. The items
-     * a nested node evaluates belong to the nested node only: the integer 5 matched in a nested node doesn't evaluate
-     * the item at the same index of the enclosing node, also on the levels which reference the definition while it
-     * is still being created (the third level and below).
+     * A node evaluates the integers and the valid nodes its contains matches (Draft 2020-12, Draft 2019-09 gives
+     * contains no annotation). The items a nested node evaluates belong to the nested node only: the indices the
+     * contains of a nested node matched don't evaluate the items at the same indices of the enclosing node, also on
+     * the levels which reference the definition while it is still being created (the third level and below). A nested
+     * node which credited its own indices to the enclosing node would make the enclosing node accept the item 'x'
+     * next to it.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
-    public function testItemsMatchedByContainsOfANestedLevelOfARecursiveTupleAreCreditedToThatLevelOnly(
+    public function testItemsMatchedByContainsOfANestedLevelOfARecursiveArrayAreCreditedToThatLevelOnly(
         GeneratorConfiguration $configuration,
     ): void {
         $className = $this->generateClassFromFile(
@@ -467,54 +472,26 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
             $configuration,
         );
 
-        foreach ([[], [[]], [[], 5], [[[], 5], 7], [[[[], 5], 7]], [[[[[], 5], 7], 8]]] as $tree) {
+        foreach ([[], [1], [[1]], [[1], 2], [[[1], 2], 3], [[[[1], 2], 3], 4]] as $tree) {
             $this->assertSame($tree, (new $className(['tree' => $tree]))->getTree());
         }
 
+        // the nested node evaluates both of its items, the 'x' of the first level is evaluated by nobody
         $this->assertInstantiationFailsWithMessage(
             $className,
-            ['tree' => [[], 'x']],
+            ['tree' => [[5, 1], 'x']],
             $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
             "Provided JSON for 'tree' contains not allowed unevaluated items [#1]",
         );
 
-        // the second level holds 'x', the match of the third level is no evaluation of the second level
-        $secondLevelTrees = [
-            [[[[]], 'x']],
-            [[[[], 5], 'x']],
-        ];
-
-        foreach ($secondLevelTrees as $tree) {
+        // the 'x' of the second (third) level isn't evaluated by the match of the third (fourth) level: the node
+        // holding it isn't valid, so the contains of the first level doesn't match it
+        foreach ([[[[5, 1], 'x']], [[[[5, 1], 'x']]]] as $tree) {
             $this->assertInstantiationFailsWithMessage(
                 $className,
                 ['tree' => $tree],
-                $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
-                <<<'MSG'
-                Invalid tuple item in array 'tree':
-                  - invalid tuple #1
-                    * Provided JSON for 'tuple item #0 of array tree' contains not allowed unevaluated items [#1]
-                MSG,
-            );
-        }
-
-        // the third level holds 'x', the match of the fourth level is no evaluation of the third level
-        $thirdLevelTrees = [
-            [[[[[]], 'x']]],
-            [[[[[], 5], 'x']]],
-        ];
-
-        foreach ($thirdLevelTrees as $tree) {
-            $this->assertInstantiationFailsWithMessage(
-                $className,
-                ['tree' => $tree],
-                $this->getExpectedExceptionClass($configuration, InvalidTupleException::class),
-                <<<'MSG'
-                Invalid tuple item in array 'tree':
-                  - invalid tuple #1
-                    * Invalid tuple item in array 'tuple item #0 of array tree':
-                      - invalid tuple #1
-                        * Provided JSON for 'tuple item #0 of array tuple item #0 of array tree' contains not allowed unevaluated items [#1]
-                MSG,
+                $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+                "Provided JSON for 'tree' contains not allowed unevaluated items [#0]",
             );
         }
     }
@@ -526,7 +503,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      * holds only nodes in the items of the first branch (the second branch accepts every array, but evaluates no
      * item). The items of the nested nodes aren't evaluated by the enclosing level and vice versa.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfANodeWithContainsAndAnyOfBranchEvaluatesEveryLevelOnItsOwn(
         GeneratorConfiguration $configuration,
@@ -811,7 +788,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      * The tuple of every level refers to the array of the next level: each level evaluates the indices of its own tuple
      * only, every further item of a level is rejected by the unevaluatedItems of that level.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsFalseOfARecursiveTupleRejectsTheSurplusItemsOfEveryLevel(
         GeneratorConfiguration $configuration,
@@ -883,7 +860,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      *
      * @param class-string<ValidationException> $exceptionClass
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('recursiveTupleInCompositionBranchProvider')]
     public function testUnevaluatedItemsFalseOfARecursiveTupleInACompositionBranchRejectsTheSurplusItemsOfEveryLevel(
         string $schemaFile,
@@ -1020,7 +997,7 @@ class RecursiveArrayKeywordTest extends AbstractPHPModelGeneratorTestCase
      * The unevaluatedItems schema of every level validates the surplus items of that level, the tuple of the level
      * refers to the array of the next level.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validationMethodDataProvider')]
     public function testUnevaluatedItemsSchemaOfARecursiveTupleValidatesTheSurplusItemsOfEveryLevel(
         GeneratorConfiguration $configuration,
