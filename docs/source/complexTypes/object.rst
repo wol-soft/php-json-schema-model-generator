@@ -432,7 +432,8 @@ The ``unevaluatedProperties`` keyword (Draft 2019-09 and later) constrains every
 name was not evaluated by any positive sibling applicator at the same schema level. A key is
 counted as *evaluated* when it is claimed by ``properties``, matched by ``patternProperties``,
 claimed by ``additionalProperties`` (when that keyword is present), claimed by the schema form of
-``dependencies`` while its trigger property is present on the instance, or claimed by a
+``dependencies`` while its trigger property is present on the instance (a non-standard extension,
+see the note below), or claimed by a
 **successful** branch of an adjacent composition (``allOf``, ``anyOf``, ``oneOf``,
 ``if``/``then``/``else``, ``$ref``). ``not`` is a negative applicator and contributes nothing.
 
@@ -451,6 +452,13 @@ nothing is left for ``unevaluatedProperties`` to reject. The keys are still vali
 ``additionalProperties`` of the referenced schema.
 
 .. note::
+
+    ``dependencies`` is not a keyword of Draft 2019-09 and later, which split it into
+    ``dependentSchemas`` and ``dependentRequired``. The generator keeps applying ``dependencies`` in
+    every draft as a non-standard extension, and as it validates the keys its dependent subschema
+    declares, it counts them as evaluated, the way ``dependentSchemas`` does. A validator which
+    follows the specification strictly ignores ``dependencies`` in these drafts and reports such
+    keys as unevaluated.
 
     ``dependencies`` in its schema form contributes only while its trigger property is present. In
     the schema below, ``extra`` is evaluated for ``{"kind": "a", "extra": 5}`` but not for
