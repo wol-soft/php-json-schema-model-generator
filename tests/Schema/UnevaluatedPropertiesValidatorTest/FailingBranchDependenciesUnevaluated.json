@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "unevaluatedProperties": false,
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "a"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "dependencies": {
+        "kind": {
+          "type": "object",
+          "properties": {
+            "extra": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "other": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "other"
+      ]
+    }
+  ]
+}

@@ -66,7 +66,7 @@
                     true,
                 );
             {% endif %}
-            {% if not ifProperty.branchClaimsAllIndices() and ifProperty.branchHasNonFalseAdditionalItems() %}
+            {% if not ifProperty.branchClaimsAllIndices() and ifProperty.branchAdditionalItemsCoversTail() %}
                 $compositionEvaluatedIndices += array_fill(
                     {{ ifProperty.getBranchTupleItemsCount() }},
                     max(0, count($originalModelData) - {{ ifProperty.getBranchTupleItemsCount() }}),
@@ -144,7 +144,7 @@
                             true,
                         );
                     {% endif %}
-                    {% if not thenProperty.branchClaimsAllIndices() and thenProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not thenProperty.branchClaimsAllIndices() and thenProperty.branchAdditionalItemsCoversTail() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ thenProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ thenProperty.getBranchTupleItemsCount() }}),
@@ -225,7 +225,7 @@
                             true,
                         );
                     {% endif %}
-                    {% if not elseProperty.branchClaimsAllIndices() and elseProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not elseProperty.branchClaimsAllIndices() and elseProperty.branchAdditionalItemsCoversTail() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ elseProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ elseProperty.getBranchTupleItemsCount() }}),

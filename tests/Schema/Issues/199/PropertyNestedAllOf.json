@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "order": {
+      "type": "object",
+      "allOf": [
+        {
+          "type": "object",
+          "allOf": [
+            {
+              "type": "object",
+              "allOf": [
+                {
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "title": "Leaf",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

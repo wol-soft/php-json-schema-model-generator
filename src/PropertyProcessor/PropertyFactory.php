@@ -547,8 +547,20 @@ class PropertyFactory
         ): void {
             if ($refProperty->getNestedSchema() !== null) {
                 if ($mergedSchema !== null) {
-                    // Object×object merge path (path 1): transfer ref properties into the
-                    // pre-created merged Schema with allOf semantics for collisions. Pass the ref
+                    // Object×object merge path (path 1): transfer the ref's base validators and
+                    // properties into the pre-created merged Schema, as RefResolver does for a
+                    // base-level $ref. The object-level keywords (patternProperties,
+                    // additionalProperties, minProperties, propertyNames), the compositions and
+                    // the dependencies live on the referenced schema's base validators rather
+                    // than on any property, so transferring only the properties silently dropped
+                    // every one of them. Transferring only the object-level validators was
+                    // rejected: it needs a keyword list the Draft registry already owns and
+                    // would keep dropping the referenced schema's compositions.
+                    foreach ($refProperty->getNestedSchema()->getBaseValidators() as $refBaseValidator) {
+                        $mergedSchema->addBaseValidator($refBaseValidator);
+                    }
+
+                    // Properties are transferred with allOf semantics for collisions. Pass the ref
                     // property's own JsonSchema as the constraint-reapplication source (see
                     // PropertyMerger::merge()) so a colliding property that narrows type doesn't
                     // silently lose the ref's type-specific constraints (minimum, maximum, …).
@@ -563,6 +575,10 @@ class PropertyFactory
                             $schemaProcessor,
                         );
                     }
+
+                    // The merged class's own unevaluatedProperties must credit what the reference
+                    // evaluates alongside what the sibling declares.
+                    $mergedSchema->adoptEvaluatedPropertiesOfReferencedSchema($refProperty->getNestedSchema());
 
                     // Ensure the merged Schema's class can resolve all types used by the
                     // ref's properties (e.g. when those properties reference nested classes).
@@ -1460,7 +1476,7 @@ class PropertyFactory
         $coveredTypes = $type === 'any'
             ? array_filter(
                 $builtDraft->getCoveredTypes('any'),
-                static fn($coveredType) => $coveredType->getType() === 'any',
+                static fn($draftType) => $draftType->getType() === 'any',
             )
             : $builtDraft->getCoveredTypes($type);
 
