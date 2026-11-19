@@ -1532,4 +1532,55 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             MSG,
         );
     }
+
+    /**
+     * Draft 2020-12 has no tuple form: its meta-schema requires `items` to be a schema and doesn't know
+     * `additionalItems`. Generating the meaning of Draft 2019-09 was rejected (a schema the meta-schema of 2020-12
+     * calls invalid would generate silently), ignoring the keywords as well (a tuple would silently validate
+     * nothing). `additionalItems` is rejected also next to an items schema and without items.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('tupleFormInDraft2020DataProvider')]
+    public function testTupleFormIsRejectedInDraft2020(string $file, string $expectedMessage): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . str_replace(preg_quote('%file%', '/'), '.*\.json', preg_quote($expectedMessage, '/'))
+                . ' at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFile($file);
+    }
+
+    public static function tupleFormInDraft2020DataProvider(): array
+    {
+        $tupleMessage = "The tuple form of 'items' of property 'property' in file %file% doesn't exist in Draft "
+            . "2020-12 (its tuple keyword 'prefixItems' isn't supported yet): declare Draft 2019-09 or earlier in "
+            . "'\$schema' to use it";
+        $additionalItemsMessage = "The keyword 'additionalItems' of property 'property' in file %file% doesn't exist "
+            . "in Draft 2020-12: declare Draft 2019-09 or earlier in '\$schema' to use the tuple form of 'items'";
+
+        return [
+            'tuple' => ['TupleArray.json', $tupleMessage],
+            // the tuple is reported before the additionalItems next to it
+            'tuple with additionalItems' => ['TupleArraySchemaAdditionalItems.json', $tupleMessage],
+            'additionalItems next to an items schema' => [
+                'AdditionalItemsNextToAnItemsSchema.json',
+                $additionalItemsMessage,
+            ],
+            'additionalItems without items' => ['AdditionalItemsWithoutItems.json', $additionalItemsMessage],
+        ];
+    }
+
+    /**
+     * An empty items schema (`{}`) decodes to the same empty PHP array as an empty tuple (`[]`): it must not be
+     * rejected as the tuple form, it accepts every item.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testEmptyItemsSchemaIsNoTupleInDraft2020(): void
+    {
+        $className = $this->generateClassFromFile('EmptyItemsSchema.json');
+
+        $this->assertSame([1, 'a', null], (new $className(['property' => [1, 'a', null]]))->getProperty());
+    }
 }

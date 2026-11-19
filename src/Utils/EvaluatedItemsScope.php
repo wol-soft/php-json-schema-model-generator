@@ -38,7 +38,26 @@ final class EvaluatedItemsScope
      */
     public static function isTracked(PropertyInterface $property): bool
     {
-        return self::isTrackedOnPath($property, []);
+        foreach ($property->getValidators() as $propertyValidator) {
+            $validator = $propertyValidator->getValidator();
+
+            if ($validator instanceof AbstractUnevaluatedItemsValidator) {
+                return true;
+            }
+
+            if (!$validator instanceof AbstractComposedPropertyValidator) {
+                continue;
+            }
+
+            // No guard against a cycle, see directElementPropertiesOf()
+            foreach ($validator->getComposedProperties() as $branch) {
+                if (self::isTracked($branch)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -86,42 +105,12 @@ final class EvaluatedItemsScope
     }
 
     /**
-     * @param array<int, true> $path Identities of the properties on the way to $property, a reference cycle must not
-     *                               be walked endlessly. A branch which leads back to a property on the path is
-     *                               skipped before it is visited.
-     */
-    private static function isTrackedOnPath(PropertyInterface $property, array $path): bool
-    {
-        $path[ArrayItemFilterScope::identityOf($property)] = true;
-
-        foreach ($property->getValidators() as $propertyValidator) {
-            $validator = $propertyValidator->getValidator();
-
-            if ($validator instanceof AbstractUnevaluatedItemsValidator) {
-                return true;
-            }
-
-            if (!$validator instanceof AbstractComposedPropertyValidator) {
-                continue;
-            }
-
-            foreach ($validator->getComposedProperties() as $branch) {
-                if (!isset($path[ArrayItemFilterScope::identityOf($branch)]) && self::isTrackedOnPath($branch, $path)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * @param array<int, PropertyInterface> $elementProperties Keyed by identity: a property reached twice (a reference
      *                                                         cycle) is visited once.
      */
     private static function collectElementProperties(PropertyInterface $property, array &$elementProperties): void
     {
-        foreach (self::directElementPropertiesOf($property, []) as $elementProperty) {
+        foreach (self::directElementPropertiesOf($property) as $elementProperty) {
             $identity = ArrayItemFilterScope::identityOf($elementProperty);
 
             if (isset($elementProperties[$identity]) || $elementProperty->getNestedSchema() !== null) {
@@ -134,19 +123,16 @@ final class EvaluatedItemsScope
     }
 
     /**
-     * @param array<int, true> $path Identities of the properties on the way to $property
+     * The walk descends into the branches of the compositions, which validate the same value. It needs no guard
+     * against a cycle: a composition which leads back to a schema on the way without descending into the value is
+     * rejected when the schema is processed (CompositionCycleDetector), before a property exists which could be walked.
+     * A guard on the path was rejected: no schema the generator accepts can trigger it. A reference cycle through the
+     * elements descends into the value, collectElementProperties() visits each element property once.
      *
      * @return PropertyInterface[]
      */
-    private static function directElementPropertiesOf(PropertyInterface $property, array $path): array
+    private static function directElementPropertiesOf(PropertyInterface $property): array
     {
-        $identity = ArrayItemFilterScope::identityOf($property);
-
-        if (isset($path[$identity])) {
-            return [];
-        }
-
-        $path[$identity] = true;
         $elementProperties = [];
 
         foreach ($property->getValidators() as $propertyValidator) {
@@ -155,7 +141,7 @@ final class EvaluatedItemsScope
             if ($validator instanceof AbstractComposedPropertyValidator) {
                 // The branches validate the very same array: their elements are elements of this array.
                 foreach ($validator->getComposedProperties() as $branch) {
-                    array_push($elementProperties, ...self::directElementPropertiesOf($branch, $path));
+                    array_push($elementProperties, ...self::directElementPropertiesOf($branch));
                 }
 
                 continue;

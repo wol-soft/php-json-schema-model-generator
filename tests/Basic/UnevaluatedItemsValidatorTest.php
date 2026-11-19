@@ -15,6 +15,7 @@ use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
@@ -2367,5 +2368,78 @@ MSG,
 
         // The rejected values left the model untouched.
         $this->assertSame([['a'], 7], $object->getTags());
+    }
+
+    /**
+     * Two branches referencing the same definition share the property of the definition: the walks over the branches
+     * meet it twice without a cycle, its composition is activated once. Each branch credits the items the definition
+     * evaluates, through the unevaluatedItems and through the items of the composition of the definition.
+     */
+    public function testBranchesReferencingTheSameDefinitionCreditTheItemsOfTheDefinition(): void
+    {
+        $className = $this->generateClassFromFile('BranchesReferencingTheSameDefinition.json');
+
+        $object = new $className(['branchUnevaluatedItems' => ['a', 'b'], 'branchItems' => ['a']]);
+        $this->assertSame(['a', 'b'], $object->getBranchUnevaluatedItems());
+        $this->assertSame(['a'], $object->getBranchItems());
+
+        $object = new $className(['branchUnevaluatedItems' => [], 'branchItems' => []]);
+        $this->assertSame([], $object->getBranchUnevaluatedItems());
+        $this->assertSame([], $object->getBranchItems());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['branchUnevaluatedItems' => [1]],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'branchUnevaluatedItems' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Invalid value for 'branchUnevaluatedItems' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid unevaluated items in array 'branchUnevaluatedItems':
+                      - invalid unevaluated item #0
+                        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Array 'branchUnevaluatedItems' must not contain more than 0 items
+              - Composition element #2: Failed
+                * Invalid value for 'branchUnevaluatedItems' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid unevaluated items in array 'branchUnevaluatedItems':
+                      - invalid unevaluated item #0
+                        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Array 'branchUnevaluatedItems' must not contain more than 0 items
+            MSG,
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['branchItems' => [1]],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'branchItems' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * Invalid value for 'branchItems' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid items in array 'branchItems':
+                      - invalid item #0
+                        * Invalid type for 'branchItems': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Array 'branchItems' must not contain more than 0 items
+              - Composition element #2: Failed
+                * Invalid value for 'branchItems' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid items in array 'branchItems':
+                      - invalid item #0
+                        * Invalid type for 'branchItems': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Array 'branchItems' must not contain more than 0 items
+            MSG,
+        );
     }
 }

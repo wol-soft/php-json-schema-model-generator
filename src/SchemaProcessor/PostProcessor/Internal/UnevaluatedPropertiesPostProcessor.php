@@ -54,11 +54,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * Object ids of composition validators already activated in the current property
-     * walk. Required (not defensive) — a self-referencing schema such as
-     * `{type: array, allOf: [{$ref: "#"}], unevaluatedItems: false}` produces a composition
-     * validator whose composed property's wrapped property carries the same composition
-     * validator instance. Without this short-circuit, `activateArrayComposition()` would
-     * recurse indefinitely.
+     * walk. Two branches referencing the same definition (`anyOf: [{$ref: "#/$defs/x"},
+     * {$ref: "#/$defs/x"}]`) share the property of the definition and with it the composition
+     * validators of the definition. Activating such a validator a second time would assign it
+     * a second slot key and emit its slot writes twice.
      *
      * @var array<int, true>
      */
@@ -218,9 +217,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * A branch's own JSON, or - when it has no nested `Schema` of its own (true for every
      * array-typed branch, and for a self/mutually-referencing `$ref` branch) - the JSON of
      * whatever composition is nested directly inside it instead, recursing the same way
-     * `propertyHasBranchUnevaluatedItems()` does. `$seen` (keyed on file+pointer, not object
-     * identity - `getOrderedValidators()` returns fresh clones on every call) guards against the
-     * same self-referencing-schema cycle item 15 fixed there.
+     * `propertyHasBranchUnevaluatedItems()` does. `$seen` is shared by the branches of the
+     * composition: a definition referenced by two branches has its nested JSON collected by the
+     * first one only. Keyed on file+pointer, not object identity - `getOrderedValidators()`
+     * returns fresh clones on every call.
      *
      * @param array<string, bool> $seen
      */
@@ -446,7 +446,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         // within its own branch and needs no outer crediting, but it still evaluates the items of the contains and
         // of the compositions of its own branch.
         if (!$hasDirectUnevaluatedItems) {
-            return [true, $this->activateBranchEvaluation($arrayProperty, [])];
+            return [true, $this->activateBranchEvaluation($arrayProperty)];
         }
 
         // A direct-sibling `contains` credits its matched indices to the property's evaluated
@@ -493,21 +493,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * keyword: such a branch evaluates the items of its own contains and of the compositions nested in the branch.
      * The walk covers the compositions nested in the branches.
      *
-     * @param array<string, true> $seen Locations of the properties already visited, a self-referencing composition
-     *                                  must not be walked endlessly. Keyed on file and pointer instead of the object
-     *                                  identity: the wrapped property is not guaranteed to be stable.
+     * The walk needs no guard against a cycle: a composition which leads back to a schema on the way without
+     * descending into the value is rejected when the schema is processed (CompositionCycleDetector). A guard on the
+     * path was rejected: no schema the generator accepts can trigger it. A definition reached by two branches is
+     * walked twice, activateArrayComposition() activates each composition once.
      *
      * @return bool Whether a composition was activated: the model requires the field of the compositions then
      */
-    private function activateBranchEvaluation(PropertyInterface $property, array $seen): bool
+    private function activateBranchEvaluation(PropertyInterface $property): bool
     {
-        $propertyKey = $property->getJsonSchema()->getFile() . '#' . $property->getJsonSchema()->getPointer();
-
-        if (isset($seen[$propertyKey])) {
-            return false;
-        }
-
-        $seen[$propertyKey] = true;
         $compositionActivated = false;
 
         foreach ($this->getSourceValidators($property) as $validator) {
@@ -529,8 +523,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     }
                 }
 
-                $compositionActivated = $this->activateBranchEvaluation($wrappedProperty, $seen)
-                    || $compositionActivated;
+                $compositionActivated = $this->activateBranchEvaluation($wrappedProperty) || $compositionActivated;
             }
         }
 
@@ -552,12 +545,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * `activateValidatorsInBranch()` already walks this exact structure for the activation step
      * itself.
      *
-     * A self-referencing array composition (e.g. `{type: array, allOf: [{$ref: "#"}]}`) makes
-     * the wrapped property this recurses into the same property again, indefinitely — required
-     * cycle protection, not defensive. Keyed on file+pointer rather than object identity because
-     * `getOrderedValidators()` returns fresh clones on every call (see
-     * `activateValidatorsInBranch()`'s own comment on this), so the wrapped `PropertyInterface`
-     * instance is not guaranteed stable across recursive calls even for the same schema location.
+     * `$seen` holds the answer for each property already walked: a definition referenced by two
+     * branches (`anyOf: [{$ref: "#/$defs/x"}, {$ref: "#/$defs/x"}]`) is walked once. Keyed on
+     * file+pointer rather than object identity because `getOrderedValidators()` returns fresh
+     * clones on every call (see `activateValidatorsInBranch()`'s own comment on this), so the
+     * wrapped `PropertyInterface` instance is not guaranteed stable across recursive calls even
+     * for the same schema location.
      */
     private function propertyHasBranchUnevaluatedItems(PropertyInterface $property, array &$seen = []): bool
     {
@@ -619,8 +612,8 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * validator gets its trackBranchMatches flag set so the contains template exports per-
      * index match results to the surrounding composition body.
      *
-     * The instance-level `$activatedCompositions` set guards against `$ref`-induced cycles
-     * in the composition graph; activating the same validator twice would double-emit slot
+     * The instance-level `$activatedCompositions` set activates a validator shared by two
+     * branches referencing the same definition once; activating it twice would double-emit slot
      * writes and confuse the rebuild.
      */
     private function activateArrayComposition(

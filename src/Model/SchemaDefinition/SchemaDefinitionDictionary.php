@@ -168,7 +168,8 @@ class SchemaDefinitionDictionary extends ArrayObject
             [$schema, $dictionary] = $referenced;
             $location = $schema->getFile() . '#' . $schema->getPointer();
 
-            // A chain of references leading back to a definition of the chain is rejected by the cycle detection
+            // A chain of references leading back to a definition of the chain ends at the repetition, following it
+            // further would never end. The cycle detection only rejects such a chain if it passes a composition.
             if (isset($visitedLocations[$location])) {
                 break;
             }
@@ -269,7 +270,7 @@ class SchemaDefinitionDictionary extends ArrayObject
         // First encounter of this external file. If the file lives within the provider's base
         // directory it will eventually be iterated by the provider and must receive the canonical
         // class name derived from its filename. Process it eagerly now so the correct class is
-        // used even when the referencing schema is discovered first (issue #116).
+        // used even when the referencing schema is discovered first.
         //
         // If the file is outside the provider's base directory the provider will never iterate it,
         // so we use an ExternalSchema placeholder instead — this avoids rendering and requiring
@@ -282,7 +283,7 @@ class SchemaDefinitionDictionary extends ArrayObject
         if ($isInsideBaseDir) {
             // The file lives within the provider's base directory and will eventually be iterated.
             // Process it eagerly now so the canonical class name (derived from the filename) is
-            // used regardless of which schema the provider discovers first (issue #116).
+            // used regardless of which schema the provider discovers first.
             // processTopLevelSchema also registers the schema in processedFileSchemas, so no
             // separate registerProcessedFileSchema call is needed here.
             //

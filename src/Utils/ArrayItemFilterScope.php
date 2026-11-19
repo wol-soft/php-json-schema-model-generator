@@ -45,7 +45,7 @@ class ArrayItemFilterScope
         bool $includeValidationOnlyBranches = false,
     ): array {
         $declarations = [];
-        self::collectDeclarations($property, false, $includeValidationOnlyBranches, [], $declarations);
+        self::collectDeclarations($property, false, $includeValidationOnlyBranches, $declarations);
 
         return $declarations;
     }
@@ -283,27 +283,19 @@ class ArrayItemFilterScope
     }
 
     /**
-     * @param array<int, true> $path Identities of the properties on the way to $property, a reference cycle must not
-     *                               be walked endlessly (the same property in a branch is fine when it is reached
-     *                               by another way).
+     * The walk descends into the branches of the compositions only, which validate the same value. It needs no guard
+     * against a cycle: a composition which leads back to a schema on the way without descending into the value is
+     * rejected when the schema is processed (CompositionCycleDetector), before a property exists which could be walked.
+     * A guard on the path was rejected: no schema the generator accepts can trigger it.
+     *
      * @param ArrayItemDeclaration[] $declarations
      */
     private static function collectDeclarations(
         PropertyInterface $property,
         bool $conditional,
         bool $includeValidationOnlyBranches,
-        array $path,
         array &$declarations,
     ): void {
-        // A branch is a new decorator on every visit, the cycle is formed by the property it wraps.
-        $identity = self::identityOf($property);
-
-        if (isset($path[$identity])) {
-            return;
-        }
-
-        $path[$identity] = true;
-
         foreach ($property->getValidators() as $propertyValidator) {
             $validator = $propertyValidator->getValidator();
 
@@ -337,7 +329,6 @@ class ArrayItemFilterScope
                     $branch,
                     $conditional || !$validator->isAllOf(),
                     $includeValidationOnlyBranches,
-                    $path,
                     $declarations,
                 );
             }
