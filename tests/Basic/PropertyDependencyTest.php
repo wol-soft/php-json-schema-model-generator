@@ -14,32 +14,38 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * A property dependency constrains the objects which contain the property, whether or not
-     * the property is declared in `properties`. The dependencies are only wired from the declared
-     * (and the required) properties, so the dependency below is dropped silently and the object
-     * is accepted although `billing_address` is missing.
-     *
-     * The test turns green by itself as soon as the dependency is enforced; the assertion of the
-     * complete exception message belongs here then.
+     * A property dependency constrains the objects which contain the property, whether or not the property is
+     * declared in `properties`.
      */
     public function testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): void
     {
-        $className = $this->generateClassFromFile('DependencyOnUndeclaredProperty.json');
-
-        try {
-            new $className(['credit_card' => 12345]);
-        } catch (InvalidPropertyDependencyException) {
-            return;
-        }
-
-        $this->markTestIncomplete(
-            'Known gap: a dependency of a property which is neither declared nor required is dropped silently.',
+        $className = $this->generateClassFromFile(
+            'DependencyOnUndeclaredProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
         );
+
+        $this->assertNull((new $className([]))->getCreditCard());
+        $this->assertSame(
+            12345,
+            (new $className(['credit_card' => 12345, 'billing_address' => 'Main Street']))->getCreditCard(),
+        );
+
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+            ERROR,
+        );
+
+        new $className(['credit_card' => 12345]);
     }
 
     #[DataProvider('validPropertyDependencyDataProvider')]
@@ -299,26 +305,19 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertInstanceOf(OneOfException::class, $exception);
         $this->assertSame(
-            "Invalid value for '$className' declined by composition constraint\n"
-                . "  Requires to match one composition element but matched 2 elements\n"
-                . "  - Composition element #1: Valid\n"
-                . '  - Composition element #2: Valid',
+            <<<ERROR
+            Invalid value for '$className' declined by composition constraint
+              Requires to match one composition element but matched 2 elements
+              - Composition element #1: Valid
+              - Composition element #2: Valid
+            ERROR,
             $exception->getMessage(),
         );
     }
 
     public static function allOfBranchDependencyProvider(): array
     {
-        return [
-            'property dependency' => [
-                '["extra"]',
-                "    * Missing required attributes which are dependants of 'note':\n      - 'extra'",
-            ],
-            'schema dependency' => [
-                '{"required": ["extra"]}',
-                "    * Invalid schema which is dependant on 'note':\n      - Missing required value for 'extra'",
-            ],
-        ];
+        return self::branchDependencyErrorProvider();
     }
 
     /**
@@ -343,11 +342,13 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertCount(1, $exception->getErrors());
         $this->assertInstanceOf(AllOfException::class, $exception->getErrors()[0]);
         $this->assertSame(
-            "Invalid value for '$className' declined by composition constraint\n"
-                . "  Requires to match all composition elements but matched 1 element\n"
-                . "  - Composition element #1: Valid\n"
-                . "  - Composition element #2: Failed\n"
-                . $branchError,
+            <<<ERROR
+            Invalid value for '$className' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+            $branchError
+            ERROR,
             $exception->getMessage(),
         );
 
@@ -389,17 +390,15 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * When array-form dependency targets are already declared elsewhere — directly in `properties`
-     * or through a composition branch — the synthesised trigger carries a mixed type hint while
-     * each target inherits its type from its prior declaration rather than being re-synthesised
-     * as mixed. Covers root-property narrowing (billing_address typed as string) and composition
-     * narrowing (name typed as string via allOf).
+     * The trigger isn't declared in `properties` and gets an untyped accessor. The targets are declared by the
+     * `properties` of the schema (billing_address) and by an allOf branch (name): all of them are readable and the
+     * dependency is enforced.
      */
-    public function testArrayFormDependencyTargetsInheritDeclaredTypesWhenAlreadyPresent(): void
+    public function testArrayFormDependencyOnTargetsDeclaredElsewhereIsEnforced(): void
     {
         $className = $this->generateClassFromFile('NarrowedTargetPropertyDependency.json');
 
-        // Valid: no trigger; all properties readable with their declared types
+        // Valid: no trigger; all properties readable
         $object = new $className([]);
         $this->assertNull($object->getCreditCard());
         $this->assertNull($object->getBillingAddress());
@@ -414,7 +413,11 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but both targets absent
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'\n  - 'name'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+              - 'name'
+            ERROR,
         );
 
         new $className(['credit_card' => 'any']);
@@ -580,7 +583,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => '1234']);
@@ -611,7 +617,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 12345]);
@@ -643,7 +652,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'name':\n  - 'nickname'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'name':
+              - 'nickname'
+            ERROR,
         );
 
         new $className(['name' => 'John']);
@@ -678,24 +690,46 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
             $configuration->collectErrors() ? ErrorRegistryException::class : AllOfException::class,
             $exception,
         );
-        $this->assertStringContainsString($branchError, $exception->getMessage());
+        $this->assertSame(
+            <<<ERROR
+            Invalid value for '$className' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+            $branchError
+            ERROR,
+            $exception->getMessage(),
+        );
     }
 
     public static function undeclaredTriggerInAllOfBranchProvider(): array
     {
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
-            [
-                'property dependency' => [
-                    '["extra"]',
-                    "    * Missing required attributes which are dependants of 'note':\n      - 'extra'",
-                ],
-                'schema dependency' => [
-                    '{"required": ["extra"]}',
-                    "    * Invalid schema which is dependant on 'note':\n      - Missing required value for 'extra'",
-                ],
-            ],
+            self::branchDependencyErrorProvider(),
         );
+    }
+
+    /**
+     * The error of the second branch as reported in the composition error, for each dependency form.
+     */
+    private static function branchDependencyErrorProvider(): array
+    {
+        return [
+            'property dependency' => [
+                '["extra"]',
+                <<<ERROR
+                    * Missing required attributes which are dependants of 'note':
+                      - 'extra'
+                ERROR,
+            ],
+            'schema dependency' => [
+                '{"required": ["extra"]}',
+                <<<ERROR
+                    * Invalid schema which is dependant on 'note':
+                      - Missing required value for 'extra'
+                ERROR,
+            ],
+        ];
     }
 
     private function getWarnings(RecordingLogger $recordingLogger): array

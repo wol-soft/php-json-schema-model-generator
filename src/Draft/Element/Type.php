@@ -36,13 +36,6 @@ class Type
         return $this;
     }
 
-    public function removeValidator(string $key): self
-    {
-        unset($this->modifiers[$key]);
-
-        return $this;
-    }
-
     public function getType(): string
     {
         return $this->type;

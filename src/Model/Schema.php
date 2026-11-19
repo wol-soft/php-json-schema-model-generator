@@ -697,6 +697,19 @@ class Schema
         return $this;
     }
 
+    /**
+     * Replaces each base validator by the validator the callback returns for it. The keys are kept, as
+     * getCompositionValidatorKeys() refers to them.
+     *
+     * @param callable(PropertyValidatorInterface): PropertyValidatorInterface $replace
+     */
+    public function replaceBaseValidators(callable $replace): self
+    {
+        $this->baseValidators = array_map($replace, $this->baseValidators);
+
+        return $this;
+    }
+
     public function addPostCompositionValidator(PropertyValidatorInterface $postCompositionValidator): self
     {
         $this->postCompositionValidators[] = $postCompositionValidator;

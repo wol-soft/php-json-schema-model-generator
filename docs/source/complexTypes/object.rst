@@ -856,6 +856,8 @@ Generated interface:
 
     The same applies to filters: a filter of a property inside the dependency schema runs inside the dependency schema (the validators of the property see the filtered value) but the base object returns the value as provided. If the base object should return the filtered value declare the property including the filter in your main schema. A property which is declared by the main schema keeps the declaration of the main schema, independent of the order of the properties.
 
+    The dependency schema may declare a property of the main schema with a different type. As the dependency schema only applies if the property which defines the dependency is present, such a schema isn't contradictory: it only rejects data which contains both properties.
+
 Possible exceptions:
 
 .. code-block:: none
@@ -881,7 +883,7 @@ Multiple violations against the schema dependency may be included.
 Boolean dependencies
 ^^^^^^^^^^^^^^^^^^^^
 
-The value of a dependency can be the boolean literal ``true`` or ``false``. A ``true`` dependency imposes nothing. A ``false`` dependency can't be fulfilled by any object which contains the property, so the property is forbidden: an object which contains the key (also with a ``null`` value) is rejected with a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException*. A property which is also listed as ``required`` can never be provided validly and is rejected with a **SchemaException** during the generation.
+The value of a dependency can be the boolean literal ``true`` or ``false``. A ``true`` dependency imposes nothing. A ``false`` dependency can't be fulfilled by any object which contains the property, so the property is forbidden: an object which contains the key (also with a ``null`` value) is rejected with an *InvalidSchemaDependencyException* like any other violated schema dependency. It contains a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException* for the property. A property which is also listed as ``required`` can never be provided validly and is rejected with a **SchemaException** during the generation.
 
 .. code-block:: json
 
@@ -896,6 +898,13 @@ The value of a dependency can be the boolean literal ``true`` or ``false``. A ``
             "legacy_id": false
         }
     }
+
+An object which contains ``legacy_id`` is rejected with:
+
+.. code-block:: none
+
+    Invalid schema which is dependant on 'legacy_id':
+      - Value for 'legacy_id' is not allowed
 
 Dependencies on undeclared properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

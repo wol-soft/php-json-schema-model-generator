@@ -6,7 +6,9 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -14,33 +16,41 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
+use Throwable;
 
+#[ApplicableDrafts]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * The schema dependency counterpart of PropertyDependencyTest::
-     * testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): the dependency of a property which
-     * is neither declared nor required is dropped silently, so the object is accepted although the
-     * dependency requires `billing_address`.
-     *
-     * The test turns green by itself as soon as the dependency is enforced; the assertion of the
-     * complete exception message belongs here then.
+     * testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): a schema dependency constrains the objects which
+     * contain the property, whether or not the property is declared in `properties`.
      */
     public function testSchemaDependencyOfAnUndeclaredPropertyIsEnforced(): void
     {
-        $className = $this->generateClassFromFile('SchemaDependencyOnUndeclaredProperty.json');
-
-        try {
-            new $className(['credit_card' => 12345]);
-        } catch (InvalidSchemaDependencyException) {
-            return;
-        }
-
-        $this->markTestIncomplete(
-            'Known gap: a dependency of a property which is neither declared nor required is dropped silently.',
+        $className = $this->generateClassFromFile(
+            'SchemaDependencyOnUndeclaredProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
         );
+
+        $this->assertNull((new $className([]))->getCreditCard());
+        $this->assertSame(
+            12345,
+            (new $className(['credit_card' => 12345, 'billing_address' => 'Main Street']))->getCreditCard(),
+        );
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid schema which is dependant on 'credit_card':
+              - Missing required value for 'billing_address'
+            ERROR,
+        );
+
+        new $className(['credit_card' => 12345]);
     }
 
     #[DataProvider('validSchemaDependencyDataProvider')]
@@ -77,7 +87,8 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidSchemaDependency(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message,
+        string $directExceptionMessage,
+        string $collectedErrorsMessage,
     ): void {
         $className = $this->generateClassFromFile('SchemaDependency.json', $configuration);
 
@@ -85,9 +96,11 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
             new $className($propertyValue);
             $this->fail('Expected exception for invalid schema dependency');
         } catch (ErrorRegistryException | InvalidSchemaDependencyException $exception) {
-            // collectErrors(true) appends additional collected errors after the expected message,
-            // matching the substring-style assertion the original expectExceptionMessage() used.
-            $this->assertStringContainsString($message, $exception->getMessage());
+            // The direct exception reports the first violation of the dependency schema only.
+            $this->assertSame(
+                $configuration->collectErrors() ? $collectedErrorsMessage : $directExceptionMessage,
+                $exception->getMessage(),
+            );
 
             // collectErrors(true) wraps the dependency exception in an ErrorRegistryException.
             $innerException = $exception instanceof ErrorRegistryException
@@ -110,6 +123,11 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                     Invalid schema which is dependant on 'credit_card':
                       - Missing required value for 'date_of_birth'
                     ERROR,
+                    <<<ERROR
+                    Invalid schema which is dependant on 'credit_card':
+                      - Missing required value for 'date_of_birth'
+                      - Invalid type for 'date_of_birth': requires 'string', got 'NULL'
+                    ERROR,
                 ],
                 'required attribute not provided 2' => [
                     ['credit_card' => 12345, 'billing_address' => '555 Debitors Lane'],
@@ -117,9 +135,18 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                     Invalid schema which is dependant on 'credit_card':
                       - Missing required value for 'date_of_birth'
                     ERROR,
+                    <<<ERROR
+                    Invalid schema which is dependant on 'credit_card':
+                      - Missing required value for 'date_of_birth'
+                      - Invalid type for 'date_of_birth': requires 'string', got 'NULL'
+                    ERROR,
                 ],
                 'invalid data type' => [
                     ['credit_card' => 12345, 'date_of_birth' => false],
+                    <<<ERROR
+                    Invalid schema which is dependant on 'credit_card':
+                      - Invalid type for 'date_of_birth': requires 'string', got 'boolean'
+                    ERROR,
                     <<<ERROR
                     Invalid schema which is dependant on 'credit_card':
                       - Invalid type for 'date_of_birth': requires 'string', got 'boolean'
@@ -343,15 +370,27 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $message,
     ): void {
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/$message/m");
-
         $className = $this->generateClassFromFile(
             'NestedObjectSchemaDependency.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
-        new $className($propertyValue);
+        $exception = $this->catchException(static fn() => new $className($propertyValue));
+
+        $this->assertInstanceOf(ErrorRegistryException::class, $exception);
+
+        // Compared exactly, not by containment: the violation of the nested object belongs to the dependency schema
+        // and must not be reported a second time for the property of the base model, appended after the message.
+        if ($exception->getMessage() === $message) {
+            return;
+        }
+
+        // Known gap: the property copied from the dependency schema to the base model keeps the instantiation of the
+        // nested object and reports the violation once more. Any other deviation fails here.
+        $this->assertStringStartsWith($message . "\n", $exception->getMessage());
+        $this->markTestIncomplete(
+            'Known gap: a property declared by a dependency schema validates its nested object on the base model too.',
+        );
     }
 
     public static function invalidSchemaDependencyNestedObjectDataProvider(): array
@@ -396,6 +435,37 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * Without the trigger the dependency schema is inactive: the value of a property which only the dependency schema
+     * declares must not be validated against that declaration.
+     */
+    public function testPropertyDeclaredByAnInactiveDependencySchemaIsNotValidated(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedObjectSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            $object = new $className(['owner' => ['age' => 42]]);
+        } catch (NestedObjectException $exception) {
+            // Known gap: the property copied from the dependency schema to the base model keeps the instantiation of
+            // the nested object, which validates the value although the trigger is absent.
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid nested object for property 'owner':
+                  - Missing required value for 'name'
+                ERROR,
+                $exception->getMessage(),
+            );
+            $this->markTestIncomplete(
+                'Known gap: a property declared by a dependency schema is validated while the trigger is absent.',
+            );
+        }
+
+        $this->assertSame(['owner' => ['age' => 42]], $object->meta()->rawInput());
+    }
+
     public static function dependencySchemaRedeclaringMainPropertyDataProvider(): array
     {
         return [
@@ -433,20 +503,19 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         // The dependency schema is still enforced.
         $this->expectException(InvalidSchemaDependencyException::class);
         $this->expectExceptionMessage(
-            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Missing required value for 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 12345]);
     }
 
     /**
-     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
-     * silently dropped instead of being enforced — the schema-form variant of
-     * testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced in PropertyDependencyTest.
-     *
-     * Also asserts that the trigger property and the properties declared inside the dependency
-     * subschema are both synthesised onto the generated class and accessible via their accessors,
-     * even though neither appears in the schema's top-level `properties` block.
+     * A schema dependency on a key which is declared neither in `properties` nor in `required` is enforced. The
+     * trigger and the properties declared by the dependency schema get accessors, although none of them is part of
+     * the `properties` of the schema.
      */
     public function testSchemaDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
     {
@@ -465,7 +534,10 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but required dependent property absent
         $this->expectException(InvalidSchemaDependencyException::class);
         $this->expectExceptionMessage(
-            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Missing required value for 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 12345]);
@@ -584,18 +656,15 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * When a schema-form dependency trigger is absent from the root `properties` block and its
-     * subschema declares properties that are already present — either in root `properties` or via
-     * a composition branch — the trigger is synthesised as mixed while each subschema property is
-     * merged with its pre-existing declaration (same path as allOf property merging) rather than
-     * being introduced anew. Covers root-property merging (billing_address) and composition
-     * merging (name via allOf).
+     * The trigger isn't declared in `properties` and gets an untyped accessor. The properties of the dependency
+     * schema are also declared by the `properties` of the schema (billing_address) and by an allOf branch (name):
+     * all of them are readable and the dependency schema is enforced.
      */
-    public function testSchemaDependencySubschemaPropertiesMergeWithPreExistingDeclarations(): void
+    public function testSchemaDependencyOnPropertiesDeclaredElsewhereIsEnforced(): void
     {
         $className = $this->generateClassFromFile('NarrowedTargetSchemaDependency.json');
 
-        // Valid: no trigger; all properties readable with their declared types
+        // Valid: no trigger; all properties readable
         $object = new $className([]);
         $this->assertNull($object->getCreditCard());
         $this->assertNull($object->getBillingAddress());
@@ -610,26 +679,167 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but required properties absent
         $this->expectException(InvalidSchemaDependencyException::class);
         $this->expectExceptionMessage(
-            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Missing required value for 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 'any']);
     }
 
     /**
-     * When a dep-subschema declares a property whose type contradicts the type already declared
-     * for that property in the root schema, generation must fail with SchemaException. The
-     * contradiction is unsatisfiable: the root schema constrains billing_address to integer while
-     * the dependency subschema for credit_card constrains it to string.
+     * A dependency schema declaring a property with a type disjoint from the base declaration doesn't make the
+     * schema contradictory: the dependency schema only applies while the trigger is present, so the two properties
+     * just can't be combined. Rejecting the schema at generation time (as for disjoint allOf branches, which always
+     * apply) would refuse valid data. The base declaration defines the generated property.
      */
-    public function testSchemaDependencyConflictingPropertyTypeThrowsSchemaException(): void
+    public function testDependencySchemaWithADisjointPropertyTypeOnlyRejectsTheCombination(): void
     {
-        $this->expectException(SchemaException::class);
-        $conflictPattern = "/^Property 'billing_address' is defined with conflicting types"
-            . " between the dependency schema for 'credit_card' and the base schema in file /";
-        $this->expectExceptionMessageMatches($conflictPattern);
+        $className = $this->generateClassFromFile(
+            'ConflictingSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
 
-        $this->generateClassFromFile('ConflictingSchemaDependency.json');
+        $this->assertSame('?int', (string) (new ReflectionMethod($className, 'getBillingAddress'))->getReturnType());
+
+        // the dependency schema is inactive without the trigger
+        $object = new $className(['billing_address' => 555]);
+        $this->assertSame(555, $object->getBillingAddress());
+
+        // the dependency schema doesn't require billing_address
+        $object = new $className(['credit_card' => 12345]);
+        $this->assertSame(12345, $object->getCreditCard());
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Invalid type for 'billing_address': requires 'string', got 'integer'
+            ERROR,
+        );
+
+        new $className(['credit_card' => 12345, 'billing_address' => 555]);
+    }
+
+    /**
+     * The dependency schema true accepts every value, so the trigger may be provided with or without any other
+     * property.
+     */
+    public function testTrueDependencySchemaAcceptsEveryValue(): void
+    {
+        $className = $this->generateClassFromFile(
+            'TrueSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+
+        $object = new $className(['credit_card' => 12345]);
+        $this->assertSame(12345, $object->getCreditCard());
+
+        $object = new $className(['credit_card' => 12345, 'billing_address' => false]);
+        $this->assertSame(12345, $object->getCreditCard());
+    }
+
+    /**
+     * The dependency schema false rejects the data whenever the trigger is present. The violation is reported like
+     * the violation of any other dependency schema: an InvalidSchemaDependencyException wrapping the
+     * DeniedPropertyException of the trigger. Covers a declared trigger (credit_card), an undeclared trigger
+     * (debit_card) and the setter of the declared trigger.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testFalseDependencySchemaRejectsTheTrigger(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('FalseSchemaDependency.json', $configuration->setImmutable(false));
+
+        $object = new $className(['billing_address' => '555 Debitors Lane']);
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        $assertRejectedTrigger = function (?Throwable $exception, string $trigger) use ($configuration): void {
+            $this->assertInstanceOf(
+                $configuration->collectErrors()
+                    ? ErrorRegistryException::class
+                    : InvalidSchemaDependencyException::class,
+                $exception,
+            );
+            $this->assertSame(
+                <<<ERROR
+                Invalid schema which is dependant on '$trigger':
+                  - Value for '$trigger' is not allowed
+                ERROR,
+                $exception->getMessage(),
+            );
+
+            $dependencyException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+            $this->assertInstanceOf(InvalidSchemaDependencyException::class, $dependencyException);
+            $this->assertSame("/dependencies/$trigger", $dependencyException->getJsonPointer()->pointer);
+
+            $deniedException = $dependencyException->getDependencyException();
+            if ($deniedException instanceof ErrorRegistryException) {
+                $deniedException = $deniedException->getErrors()[0];
+            }
+            $this->assertInstanceOf(DeniedPropertyException::class, $deniedException);
+            // the schema false of the dependency rejected the value; the dependency schema denying the trigger,
+            // which processes it, doesn't exist in the schema file
+            $this->assertSame("/dependencies/$trigger", $deniedException->getJsonPointer()->pointer);
+            $this->assertSame("/$trigger", $deniedException->getInstancePointer()->pointer);
+        };
+
+        $assertRejectedTrigger(
+            $this->catchException(static fn() => new $className(['credit_card' => 12345])),
+            'credit_card',
+        );
+        $assertRejectedTrigger(
+            $this->catchException(static fn() => new $className(['debit_card' => 1])),
+            'debit_card',
+        );
+
+        $assertRejectedTrigger(
+            $this->catchException(static fn() => $object->setCreditCard(12345)),
+            'credit_card',
+        );
+        $this->assertNull($object->getCreditCard());
+    }
+
+    /**
+     * The nested object `card` and the root declare the identical dependency schema false for credit_card, so the
+     * dependency schema processed for the nested object first is reused for the root. The reuse must not move the
+     * location of the denial of the nested object to the root dependency.
+     */
+    public function testReusedFalseDependencySchemaKeepsTheLocationOfItsFirstOccurrence(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ReusedFalseSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $nestedObjectException = $this->catchException(
+            static fn() => new $className(['card' => ['credit_card' => 12345]]),
+        );
+        $this->assertInstanceOf(NestedObjectException::class, $nestedObjectException);
+
+        $dependencyException = $nestedObjectException->getNestedException();
+        $this->assertInstanceOf(InvalidSchemaDependencyException::class, $dependencyException);
+        $this->assertSame('/properties/card/dependencies/credit_card', $dependencyException->getJsonPointer()->pointer);
+        $this->assertSame(
+            '/properties/card/dependencies/credit_card',
+            $dependencyException->getDependencyException()->getJsonPointer()->pointer,
+        );
+
+        $dependencyException = $this->catchException(static fn() => new $className(['credit_card' => 12345]));
+        $this->assertInstanceOf(InvalidSchemaDependencyException::class, $dependencyException);
+        $this->assertSame('/dependencies/credit_card', $dependencyException->getJsonPointer()->pointer);
+        $this->assertSame(
+            <<<ERROR
+            Invalid schema which is dependant on 'credit_card':
+              - Value for 'credit_card' is not allowed
+            ERROR,
+            $dependencyException->getMessage(),
+        );
     }
 
     /**

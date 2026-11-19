@@ -5,19 +5,18 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\DeniedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
-use PHPModelGenerator\Utils\TypeIntersection;
 
 class DependenciesValidatorFactory extends AbstractValidatorFactory
 {
@@ -40,6 +39,11 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
 
         foreach ($json['dependencies'] as $triggerName => $dependency) {
             $triggerName = (string) $triggerName;
+            // A boolean dependency value is navigated to as a boolean schema.
+            $dependencyJsonSchema = $propertySchema->navigate(
+                'dependencies/' . JsonSchemaUtil::encodePointer($triggerName),
+            );
+            $dependencyPointer = $dependencyJsonSchema->getPointer();
 
             if (($json['properties'][$triggerName] ?? null) === false) {
                 throw new SchemaException(
@@ -48,17 +52,26 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                         $triggerName,
                         $propertySchema->getFile(),
                     ),
+                    $dependencyJsonSchema,
                 );
             }
 
-            $dependencyJsonSchema = $propertySchema->navigate(
-                'dependencies/' . JsonSchemaUtil::encodePointer($triggerName),
-            );
-
-            if ($dependencyJsonSchema->isBooleanSchema()) {
-                $this->addBooleanDependencyValidator($triggerName, $json, $dependencyJsonSchema, $schema);
-
+            // The dependency schema true accepts every value: nothing to enforce, so an undeclared trigger isn't
+            // promoted to a property either (the promotion only provides the property carrying the validator).
+            if ($dependency === true) {
                 continue;
+            }
+
+            if ($dependency === false && in_array($triggerName, $json['required'] ?? [], true)) {
+                throw new SchemaException(
+                    sprintf(
+                        "Property '%s' has the dependency false and must not be provided, but is also listed as"
+                            . ' required in file %s',
+                        $triggerName,
+                        $propertySchema->getFile(),
+                    ),
+                    $dependencyJsonSchema,
+                );
             }
 
             $unreachableReason = $this->getUnreachableTriggerReason($schemaProcessor, $json, $triggerName);
@@ -94,9 +107,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                     $schema,
                     $propertyFactory,
                 );
-                $dependencyPointer = $propertySchema->getPointer()
-                    . '/dependencies/'
-                    . JsonSchemaUtil::encodePointer($triggerName);
                 // A trigger declared via $ref is recycled for every reference to the definition; the dependency
                 // belongs to this schema only.
                 $schema->withOwnedProperty(
@@ -107,6 +117,15 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                     ),
                 );
                 continue;
+            }
+
+            // The dependency schema false only applies while the trigger is present, so it is equivalent to a
+            // dependency schema denying the trigger: processed as such, the violation is reported like any other
+            // schema dependency (an InvalidSchemaDependencyException wrapping the DeniedPropertyException of the
+            // trigger). A validator on the schema throwing a bare DeniedPropertyException was rejected: it reports
+            // the trigger as if the schema denied it directly and hides that the dependency caused the rejection.
+            if ($dependency === false) {
+                $dependencyJsonSchema = $dependencyJsonSchema->withJson(['properties' => [$triggerName => false]]);
             }
 
             // The dependency schema is validated against the object which holds the property, so an untyped dependency
@@ -146,6 +165,10 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 );
             }
 
+            if ($dependency === false) {
+                $this->locateDenialAtTheFalseSchema($dependencySchema, $dependencyPointer, $triggerName);
+            }
+
             // Attached to the trigger property, not as a schema-level base validator: base validators only run
             // for the constructor, so a setter or a removal of an additional property would skip the dependency.
             // A trigger declared via $ref is recycled for every reference to the definition (a PropertyProxy
@@ -160,12 +183,12 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
             );
             $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
-            $this->transferDependencySchemaPropertiesToBaseSchema(
-                $dependencySchema,
-                $schema,
-                $triggerName,
-                $propertySchema->getFile(),
-            );
+            $this->transferDependencySchemaPropertiesToBaseSchema($dependencySchema, $schema);
+
+            // The denied trigger is the only property of the dependency schema false, which evaluates nothing.
+            if ($dependency === false) {
+                continue;
+            }
 
             // The dependent subschema is a positive applicator at the same instance location as the schema that
             // declares it, so whatever it evaluates is evaluated there too and a sibling `unevaluatedProperties` must
@@ -221,44 +244,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
         if ($uncreditedKeywords !== []) {
             $schema->addDependentContributionShortfall($triggerName, $uncreditedKeywords);
         }
-    }
-
-    /**
-     * A dependency which is `true` imposes nothing. A dependency which is `false` can't be satisfied by any object that
-     * contains the property, so the property must not be provided at all: the presence of the key in the model data is
-     * denied exactly like the `false` entry of `properties` does, which doesn't depend on the value (also not on a null
-     * which implicit null treats as absent). A required property would never be valid, which is rejected like the
-     * required property of a `false` entry in `properties`.
-     *
-     * @throws SchemaException
-     */
-    private function addBooleanDependencyValidator(
-        string $triggerName,
-        array $json,
-        JsonSchema $dependencyJsonSchema,
-        Schema $schema,
-    ): void {
-        if ($dependencyJsonSchema->getBooleanValue()) {
-            return;
-        }
-
-        if (in_array($triggerName, $json['required'] ?? [], true)) {
-            throw new SchemaException(
-                sprintf(
-                    "Property '%s' has the dependency false and must not be provided, but is also listed as required"
-                        . " in file %s",
-                    $triggerName,
-                    $dependencyJsonSchema->getFile(),
-                ),
-                $dependencyJsonSchema,
-            );
-        }
-
-        $schema->addBaseValidator(
-            (new DeniedPropertyValidator(
-                new Property($triggerName, null, $dependencyJsonSchema->withJson([])),
-            ))->withJsonPointer($dependencyJsonSchema->getPointer()),
-        );
     }
 
     private function formatDeclaredTypes(mixed $declaredType): string
@@ -349,35 +334,41 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
         }
     }
 
-    private function transferDependencySchemaPropertiesToBaseSchema(
+    /**
+     * The denial of the trigger in the rewritten dependency schema points at /properties/<trigger> inside it, a
+     * location which doesn't exist in the schema file: the value was rejected by the schema false at the dependency.
+     *
+     * Only a validator still carrying the rewritten location is relocated. processSchema() reuses the dependency
+     * schema for an identical `false` dependency elsewhere (same trigger name); relocating unconditionally would move
+     * the pointer of the first occurrence to the second one. Like every other reused schema, the reused one keeps
+     * the location of its first occurrence.
+     */
+    private function locateDenialAtTheFalseSchema(
         Schema $dependencySchema,
-        Schema $schema,
+        string $dependencyPointer,
         string $triggerName,
-        string $schemaFile,
     ): void {
+        $rewrittenPointer = $dependencyPointer . '/properties/' . JsonSchemaUtil::encodePointer($triggerName);
+
+        $dependencySchema->replaceBaseValidators(
+            static fn(PropertyValidatorInterface $validator): PropertyValidatorInterface =>
+                $validator instanceof DeniedPropertyValidator && $validator->getJsonPointer() === $rewrittenPointer
+                    ? $validator->withJsonPointer($dependencyPointer)
+                    : $validator,
+        );
+    }
+
+    /**
+     * A property which the base schema declares keeps the declaration of the base schema.
+     *
+     * A declaration of the dependency schema with a type disjoint from the base declaration is NOT rejected as a
+     * contradictory schema (unlike disjoint allOf branches): the dependency schema only applies while the trigger is
+     * present, so such a schema is satisfiable and only rejects data containing the trigger and the property.
+     */
+    private function transferDependencySchemaPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
+    {
         foreach ($dependencySchema->getProperties() as $dependencyProperty) {
-            $existingProperty = $schema->getProperty($dependencyProperty->getName());
-
-            if ($existingProperty !== null) {
-                $depType = $dependencyProperty->getType(true);
-                $existingType = $existingProperty->getType(true);
-
-                if (
-                    $depType !== null
-                    && $existingType !== null
-                    && TypeIntersection::compute($depType->getNames(), $existingType->getNames()) === []
-                ) {
-                    throw new SchemaException(
-                        sprintf(
-                            "Property '%s' is defined with conflicting types between"
-                                . " the dependency schema for '%s' and the base schema in file %s",
-                            $dependencyProperty->getName(),
-                            $triggerName,
-                            $schemaFile,
-                        ),
-                    );
-                }
-
+            if ($schema->getProperty($dependencyProperty->getName()) !== null) {
                 continue;
             }
 

@@ -8,7 +8,6 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
-use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 #[ApplicableDrafts]
@@ -30,19 +29,17 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
             // property denied by boolean false but also listed in required[]
             'required false property' => [
                 'RequiredFalseProperty.json',
-                "/^Property 'forbidden' is denied \(schema false\) but also listed as required in file/",
+                "/^Property 'forbidden' is denied \(schema false\) but also listed as required in file"
+                    . " .+\.json at line 1, column 1$/",
+            ],
+            // property denied by boolean false but also has dependencies; located at the dependency (the test
+            // writes the schema to a single line, column 105 is the start of the dependency value)
+            'false property with dependency' => [
+                'FalsePropertyWithDependency.json',
+                "/^Property 'forbidden' is denied \(schema false\) but also has dependencies defined in file"
+                    . " .+\.json at line 1, column 105$/",
             ],
         ];
-    }
-
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
-    public function testFalsePropertyWithDependencyThrowsSchemaException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Property 'forbidden' is denied \(schema false\) but also has dependencies defined in file/",
-        );
-        $this->generateClassFromFile('FalsePropertyWithDependency.json');
     }
 
     public function testNotProvidingFalsePropertyIsValid(): void
@@ -118,13 +115,15 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getAnything());
     }
 
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     #[DataProvider('validationMethodDataProvider')]
     public function testTruePropertyDependencyIsEnforced(GeneratorConfiguration $configuration): void
     {
         $this->expectValidationError(
             $configuration,
-            "Missing required attributes which are dependants of 'anything'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'anything':
+              - 'other'
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('TruePropertyWithDependency.json', $configuration);
