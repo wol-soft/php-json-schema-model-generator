@@ -16,6 +16,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionMethod;
 
 #[ApplicableDrafts]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
@@ -357,20 +358,14 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
-     * silently dropped by PropertiesValidatorFactory instead of being enforced, because the
-     * dependency-attaching code only ran inside the loop over declared `properties` entries.
-     *
-     * Also asserts that both the trigger and each array-form dependency target are synthesised
-     * onto the generated class with mixed type hints when absent from the schema's `properties`
-     * block. If a target were already declared in `properties` its declared type would apply
-     * instead; this fixture exercises the fully-undeclared case.
+     * Neither the trigger nor the target is declared anywhere: the dependency is enforced, and both keys get untyped
+     * accessors like a key which is only listed in `required`.
      */
     public function testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
     {
         $className = $this->generateClassFromFile('UndeclaredTriggerPropertyDependency.json');
 
-        // Valid: no trigger present, dependency not enforced; both synthesised properties readable
+        // Valid: no trigger present, dependency not enforced; both undeclared keys readable
         $object = new $className([]);
         $this->assertNull($object->getCreditCard());
         $this->assertNull($object->getBillingAddress());
@@ -383,7 +378,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but required dependent property absent
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+            <<<'ERROR'
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 12345]);
@@ -424,17 +422,16 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * When an array-form dependency trigger is declared in `properties` but its target is not
-     * declared anywhere in the schema, the target must be synthesised as a mixed-typed property
-     * so its value is readable via the generated accessor. The dependency enforcement already
-     * works today (PropertyDependencyValidator is attached because the trigger is found); the
-     * defect is the missing getter for the undeclared target.
+     * The trigger is declared in `properties`, the target is declared nowhere. The target is required while the
+     * trigger is present, so it gets an untyped accessor like a key which is only listed in `required`.
      */
     public function testArrayFormUndeclaredDependencyTargetIsSynthesisedAsMixed(): void
     {
         $className = $this->generateClassFromFile('DeclaredTriggerUndeclaredTargetPropertyDependency.json');
 
-        // Valid: no trigger; synthesised target accessor returns null
+        $this->assertSame('mixed', (string) (new ReflectionMethod($className, 'getBillingAddress'))->getReturnType());
+
+        // Valid: no trigger; the target accessor returns null
         $object = new $className([]);
         $this->assertNull($object->getCreditCard());
         $this->assertNull($object->getBillingAddress());
@@ -447,7 +444,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but target absent
         $this->expectException(InvalidPropertyDependencyException::class);
         $this->expectExceptionMessage(
-            "Missing required attributes which are dependants of 'credit_card':\n  - 'billing_address'",
+            <<<'ERROR'
+            Missing required attributes which are dependants of 'credit_card':
+              - 'billing_address'
+            ERROR,
         );
 
         new $className(['credit_card' => 12345]);
@@ -556,7 +556,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectValidationError(
             $configuration,
-            "Missing required attributes which are dependants of 'x_card':\n  - 'x_address'",
+            <<<'ERROR'
+            Missing required attributes which are dependants of 'x_card':
+              - 'x_address'
+            ERROR,
         );
 
         new $className(['x_card' => '1234']);

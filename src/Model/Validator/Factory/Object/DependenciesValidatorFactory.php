@@ -20,6 +20,8 @@ use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 class DependenciesValidatorFactory extends AbstractValidatorFactory
 {
+    use UndeclaredPropertyTrait;
+
     /**
      * @throws SchemaException
      */
@@ -34,8 +36,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
         if (empty($json['dependencies'])) {
             return;
         }
-
-        $propertyFactory = new PropertyFactory();
 
         foreach ($json['dependencies'] as $triggerName => $dependency) {
             $triggerName = (string) $triggerName;
@@ -88,25 +88,21 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 continue;
             }
 
-            $triggerProperty = $schema->getProperty($triggerName);
-            if ($triggerProperty === null) {
-                $triggerProperty = $propertyFactory->create(
-                    $schemaProcessor,
-                    $schema,
-                    $triggerName,
-                    $propertySchema->withJson([]),
-                );
-                $schema->addProperty($triggerProperty);
+            // An undeclared trigger becomes a property like an undeclared required property: the property carries the
+            // dependency validator, so setters and removals of other keys re-run the dependency.
+            if ($schema->getProperty($triggerName) === null) {
+                $this->addUndeclaredProperty($schemaProcessor, $schema, $propertySchema, $triggerName, false);
             }
 
             if ($this->isArrayFormDependency($dependency)) {
-                $this->synthesiseMissingTargets(
-                    $dependency,
-                    $propertySchema,
-                    $schemaProcessor,
-                    $schema,
-                    $propertyFactory,
-                );
+                // The targets are required while the trigger is present, so an undeclared target becomes a property
+                // like an undeclared required property.
+                foreach ($dependency as $targetName) {
+                    if ($schema->getProperty($targetName) === null) {
+                        $this->addUndeclaredProperty($schemaProcessor, $schema, $propertySchema, $targetName, false);
+                    }
+                }
+
                 // A trigger declared via $ref is recycled for every reference to the definition; the dependency
                 // belongs to this schema only.
                 $schema->withOwnedProperty(
@@ -309,29 +305,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
         }
 
         return true;
-    }
-
-    private function synthesiseMissingTargets(
-        array $targetNames,
-        JsonSchema $propertySchema,
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        PropertyFactory $propertyFactory,
-    ): void {
-        foreach ($targetNames as $targetName) {
-            if ($schema->getProperty($targetName) !== null) {
-                continue;
-            }
-
-            $schema->addProperty(
-                $propertyFactory->create(
-                    $schemaProcessor,
-                    $schema,
-                    $targetName,
-                    $propertySchema->withJson([]),
-                ),
-            );
-        }
     }
 
     /**

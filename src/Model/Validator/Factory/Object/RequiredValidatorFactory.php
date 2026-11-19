@@ -10,9 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 /**
  * Attaches a RequiredPropertyValidator to every property named in the object schema's 'required'
@@ -27,6 +25,8 @@ use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
  */
 class RequiredValidatorFactory extends AbstractValidatorFactory
 {
+    use UndeclaredPropertyTrait;
+
     /**
      * @throws SchemaException
      */
@@ -42,7 +42,7 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
             $propertyName = (string) $propertyName;
 
             if ($schema->getProperty($propertyName) === null) {
-                $this->createUndeclaredProperty($schemaProcessor, $schema, $propertySchema, $propertyName);
+                $this->addUndeclaredProperty($schemaProcessor, $schema, $propertySchema, $propertyName, true);
             }
 
             // A property declared via $ref is recycled for every reference to the definition, and the required check
@@ -56,33 +56,5 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
                 ),
             );
         }
-    }
-
-    /**
-     * @throws SchemaException
-     */
-    private function createUndeclaredProperty(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        JsonSchema $propertySchema,
-        string $propertyName,
-    ): void {
-        // navigate() cannot traverse into a path segment that doesn't exist in the raw JSON; use
-        // withPointer() to advance the pointer without descending into JSON content.
-        $nestedPropertySchema = $propertySchema
-            ->withPointer(
-                $propertySchema->getPointer() . '/properties/' . JsonSchemaUtil::encodePointer($propertyName),
-            )
-            ->withJson([]);
-
-        $nestedProperty = (new PropertyFactory())->create(
-            $schemaProcessor,
-            $schema,
-            $propertyName,
-            $nestedPropertySchema,
-            true,
-        );
-
-        $schema->addProperty($nestedProperty);
     }
 }
