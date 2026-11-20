@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
 use ArrayObject;
-use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -131,14 +130,14 @@ class SchemaDefinitionDictionary extends ArrayObject
         } catch (SchemaException $exception) {
             // Resolving a reference to a file which isn't processed yet processes the file. A failure of the
             // referenced file is the very failure the reference resolution reports, it must not be swallowed here:
-            // the file is registered as processed, the failure would be lost.
+            // the file is registered as processed, the failure would be lost. Every other failure is an unresolvable
+            // reference (a missing file or definition, malformed JSON), which the reference resolution reports with
+            // its own message. Catching every exception was rejected: the providers and the navigation report all of
+            // these as a SchemaException, anything else is a defect which has to surface.
             if ($exception->isReferencedSchemaFailure()) {
                 throw $exception;
             }
 
-            return null;
-        } catch (Exception) {
-            // An unresolvable reference, the reference resolution reports it with its own message
             return null;
         }
     }

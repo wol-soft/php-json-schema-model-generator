@@ -38,7 +38,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            sprintf('/Unresolved Reference %s in file .*\.json/', str_replace('/', '\/', $reference)),
+            '/^' . preg_quote("Unresolved Reference $reference in file ", '/') . '.*\.json$/',
         );
 
         $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
@@ -49,6 +49,34 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
+        ];
+    }
+
+    /**
+     * A reference inside a composition is peeked before the property is built (the composition cycle detection
+     * follows it statically). A reference which can't be resolved isn't followed there: the reference resolution
+     * reports it as unresolved, also for a pointer to an empty key (`#/`) which leads to no definition at all.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    #[DataProvider('notResolvedReferenceInACompositionProvider')]
+    public function testNotResolvedReferenceInACompositionThrowsAnException(string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote("Unresolved Reference $reference in file ", '/') . '.*\.json$/',
+        );
+
+        $this->generateClassFromFileTemplate('NotResolvedReferenceInAComposition.json', [$reference]);
+    }
+
+    public static function notResolvedReferenceInACompositionProvider(): array
+    {
+        return [
+            'pointer to an empty key' => ['#/'],
+            'pointer to a missing definition' => ['#/definitions/person'],
+            'missing anchor' => ['#person'],
         ];
     }
 
