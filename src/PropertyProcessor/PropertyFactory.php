@@ -940,7 +940,8 @@ class PropertyFactory
     /**
      * The schema of the keywords next to a `$ref`, with the reference: the unevaluatedItems of the siblings evaluates
      * the items of the referenced definitions as well (see UnevaluatedItemsValidatorFactory). Only the modifiers of
-     * the types see the schema, the producer which resolves the `$ref` doesn't run again.
+     * the types see the schema, the producer which resolves the `$ref` doesn't run again: the object variant of a type
+     * list, a class of its own, gets the schema without the reference (see populateMultiTypeProperty()).
      *
      * @param array<string, mixed> $additionalJson
      */
@@ -1553,12 +1554,17 @@ class PropertyFactory
             $subSchema       = $propertySchema->withJson($subJson);
 
             // For type=object, delegate to the same object path (processSchema + wireObjectProperty).
+            // The object variant is a class of its own: a `$ref` handed in for the type modifiers (the
+            // keywords next to a reference to a definition without a type, see withReference()) must
+            // not become the reference of the class root, which resolves it as the whole class and
+            // rejects a definition without an object. Keeping it was rejected for that reason; the
+            // validators of the definition are transferred to the property by the caller.
             $subProperty = $type === 'object'
                 ? $this->createObjectProperty(
                     $schemaProcessor,
                     $schema,
                     $propertyName,
-                    $subSchema,
+                    $propertySchema->withJson(array_diff_key($subJson, ['$ref' => true])),
                     $required,
                     $isArrayItem,
                     applyUniversalModifiers: false,

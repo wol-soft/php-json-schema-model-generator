@@ -34,7 +34,6 @@ final class ArrayItemsCoverage
     private function __construct(
         private readonly string $tupleKeyword,
         private readonly int $tupleLength,
-        private readonly bool $tailIsClaimed,
         private readonly bool $claimsEveryIndex,
     ) {}
 
@@ -98,14 +97,15 @@ final class ArrayItemsCoverage
             return new self(
                 $tupleKeyword,
                 0,
-                false,
                 $items === true || (is_array($items) && ($items === [] || !array_is_list($items))),
             );
         }
 
-        $tailIsClaimed = array_key_exists($tailKeyword, $json) && $json[$tailKeyword] !== false;
-
-        return new self($tupleKeyword, count($tuple), $tailIsClaimed, $tailIsClaimed);
+        return new self(
+            $tupleKeyword,
+            count($tuple),
+            array_key_exists($tailKeyword, $json) && $json[$tailKeyword] !== false,
+        );
     }
 
     public function getTupleKeyword(): string
@@ -129,22 +129,14 @@ final class ArrayItemsCoverage
     }
 
     /**
-     * Whether the tail keyword evaluates every index behind the tuple: it must sit behind a tuple
-     * and carry a value other than `false`, which rejects the tail instead of evaluating it. A
-     * lone tail keyword without a tuple claims nothing here — `additionalItems` has no effect
-     * without a tuple `items` beside it, and a lone `items` is the schema form that claims every
-     * index by itself, not a tail.
-     */
-    public function tailIsClaimed(): bool
-    {
-        return $this->tailIsClaimed;
-    }
-
-    /**
      * Whether the positional keywords of the node evaluate every index of the array: a tuple with a
      * claimed tail (the tuple the leading indices, the tail keyword every index behind them), or,
      * without a tuple, the schema form of `items` (also `true` and the empty schema). An empty PHP
      * array is the empty schema, see getTupleLength().
+     *
+     * The tail keyword claims the tail only behind a tuple and with a value other than `false`,
+     * which rejects the tail instead of evaluating it. A lone `additionalItems` claims nothing, it
+     * has no effect without a tuple `items` beside it; a lone `items` is the schema form, not a tail.
      */
     public function claimsEveryIndex(): bool
     {

@@ -46,6 +46,30 @@
           "type": "string"
         }
       }
+    },
+    "typeList": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "stringType": {
+      "type": "string",
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
     }
   }
 }

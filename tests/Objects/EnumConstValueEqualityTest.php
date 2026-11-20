@@ -561,6 +561,61 @@ class EnumConstValueEqualityTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A root which references a definition consisting of a composition gets the composition transferred to its class.
+     * The enum and the const of the definition constrain the object as well, exactly as written inline at the root:
+     * transferring the composition only dropped them, an object matching the composition was accepted although the
+     * enum or the const excludes it.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testEnumAndConstOfACompositionReferencedByTheRootValidateTheDataOfTheObject(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $configuration = (clone $configuration)->setImmutable(false);
+        $className = $this->generateClassFromFile('RootReferenceToACompositionWithEnum.json', $configuration);
+
+        $object = new $className(['a' => 1]);
+        $this->assertSame(1, $object->getA());
+        $this->assertSame(2, (new $className(['b' => 2]))->getB());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['a' => 3],
+            $this->getExpectedExceptionClass($configuration, EnumException::class),
+            <<<'MSG'
+            Value for '%class%' must be one of [{"a":1},{"b":2}], got {"a":3}
+            MSG,
+        );
+
+        // an update of the object is validated, a rejected update leaves the object untouched
+        $exception = $this->catchException(static fn() => $object->setA(3));
+        $this->assertInstanceOf($this->getExpectedExceptionClass($configuration, EnumException::class), $exception);
+        $this->assertMessageMatchesTemplate(
+            <<<'MSG'
+            Value for '%class%' must be one of [{"a":1},{"b":2}], got {"a":3}
+            MSG,
+            $exception->getMessage(),
+        );
+        $this->assertSame(1, $object->getA());
+
+        $className = $this->generateClassFromFile('RootReferenceToACompositionWithConst.json', $configuration);
+
+        $this->assertSame(1, (new $className(['a' => 1]))->getA());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['b' => 2],
+            $this->getExpectedExceptionClass($configuration, InvalidConstException::class),
+            <<<'MSG'
+            Value for '%class%' must be {"a":1}, got {"b":2}
+            MSG,
+        );
+    }
+
+    /**
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException

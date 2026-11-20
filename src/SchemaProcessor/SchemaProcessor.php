@@ -746,9 +746,10 @@ class SchemaProcessor
      * Transfer properties of composed properties to the given schema to offer a complete model
      * including all composed properties.
      *
-     * This is an internal pipeline mechanic (Q5.1): not a JSON Schema keyword and therefore not
+     * This is an internal pipeline mechanic: not a JSON Schema keyword and therefore not
      * a Draft modifier. It is called as an explicit post-step from generateModel after all Draft
-     * modifiers have run on the root-level BaseProperty.
+     * modifiers have run on the root-level BaseProperty, and for a root which references a
+     * definition consisting of a composition (RefResolver).
      *
      * @throws SchemaException
      */
@@ -757,6 +758,9 @@ class SchemaProcessor
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
+            // Only the compositions are transferred. The property of a referenced definition also
+            // carries the validators of its value keywords: its enum and const are built for the
+            // object of the class by RefResolver, the keywords of other types never apply to it.
             if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
                 continue;
             }

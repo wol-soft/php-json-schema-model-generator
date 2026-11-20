@@ -31,6 +31,13 @@
       "type": "object",
       "$ref": "#/definitions/untypedItems"
     },
+    "siblingWithObjectTypeList": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "$ref": "#/definitions/untypedItems"
+    },
     "siblingEnum": {
       "$ref": "#/definitions/untypedString",
       "enum": [

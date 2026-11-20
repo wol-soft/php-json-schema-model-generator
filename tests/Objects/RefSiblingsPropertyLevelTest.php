@@ -101,11 +101,19 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('x', (new $className(['siblingWithoutType' => 'x']))->getSiblingWithoutType());
         $this->assertSame(['a'], (new $className(['siblingWithTypeList' => ['a']]))->getSiblingWithTypeList());
 
-        // the object type next to the reference holds the model of a nested class
+        // the object type next to the reference holds the model of a nested class, also as a variant of a type list
         $this->assertSame(
             ['a' => 1],
             (new $className(['siblingWithObjectType' => ['a' => 1]]))->getSiblingWithObjectType()->meta()->rawInput(),
         );
+        $this->assertSame(
+            ['a' => 1],
+            (new $className(['siblingWithObjectTypeList' => ['a' => 1]]))
+                ->getSiblingWithObjectTypeList()
+                ->meta()
+                ->rawInput(),
+        );
+        $this->assertNull((new $className(['siblingWithObjectTypeList' => null]))->getSiblingWithObjectTypeList());
 
         $rejections = [
             // the keyword of the definition
@@ -154,6 +162,11 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
                 ['siblingWithObjectType' => 'x'],
                 InvalidTypeException::class,
                 "Invalid type for 'siblingWithObjectType': requires 'object', got 'string'",
+            ],
+            [
+                ['siblingWithObjectTypeList' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'siblingWithObjectTypeList': requires ['object', 'null'], got 'string'",
             ],
             [
                 ['siblingEnum' => 'a'],
@@ -212,6 +225,26 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('x', $object->getBooleanDefinition());
         $this->assertSame('abc', $object->getDefinitionWithKeywords());
 
+        // another type next to the reference: a type list applies the object keywords to its object variant, a type
+        // which excludes objects never meets them
+        $object = new $className(['typeList' => ['name' => 'e'], 'stringType' => 'f']);
+        $this->assertSame('e', $object->getTypeList()->getName());
+        $this->assertSame('f', $object->getStringType());
+        $this->assertNull((new $className(['typeList' => null]))->getTypeList());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['typeList' => 'x'],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'typeList': requires ['object', 'null'], got 'string'",
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['stringType' => ['name' => 'f']],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'stringType': requires 'string', got 'object'",
+        );
+
         $rejections = [
             [
                 ['objectType' => 'x'],
@@ -236,7 +269,7 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         }
 
         // the class validates an object value
-        foreach (['objectType', 'withoutType'] as $propertyName) {
+        foreach (['objectType', 'withoutType', 'typeList'] as $propertyName) {
             $this->assertInstantiationFailsWithMessage(
                 $className,
                 [$propertyName => []],
