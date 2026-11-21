@@ -1195,7 +1195,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
 
         $className = $this->generateClassFromFile(
             'IfWithoutThenAndElse.json',
-            (new GeneratorConfiguration())->setLogger($logger),
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
         );
 
         $this->assertTrue(
