@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "definitions": {
+    "openTuple": {
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": true
+    },
+    "anyItems": {
+      "items": true
+    }
+  },
+  "properties": {
+    "openTuple": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/openTuple"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "anyItems": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/anyItems"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

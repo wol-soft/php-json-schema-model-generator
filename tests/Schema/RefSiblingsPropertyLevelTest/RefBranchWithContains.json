@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "strings": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/strings"
+        },
+        {
+          "maxItems": 1
+        }
+      ]
+    }
+  }
+}

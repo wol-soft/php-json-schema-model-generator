@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items){% if countMatches or trackBranchMatches %} use ({% if countMatches %}&$containsMatches{% endif %}{% if countMatches and trackBranchMatches %}, {% endif %}{% if trackBranchMatches %}&$branchContainsMatches{% endif %}){% endif %} {
+is_array($value) && (function (&$items){{ capturedVariables }} {
     if (empty($items)) {
         return {% if allowNoMatch %}false{% else %}true{% endif %};
     }
@@ -19,9 +19,7 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
 
             {{ viewHelper.resolvePropertyDecorator(property, false, 3) }}
 
-            {% foreach property.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 3) }}
-            {% endforeach %}
+            {{ viewHelper.renderExtractedValidators(property, schema, validationMethod, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

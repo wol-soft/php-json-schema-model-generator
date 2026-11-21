@@ -205,16 +205,16 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                     #}
                     if (
                         $this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}
-                        && array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                        && array_key_exists('{{ viewHelper.escapeSingleQuoted(property.getName()) }}', $this->_rawModelDataInput)
                     ) {
                         // Nothing to validate, but the provided value is the raw input of the property now: the value
                         // may be equal to a filtered value only, a later validation starts from the raw input.
-                        $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                        $this->_rawModelDataInput['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = ${{ property.getAttribute(true) }};
 
                         return $this;
                     }
 
-                    $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                    $value = $modelData['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = ${{ property.getAttribute(true) }};
 
                     {% if generatorConfiguration.collectErrors() %}
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -223,7 +223,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                     {{ viewHelper.indent(setterValidationRenderer.render(property), 2) }}
 
                     $this->{{ property.getAttribute(true) }} = $value;
-                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                    $this->_rawModelDataInput['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = ${{ property.getAttribute(true) }};
 
                     {{ setterValidationRenderer.renderBranchFilteredValueApplication(property) }}
 
@@ -243,12 +243,12 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
             protected function _process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
             {
                 {% if not generatorConfiguration.isImplicitNullAllowed() and not property.isRequired() %}
-                    if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
+                    if (!array_key_exists('{{ viewHelper.escapeSingleQuoted(property.getName()) }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
                         return;
                     }
                 {% endif %}
 
-                $value = array_key_exists('{{ property.getName() }}', $modelData) ? $modelData['{{ property.getName() }}'] : $this->{{ property.getAttribute(true) }};
+                $value = array_key_exists('{{ viewHelper.escapeSingleQuoted(property.getName()) }}', $modelData) ? $modelData['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] : $this->{{ property.getAttribute(true) }};
 
                 {{ viewHelper.resolvePropertyDecorator(property, true, 2) }}
 
@@ -264,7 +264,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                     // Reset before any validator runs (including compositions, which may credit
                     // indices into this same slot during this pass) so a previous, unrelated
                     // validation pass's credits never leak into this one.
-                    $this->_evaluatedItemIndices['{{ property.getName() }}'] = [];
+                    $this->_evaluatedItemIndices['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = [];
                 {% endif %}
 
                 {% foreach property.getOrderedValidators() as validator %}

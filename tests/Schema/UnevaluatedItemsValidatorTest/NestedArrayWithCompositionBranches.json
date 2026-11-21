@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "allOf": [
+          {
+            "items": [
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "anyOf": [
+              {
+                "items": [
+                  true,
+                  {
+                    "const": "x"
+                  },
+                  {
+                    "const": "x"
+                  }
+                ],
+                "minItems": 3
+              },
+              {
+                "items": [
+                  true,
+                  {
+                    "const": "x"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "unevaluatedItems": false
+      }
+    }
+  }
+}

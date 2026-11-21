@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        }
+      ],
+      "additionalItems": {
+        "type": "string"
+      }
+    }
+  }
+}

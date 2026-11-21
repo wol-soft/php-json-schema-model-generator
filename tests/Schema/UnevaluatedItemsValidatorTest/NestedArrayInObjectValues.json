@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    }
+  },
+  "patternProperties": {
+    "^list_": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  },
+  "additionalProperties": {
+    "type": "array",
+    "items": [
+      {
+        "type": "integer"
+      }
+    ],
+    "unevaluatedItems": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "line\nbreak": {
+      "type": "string"
+    },
+    "choice": {
+      "enum": [
+        "foo\nbar",
+        "tab\there",
+        "crlf\r\nend"
+      ]
+    },
+    "fixed": {
+      "const": "x\ny"
+    },
+    "withDefault": {
+      "type": "string",
+      "default": "line1\nline2"
+    },
+    "objectChoice": {
+      "enum": [
+        {
+          "key\nwith break": 1
+        }
+      ]
+    }
+  },
+  "patternProperties": {
+    "^p\n": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}

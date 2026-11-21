@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "$ref": "#/definitions/node"
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    },
+    "contained": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 3
+    },
+    "unevaluated": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer"
+          }
+        ],
+        "additionalItems": {
+          "type": "string"
+        }
+      }
+    },
+    "nested": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": {
+        "type": "integer"
+      }
+    }
+  },
+  "patternProperties": {
+    "^x_": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    }
+  },
+  "additionalProperties": {
+    "type": "array",
+    "items": [
+      {
+        "type": "integer"
+      }
+    ],
+    "additionalItems": {
+      "type": "integer"
+    }
+  }
+}

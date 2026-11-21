@@ -8,17 +8,10 @@ use PHPModelGenerator\Exception\String\FormatException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Format\FormatValidatorInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class FormatValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class FormatValidator extends AbstractPropertyValidator
 {
-    /**
-     * FormatValidator constructor.
-     */
     public function __construct(
         PropertyInterface $property,
         protected FormatValidatorInterface $validator,
@@ -35,7 +28,7 @@ class FormatValidator extends AbstractPropertyValidator
             ? sprintf(
                 '!\%s::validate($value, %s)',
                 $this->validator::class,
-                var_export($this->validator->getPattern(), true),
+                RenderHelper::varExportArray($this->validator->getPattern()),
             )
             : sprintf('!\%s::validate($value)', $this->validator::class);
 

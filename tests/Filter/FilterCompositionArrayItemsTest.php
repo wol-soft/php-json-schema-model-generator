@@ -6,8 +6,12 @@ namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
@@ -103,6 +107,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => ['20201010']], $transformed->toArray());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleItemFilterInAllOfBranchPersistsAcceptsTransformedValuesAndSerializes(): void
     {
         $className = $this->generateClassFromFile(
@@ -126,7 +131,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => ['20200202', 'other']], $object->toArray());
     }
 
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInAllOfBranchPersistsAcceptsTransformedValuesAndSerializes(): void
     {
         $className = $this->generateClassFromFile(
@@ -167,6 +172,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * Two branches filter different tuple indices: the slots don't overlap, both serializers are generated into
      * the single serialization method of the property.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleIndicesFilteredInDifferentBranchesAreCombined(): void
     {
         $className = $this->generateClassFromFile(
@@ -188,6 +194,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * serializer must not run a second time on the index which both slots cover, the serializer of the filter
      * receives the already serialized string and fails.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSchemaFormItemsAndTupleIndexReachingTheSameFilterAreSerializedOnce(): void
     {
         $className = $this->generateClassFromFile(
@@ -207,7 +214,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The tuple of a branch evaluates index 0, unevaluatedItems of the property the remaining indices: different
      * slots, each filtered by its own declaration.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testBranchTupleFilterAndUnevaluatedItemsFilterOfThePropertyAreCombined(): void
     {
         $className = $this->generateClassFromFile(
@@ -347,6 +354,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The tuple index is only filtered while the oneOf branch which declares it is the matching one, the guard of the
      * serializer of the index passes the items of the other branch through.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testTupleIndexFilterInConditionallyActiveBranchIsOnlyAppliedWhileTheBranchIsActive(): void
     {
         $className = $this->generateClassFromFile(
@@ -370,7 +378,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The unevaluatedItems of a branch which may be inactive: the serializer of the credited indices is guarded. Only a
      * single branch can declare it, a branch with unevaluatedItems next to a sibling branch is not supported.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInConditionallyActiveBranchIsSerializedByItsOutputType(): void
     {
         $className = $this->generateClassFromFile(
@@ -512,6 +520,160 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['first' => ['20201010'], 'second' => ['20201212']], $object->toArray());
     }
 
+    public static function recursiveBranchProvider(): array
+    {
+        return [
+            'allOf' => [
+                'RecursiveAllOfBranchItemFilter.json',
+                AllOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match all composition elements but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "bad"
+                MSG,
+            ],
+            'anyOf' => [
+                'RecursiveAnyOfBranchItemFilter.json',
+                AnyOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match at least one composition element
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "bad"
+                          - Composition element #2: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                  - Composition element #2: Failed
+                    * Array 'tree' must not contain more than 0 items
+                MSG,
+            ],
+            'oneOf' => [
+                'RecursiveOneOfBranchItemFilter.json',
+                OneOfException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by composition constraint
+                          Requires to match one composition element but matched 0 elements
+                          - Composition element #1: Failed
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "bad"
+                          - Composition element #2: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                  - Composition element #2: Failed
+                    * Array 'tree' must not contain more than 0 items
+                MSG,
+            ],
+            'then' => [
+                'RecursiveThenBranchItemFilter.json',
+                ConditionalException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by conditional composition constraint
+                          - Condition: Valid
+                          - Conditional branch failed:
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "bad"
+                MSG,
+            ],
+            'else' => [
+                'RecursiveElseBranchItemFilter.json',
+                ConditionalException::class,
+                <<<'MSG'
+                Invalid value for 'tree' declined by conditional composition constraint
+                  - Condition: Failed
+                    * Array 'tree' must not contain more than 0 items
+                  - Conditional branch failed:
+                    * Invalid tuple item in array 'tree':
+                      - invalid tuple #2
+                        * Invalid value for 'tuple item #1 of array tree' declined by conditional composition constraint
+                          - Condition: Failed
+                            * Array 'tuple item #1 of array tree' must not contain more than 0 items
+                          - Conditional branch failed:
+                            * Invalid tuple item in array 'tuple item #1 of array tree':
+                              - invalid tuple #1
+                                * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "bad"
+                MSG,
+            ],
+        ];
+    }
+
+    /**
+     * The definition refers to itself through the tuple of a branch which filters the first index. The filter is
+     * declared once and applies to every level of the tree: the transformed items are persisted on every level, an
+     * already transformed item is accepted and the serialization applies the serializer of the filter to every level.
+     * A branch which doesn't match leaves the items as provided.
+     *
+     * @param class-string<ValidationException> $expectedException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('recursiveBranchProvider')]
+    public function testRecursiveBranchWithAnItemFilterPersistsTransformedItemsOnEveryLevelAndSerializes(
+        string $schemaFile,
+        string $expectedException,
+        string $expectedMessage,
+    ): void {
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
+        );
+
+        $empty = new $className(['tree' => []]);
+        $this->assertSame([], $empty->getTree());
+        $this->assertSame(['tree' => []], $empty->toArray());
+
+        $object = new $className(['tree' => ['2020-10-10', ['2020-11-11', ['2020-12-12', []]]]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), [new DateTime('2020-11-11'), [new DateTime('2020-12-12'), []]]],
+            $object->getTree(),
+        );
+        $this->assertSame(['tree' => ['20201010', ['20201111', ['20201212', []]]]], $object->toArray());
+        $this->assertSame(
+            ['2020-10-10', ['2020-11-11', ['2020-12-12', []]]],
+            $object->meta()->rawInput()['tree'],
+        );
+
+        // transformed items are accepted on every level, also mixed with raw items
+        $transformed = new $className(['tree' => [new DateTime('2020-10-10'), ['2020-11-11', []]]]);
+        $this->assertEquals([new DateTime('2020-10-10'), [new DateTime('2020-11-11'), []]], $transformed->getTree());
+        $this->assertSame(['tree' => ['20201010', ['20201111', []]]], $transformed->toArray());
+
+        // the setter runs the same validation as the constructor
+        $object->setTree(['2021-01-01', [new DateTime('2021-02-02')]]);
+        $this->assertEquals([new DateTime('2021-01-01'), [new DateTime('2021-02-02')]], $object->getTree());
+        $this->assertSame(['tree' => ['20210101', ['20210202']]], $object->toArray());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['2020-10-10', ['bad']]],
+            $expectedException,
+            $expectedMessage,
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Rejected schemas
     // -------------------------------------------------------------------------
@@ -532,6 +694,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * Every declaration filters the items on its own: the item would be filtered twice (allOf, the property and a
      * branch) or the serializer of the stored value can't be attributed to a declaration (anyOf, oneOf, then/else).
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('itemSlotFilteredMoreThanOnceProvider')]
     public function testItemSlotWhichIsFilteredByMoreThanOneDeclarationThrowsSchemaException(
         string $schemaFile,
@@ -581,6 +744,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * run while the branch is evaluated and never transform the stored value. Accepting the schema would generate
      * a model which holds the value as provided, but widens the type check for the output of the filter.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('itemFilterInValidationOnlyBranchProvider')]
     public function testItemFilterInValidationOnlyBranchThrowsSchemaException(
         string $schemaFile,
@@ -593,13 +757,71 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The same rejection for unevaluatedItems, which only exist from Draft 2019-09. Draft 07 ignores the keyword, so
      * there is no filter on any items to reject.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInNotBranchThrowsSchemaException(): void
     {
         $this->assertItemFilterInValidationOnlyBranchIsRejected(
             'NotBranchUnevaluatedItemsFilter.json',
             "a 'not' composition branch",
         );
+    }
+
+    public static function itemFilterReachedThroughRecursionProvider(): array
+    {
+        return [
+            'not branch, definition owning the not keyword' => [
+                'NotBranchReachingItemFilterThroughOwningDefinition.json',
+                "a 'not' composition branch",
+                'tuple item #1 of array tree',
+            ],
+            'not branch, mutually referencing definitions' => [
+                'NotBranchReachingItemFilterThroughMutualDefinitions.json',
+                "a 'not' composition branch",
+                'tuple item #0 of array tree',
+            ],
+            'if condition, definition owning the if keyword' => [
+                'IfConditionReachingItemFilterThroughOwningDefinition.json',
+                "the 'if' condition of an 'if/then/else' composition",
+                'tuple item #1 of array tree',
+            ],
+            'if condition, mutually referencing definitions' => [
+                'IfConditionReachingItemFilterThroughMutualDefinitions.json',
+                "the 'if' condition of an 'if/then/else' composition",
+                'tuple item #0 of array tree',
+            ],
+        ];
+    }
+
+    /**
+     * The filter is only reachable through a reference to a definition which is still being created when the branch
+     * is processed. The branch must not be accepted because the reference can't be inspected yet: the rejection is
+     * raised once the definition is complete. The failure is raised inside of the referenced definitions, the
+     * references don't restate it: the exception names the real cause.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('itemFilterReachedThroughRecursionProvider')]
+    public function testItemFilterReachedOnlyThroughARecursiveReferenceInValidationOnlyBranchThrowsSchemaException(
+        string $schemaFile,
+        string $expectedBranchDescription,
+        string $expectedPropertyName,
+    ): void {
+        try {
+            $this->generateClassFromFile($schemaFile);
+        } catch (SchemaException $exception) {
+            $this->assertNull($exception->getPrevious());
+            $this->assertMatchesRegularExpression(
+                '/^' . preg_quote(
+                    "A filter keyword inside the array items of $expectedBranchDescription is not supported"
+                        . " for property '$expectedPropertyName' in file ",
+                    '/',
+                ) . '.+\.json at line \d+, column \d+$/',
+                $exception->getMessage(),
+            );
+
+            return;
+        }
+
+        $this->fail('Expected a SchemaException for the filter behind the recursive reference');
     }
 
     private function assertItemFilterInValidationOnlyBranchIsRejected(

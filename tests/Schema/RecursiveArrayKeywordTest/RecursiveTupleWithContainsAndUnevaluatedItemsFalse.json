@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "contains": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "$ref": "#/definitions/node"
+          }
+        ]
+      },
+      "minContains": 0,
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

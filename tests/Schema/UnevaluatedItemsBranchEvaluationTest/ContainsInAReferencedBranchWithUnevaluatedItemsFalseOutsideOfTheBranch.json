@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "definitions": {
+    "containsString": {
+      "contains": {
+        "type": "string"
+      }
+    }
+  },
+  "properties": {
+    "tags": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#/definitions/containsString"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "labels": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#/definitions/containsString"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

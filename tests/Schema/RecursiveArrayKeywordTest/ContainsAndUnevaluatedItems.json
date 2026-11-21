@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "contains": {
+        "$ref": "#/definitions/node"
+      },
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

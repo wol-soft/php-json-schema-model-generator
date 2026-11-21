@@ -29,7 +29,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            array_merge($validatorVariables, [
+            array_merge(['providedPropertyCheck' => ''], $validatorVariables, [
                 'modifiedValuesMethod' => $this->modifiedValuesMethod,
                 // Set by getCheck(), see getFilterSourceMap().
                 'filterSourceMap' => '',
@@ -88,6 +88,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         // Make this validator instance available to the template so the unevaluatedProperties
         // tracking guards (hasEvaluationTrackingEnabled, isNotComposition) can be evaluated.
         $this->templateValues['compositionValidator'] = $this;
+        $this->templateValues['typeGuard'] = $this->buildTypeGuard();
 
         $filteredKeyMap = $this->getBranchFilteredKeyMap();
 
@@ -143,7 +144,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
         // Give the subset validator a unique extracted method name so it generates
         // its own method in the target class instead of colliding with the original.
-        $subsetValidator->extractedMethodName = $this->getExtractedMethodName() . $methodSuffix;
+        $subsetValidator->renameExtractedMethod($this->getExtractedMethodName() . $methodSuffix);
 
         // Regenerate the modifiedValuesMethod name so the subset validator's helper
         // method is distinct from the original's.

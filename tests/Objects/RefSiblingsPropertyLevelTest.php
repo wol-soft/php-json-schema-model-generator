@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\MaxItemsException;
+use PHPModelGenerator\Exception\Arrays\MinItemsException;
+use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\EnumException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
+use PHPModelGenerator\Exception\String\MaxLengthException;
+use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,6 +37,348 @@ use ReflectionClass;
  */
 class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
 {
+    // -------------------------------------------------------------------------
+    // Type inherited by a composition branch which is a $ref (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * A composition branch inherits the type of its property, which makes the type a sibling of the $ref of the
+     * branch. The keywords of the referenced definition are validated nevertheless: the contains of the definition
+     * was dropped, a value without a string was accepted by the first branch.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testContainsOfAReferencedDefinitionIsValidatedInACompositionBranchOfATypedProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefBranchWithContains.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // valid by the contains of the definition, and valid by the maxItems of the second branch
+        $this->assertSame(['a', 1, 2], (new $className(['tags' => ['a', 1, 2]]))->getTags());
+        $this->assertSame([1], (new $className(['tags' => [1]]))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => [1, 2]],
+            AnyOfException::class,
+            <<<'MSG'
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match at least one composition element
+              - Composition element #1: Failed
+                * No item in array 'tags' matches the 'contains' constraint
+              - Composition element #2: Failed
+                * Array 'tags' must not contain more than 1 items
+            MSG,
+        );
+    }
+
+    /**
+     * A definition without a type has no type to intersect with the keywords next to the reference: they apply like
+     * the keywords of a property without the reference (typed by their own type, a type list like a multi type
+     * property, self-gating per type without a type), the keywords of the definition apply alongside. Dropping the
+     * siblings was rejected: `{"type": "array", "$ref": <untyped>, "maxItems": 2}` accepted every value.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSiblingsOfAReferenceToADefinitionWithoutTypeAreApplied(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('SiblingsOfAReferenceToAnUntypedDefinition.json', $configuration);
+
+        $object = new $className([
+            'siblingWithoutType' => ['a'],
+            'siblingWithType' => ['a', 'b'],
+            'siblingWithTypeList' => 'ab',
+            'siblingEnum' => 'ab',
+        ]);
+        $this->assertSame(['a'], $object->getSiblingWithoutType());
+        $this->assertSame(['a', 'b'], $object->getSiblingWithType());
+        $this->assertSame('ab', $object->getSiblingWithTypeList());
+        $this->assertSame('ab', $object->getSiblingEnum());
+
+        // without a type the array keywords don't apply to a string
+        $this->assertSame('x', (new $className(['siblingWithoutType' => 'x']))->getSiblingWithoutType());
+        $this->assertSame(['a'], (new $className(['siblingWithTypeList' => ['a']]))->getSiblingWithTypeList());
+
+        // the object type next to the reference holds the model of a nested class, also as a variant of a type list
+        $this->assertSame(
+            ['a' => 1],
+            (new $className(['siblingWithObjectType' => ['a' => 1]]))->getSiblingWithObjectType()->meta()->rawInput(),
+        );
+        $this->assertSame(
+            ['a' => 1],
+            (new $className(['siblingWithObjectTypeList' => ['a' => 1]]))
+                ->getSiblingWithObjectTypeList()
+                ->meta()
+                ->rawInput(),
+        );
+        $this->assertNull((new $className(['siblingWithObjectTypeList' => null]))->getSiblingWithObjectTypeList());
+
+        $rejections = [
+            // the keyword of the definition
+            [
+                ['siblingWithoutType' => []],
+                MinItemsException::class,
+                "Array 'siblingWithoutType' must not contain less than 1 items",
+            ],
+            // the keyword next to the reference
+            [
+                ['siblingWithoutType' => ['a', 'b', 'c']],
+                MaxItemsException::class,
+                "Array 'siblingWithoutType' must not contain more than 2 items",
+            ],
+            [
+                ['siblingWithType' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'siblingWithType': requires 'array', got 'string'",
+            ],
+            [
+                ['siblingWithType' => ['a', 'b', 'c']],
+                MaxItemsException::class,
+                "Array 'siblingWithType' must not contain more than 2 items",
+            ],
+            [
+                ['siblingWithTypeList' => 5],
+                InvalidTypeException::class,
+                "Invalid type for 'siblingWithTypeList': requires ['array', 'string'], got 'integer'",
+            ],
+            [
+                ['siblingWithTypeList' => 'abcd'],
+                MaxLengthException::class,
+                "Value for 'siblingWithTypeList' must not be longer than 3",
+            ],
+            [
+                ['siblingWithTypeList' => ['a', 'b', 'c']],
+                MaxItemsException::class,
+                "Array 'siblingWithTypeList' must not contain more than 2 items",
+            ],
+            [
+                ['siblingWithTypeList' => []],
+                MinItemsException::class,
+                "Array 'siblingWithTypeList' must not contain less than 1 items",
+            ],
+            [
+                ['siblingWithObjectType' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'siblingWithObjectType': requires 'object', got 'string'",
+            ],
+            [
+                ['siblingWithObjectTypeList' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'siblingWithObjectTypeList': requires ['object', 'null'], got 'string'",
+            ],
+            [
+                ['siblingEnum' => 'a'],
+                MinLengthException::class,
+                "Value for 'siblingEnum' must not be shorter than 2",
+            ],
+            [
+                ['siblingEnum' => 'xyz'],
+                EnumException::class,
+                'Value for \'siblingEnum\' must be one of ["a","ab","abc",null], got "xyz"',
+            ],
+        ];
+
+        foreach ($rejections as [$input, $exceptionClass, $message]) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                $input,
+                $this->getExpectedExceptionClass($configuration, $exceptionClass),
+                $message,
+            );
+        }
+    }
+
+    /**
+     * Object keywords (`properties`, `required`) next to a reference to a definition without a type (an empty
+     * definition, `true`, a definition with keywords of other types) describe the object values of the property: the
+     * class of the property holds them, the keywords of the definition apply alongside. With the object type next to
+     * the reference the property holds the model; without a type it validates the object values by the class and
+     * passes every other value, like a property which declares the object keywords without the reference. Rejecting
+     * the schema was rejected: a definition without a type doesn't exclude objects, the schema is valid.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testObjectKeywordsNextToAReferenceToADefinitionWithoutTypeDescribeTheObjectValues(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'StructuralSiblingsOfAReferenceToAnUntypedDefinition.json',
+            $configuration,
+        );
+
+        $object = new $className([
+            'objectType' => ['name' => 'a'],
+            'withoutType' => ['name' => 'b'],
+            'booleanDefinition' => ['name' => 'c'],
+            'definitionWithKeywords' => ['name' => 'd'],
+        ]);
+        $this->assertSame('a', $object->getObjectType()->getName());
+        $this->assertSame('b', $object->getWithoutType()->getName());
+        $this->assertSame('c', $object->getBooleanDefinition()->getName());
+        $this->assertSame('d', $object->getDefinitionWithKeywords()->getName());
+
+        // without a type next to the reference a value which isn't an object passes
+        $object = new $className(['withoutType' => 5, 'booleanDefinition' => 'x', 'definitionWithKeywords' => 'abc']);
+        $this->assertSame(5, $object->getWithoutType());
+        $this->assertSame('x', $object->getBooleanDefinition());
+        $this->assertSame('abc', $object->getDefinitionWithKeywords());
+
+        // another type next to the reference: a type list applies the object keywords to its object variant, a type
+        // which excludes objects never meets them
+        $object = new $className(['typeList' => ['name' => 'e'], 'stringType' => 'f']);
+        $this->assertSame('e', $object->getTypeList()->getName());
+        $this->assertSame('f', $object->getStringType());
+        $this->assertNull((new $className(['typeList' => null]))->getTypeList());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['typeList' => 'x'],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'typeList': requires ['object', 'null'], got 'string'",
+        );
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['stringType' => ['name' => 'f']],
+            $this->getExpectedExceptionClass($configuration, InvalidTypeException::class),
+            "Invalid type for 'stringType': requires 'string', got 'object'",
+        );
+
+        $rejections = [
+            [
+                ['objectType' => 'x'],
+                InvalidTypeException::class,
+                "Invalid type for 'objectType': requires 'object', got 'string'",
+            ],
+            // the keyword of the definition
+            [
+                ['definitionWithKeywords' => 'ab'],
+                MinLengthException::class,
+                "Value for 'definitionWithKeywords' must not be shorter than 3",
+            ],
+        ];
+
+        foreach ($rejections as [$input, $exceptionClass, $message]) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                $input,
+                $this->getExpectedExceptionClass($configuration, $exceptionClass),
+                $message,
+            );
+        }
+
+        // the class validates an object value
+        foreach (['objectType', 'withoutType', 'typeList'] as $propertyName) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$propertyName => []],
+                $this->getExpectedExceptionClass($configuration, NestedObjectException::class),
+                $configuration->collectErrors()
+                    ? <<<MSG
+                    Invalid nested object for property '$propertyName':
+                      - Missing required value for 'name'
+                      - Invalid type for 'name': requires 'string', got 'NULL'
+                    MSG
+                    : <<<MSG
+                    Invalid nested object for property '$propertyName':
+                      - Missing required value for 'name'
+                    MSG,
+            );
+        }
+    }
+
+    /**
+     * Object keywords without a type next to a reference to a definition without a type let every value which isn't an
+     * object pass, as without the reference: the same warning is logged. The object type next to the reference
+     * asserts the object, nothing is logged for it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testObjectKeywordsWithoutTypeNextToAReferenceToADefinitionWithoutTypeAreReported(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'StructuralSiblingsOfAReferenceToAnUntypedDefinition.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $warning = "Property '{property}' at '{pointer}' in file {file} carries object-constraining keywords"
+            . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain non-object values";
+
+        foreach (['withoutType', 'booleanDefinition', 'definitionWithKeywords'] as $propertyName) {
+            $this->assertTrue(
+                $this->hasLogEntry(
+                    $logger->getEntries(),
+                    'warning',
+                    $warning,
+                    ['property' => $propertyName, 'pointer' => "/properties/$propertyName"],
+                ),
+                "Expected the warning for '$propertyName'",
+            );
+        }
+
+        $this->assertFalse(
+            $this->hasLogEntry($logger->getEntries(), 'warning', $warning, ['property' => 'objectType']),
+            "The object type next to the reference asserts the object, no warning expected for 'objectType'",
+        );
+    }
+
+    /**
+     * The items a referenced definition evaluates count for an unevaluatedItems next to the reference, per schema
+     * object: the tuple of the definition, its additionalItems and `items: true` (no validator, read from the JSON of
+     * the definition). Reading the schema next to the reference only was rejected: it rejected every item of the
+     * tuple of the definition. Tuples need the tuple form of `items` (up to Draft 2019-09).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsNextToAReferenceSeesTheItemsOfTheReferencedTuple(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('SiblingUnevaluatedItemsOfAReferencedTuple.json', $configuration);
+
+        $object = new $className([
+            'typedReference' => ['a', 'b'],
+            'untypedReferenceWithSiblingTuple' => ['a', 'b'],
+            'referencedAdditionalItems' => ['a', 1, true],
+            'referencedItemsTrue' => [1, 'a'],
+        ]);
+        $this->assertSame(['a', 'b'], $object->getTypedReference());
+        $this->assertSame(['a', 'b'], $object->getUntypedReferenceWithSiblingTuple());
+        $this->assertSame(['a', 1, true], $object->getReferencedAdditionalItems());
+        $this->assertSame([1, 'a'], $object->getReferencedItemsTrue());
+
+        foreach (['typedReference', 'untypedReferenceWithSiblingTuple'] as $property) {
+            $this->assertInstantiationFailsWithMessage(
+                $className,
+                [$property => ['a', 'b', 'c']],
+                $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+                "Provided JSON for '$property' contains not allowed unevaluated items [#2]",
+            );
+        }
+    }
+
+    /**
+     * The items matched by the contains of a referenced definition count for an unevaluatedItems next to the
+     * reference (Draft 2020-12 on, Draft 2019-09 gives contains no annotation).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUnevaluatedItemsNextToAReferenceSeesTheItemsMatchedByTheReferencedContains(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('SiblingUnevaluatedItemsOfAReferencedContains.json', $configuration);
+
+        $this->assertSame(['a', 'b'], (new $className(['tags' => ['a', 'b']]))->getTags());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tags' => ['a', 1]],
+            $this->getExpectedExceptionClass($configuration, UnevaluatedItemsException::class),
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Property-level object×object merge (Draft 2019-09+)
     // -------------------------------------------------------------------------
@@ -206,14 +557,21 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
      * Draft 2019-09+: when a property-level schema has structural sibling keywords
      * ('properties') alongside a $ref that resolves to a non-object type (string),
      * schema generation must fail with a SchemaException: these are contradictory constraints.
+     * A reference to a definition without a type is no contradiction, see
+     * testObjectKeywordsNextToAReferenceToADefinitionWithoutTypeDescribeTheObjectValues().
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPropertyLevelStructuralSiblingWithNonObjectRefThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'person' in file .*: sibling structural object keywords"
-            . ".*require the \\\$ref to resolve to an object/s",
+            '/^' . preg_quote("Property 'person' in file ", '/') . '.+\.json'
+                . preg_quote(
+                    ": sibling structural object keywords ('properties', 'required', …) require the \$ref to resolve to"
+                        . ' an object, but it resolved to a non-object type',
+                    '/',
+                )
+                . '$/',
         );
 
         $this->generateClassFromFile('PropertyLevelStructuralSiblingNonObjectRef.json');

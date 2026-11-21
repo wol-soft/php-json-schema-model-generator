@@ -1,0 +1,71 @@
+{
+  "type": "object",
+  "definitions": {
+    "pair": {
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "open": {
+      "additionalItems": true
+    }
+  },
+  "properties": {
+    "referencedTupleWithSiblingAdditionalItems": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/pair",
+          "additionalItems": true
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "referencedAdditionalItemsWithSiblingTuple": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/open",
+          "items": [
+            {
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "additionalItemsWithoutTuple": {
+      "type": "array",
+      "anyOf": [
+        {
+          "additionalItems": {
+            "type": "number"
+          }
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "string"
+      }
+    },
+    "tupleWithAdditionalItems": {
+      "type": "array",
+      "anyOf": [
+        {
+          "items": [
+            {
+              "type": "string"
+            }
+          ],
+          "additionalItems": true
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

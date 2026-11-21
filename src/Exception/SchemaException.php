@@ -100,9 +100,11 @@ class SchemaException extends PHPModelGeneratorException
      * naming a file; only the point at which they were raised tells them apart, which is what
      * this flag captures.
      *
-     * Set by SchemaProcessor::processTopLevelSchema() around that generation. A marked exception
-     * already names the referenced file and the real cause, so it must reach the caller unchanged
-     * instead of being replaced by a message blaming the reference site.
+     * Set by SchemaProcessor::processTopLevelSchema() around that generation and by
+     * SchemaDefinition::resolveReference() around the creation of the property of a definition of
+     * the same file. A marked exception already names the referenced file and the real cause, so
+     * it must reach the caller unchanged instead of being replaced by a message blaming the
+     * reference site.
      */
     public function markAsReferencedSchemaFailure(): self
     {

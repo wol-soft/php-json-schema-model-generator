@@ -326,7 +326,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
                     }
                 }
 
-                $jsonSchema = json_encode($jsonSchemaArray);
+                // a float constant which is written with a fraction of zero (1.0) must stay a float
+                $jsonSchema = json_encode($jsonSchemaArray, JSON_PRESERVE_ZERO_FRACTION);
             }
         }
 
@@ -534,6 +535,21 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * The exception a model throws for a violation: with collected errors every violation is part of an
+     * ErrorRegistryException, otherwise the exception of the violation itself is thrown.
+     *
+     * @param class-string<ValidationException> $exceptionClass
+     *
+     * @return class-string<JSONModelValidationException>
+     */
+    protected function getExpectedExceptionClass(
+        GeneratorConfiguration $configuration,
+        string $exceptionClass,
+    ): string {
+        return $configuration->collectErrors() ? ErrorRegistryException::class : $exceptionClass;
+    }
+
+    /**
      * Asserts that instantiating the generated class with the given input fails with the given exception
      * class and complete message (see assertMessageMatchesTemplate for the %class% placeholder).
      *
@@ -733,7 +749,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         if ($type instanceof ReflectionUnionType) {
-            return array_map(fn(ReflectionNamedType $t): string => $t->getName(), $type->getTypes());
+            return array_map(fn(ReflectionNamedType $namedType): string => $namedType->getName(), $type->getTypes());
         }
 
         /** @var ReflectionNamedType $type */

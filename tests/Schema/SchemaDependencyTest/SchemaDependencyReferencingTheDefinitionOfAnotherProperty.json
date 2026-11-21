@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "properties": {
+    "boss": {
+      "$ref": "#/definitions/person"
+    },
+    "credit_card": {
+      "type": "integer"
+    }
+  },
+  "dependencies": {
+    "credit_card": {
+      "properties": {
+        "owner": {
+          "$ref": "#/definitions/person"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

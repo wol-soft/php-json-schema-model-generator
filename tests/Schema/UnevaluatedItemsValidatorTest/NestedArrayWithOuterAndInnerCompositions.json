@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "allOf": [
+            {
+              "items": [
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            {
+              "items": [
+                true,
+                {
+                  "const": "x"
+                }
+              ]
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ],
+      "allOf": [
+        {
+          "items": [
+            true,
+            {
+              "const": 5
+            },
+            {
+              "const": 5
+            }
+          ]
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

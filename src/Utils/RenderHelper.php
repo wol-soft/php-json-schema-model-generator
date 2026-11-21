@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\PropertyValidationMethod;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator\AbstractUnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 class RenderHelper
 {
+    private const string CONTROL_CHARACTERS_PATTERN = '/[\x00-\x1f\x7f]+/';
+
     public function __construct(protected GeneratorConfiguration $generatorConfiguration)
     {}
 
@@ -101,15 +103,80 @@ class RenderHelper
     }
 
     /**
+     * Escape a value for the use inside of a single quoted string of the generated code. Only the backslash and the
+     * single quote are special in a single quoted string. addslashes() was rejected: it also escapes the double
+     * quote, which a single quoted string doesn't know: the backslash stays part of the string and the value changes
+     * (the key of a property named `say "hi"` would never be found in the provided data).
+     *
+     * A control character (a line break, a tab, ...) leaves the single quoted string and is concatenated as an escape
+     * sequence of a double quoted string (`'a' . "\n" . 'b'`): written as it is, a line break inside the literal
+     * receives the indentation of the generated code and changes the value. Every caller embeds the result into a
+     * single quoted string in the position of an expression, where the concatenation is valid.
+     */
+    public static function escapeSingleQuoted(string $value): string
+    {
+        return preg_replace_callback(
+            self::CONTROL_CHARACTERS_PATTERN,
+            static fn(array $match): string => "' . " . self::exportDoubleQuoted($match[0]) . " . '",
+            addcslashes($value, "'\\"),
+        );
+    }
+
+    /**
+     * A double quoted string literal of the given value. Control characters are written as escape sequences;
+     * addcslashes() was rejected, it writes the bell and the backspace as `\a` and `\b`, which a PHP string doesn't
+     * know (the backslash and the letter would become part of the value).
+     */
+    private static function exportDoubleQuoted(string $value): string
+    {
+        return '"' . preg_replace_callback(
+            '/[\x00-\x1f\x7f"\\\\$]/',
+            static fn(array $match): string => match ($match[0]) {
+                "\n" => '\n',
+                "\r" => '\r',
+                "\t" => '\t',
+                "\v" => '\v',
+                "\f" => '\f',
+                "\e" => '\e',
+                '"', '\\', '$' => '\\' . $match[0],
+                default => sprintf('\x%02X', ord($match[0])),
+            },
+            $value,
+        ) . '"';
+    }
+
+    /**
      * Generate code to handle a validation error
      */
     public function validationError(PropertyValidatorInterface $validator): string
     {
-        $exceptionConstructor = sprintf(
-            'new \%s($value ?? null, ...%s)',
-            $validator->getExceptionClass(),
-            preg_replace('/\'&(\$\w+)\'/i', '$1', self::varExportArray($validator->getExceptionParams())),
+        $providedValue = $validator->getProvidedValueCode();
+        $exceptionParams = preg_replace(
+            '/\'&(\$\w+)\'/i',
+            '$1',
+            self::varExportArray($validator->getExceptionParams()),
         );
+
+        // PSR-12: the arguments of a call which spans multiple lines are placed on a line of their own
+        $exceptionConstructor = str_contains($providedValue, "\n")
+            ? sprintf(
+                "new \\%s(\n    %s,\n    ...%s\n)",
+                $validator->getExceptionClass(),
+                self::indent($providedValue, 1),
+                $exceptionParams,
+            )
+            : sprintf('new \%s(%s, ...%s)', $validator->getExceptionClass(), $providedValue, $exceptionParams);
+
+        // The validators of a generated class itself receive the name of the class as property name. The exception
+        // is marked, otherwise the class name becomes a segment of its instance pointer (and of the pointers of the
+        // exceptions nested below it). An exception which isn't a ValidationException of the library (the exception
+        // of a custom validator) has no instance pointer and doesn't provide the marker.
+        if (
+            $validator->validatesGeneratedClass()
+            && is_subclass_of($validator->getExceptionClass(), ValidationException::class)
+        ) {
+            $exceptionConstructor = "($exceptionConstructor)->withPlaceholderPropertyName()";
+        }
 
         if ($this->generatorConfiguration->collectErrors()) {
             return "\$this->_errorRegistry->addError($exceptionConstructor);";
@@ -152,8 +219,13 @@ class RenderHelper
             return implode(' | ', array_unique($names));
         }
 
-        // Single type — preserve ?Type shorthand
-        return ($nullable ? '?' : '') . $names[0];
+        // Single type — preserve ?Type shorthand, except for the null type: it already contains null and PHP rejects
+        // "?null". Dropping the shorthand here covers every declaration (getter, setter, builder, accessors of
+        // additional properties) and every source of the nullability (optional, implicit null, a forced nullable
+        // type). Clearing the type of a null const/enum (as the null type of a schema does) was rejected: the
+        // getters of a required null const would lose their `null` declaration and each source producing a null-only
+        // type would need the same special handling.
+        return ($nullable && $names[0] !== 'null' ? '?' : '') . $names[0];
     }
 
     public function getTypeHintAnnotation(
@@ -194,7 +266,7 @@ class RenderHelper
 
             $code = ($setUp !== '' ? "{$setUp}\n" : '')
                 . 'if ' . self::formatCondition($validator->getCheck(), 0)
-                . " {\n    {$this->validationError($validator)}\n}";
+                . " {\n    " . self::indent($this->validationError($validator), 1) . "\n}";
 
             return self::indent($code, $indentLevel);
         }
@@ -218,8 +290,8 @@ class RenderHelper
         $renderedMethods = '';
 
         // don't change to a foreach loop as the render process of a method might add additional methods
-        for ($i = 0; $i < count($schema->getMethods()); $i++) {
-            $code = $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode();
+        for ($methodIndex = 0; $methodIndex < count($schema->getMethods()); $methodIndex++) {
+            $code = $schema->getMethods()[array_keys($schema->getMethods())[$methodIndex]]->getCode();
 
             $renderedMethods .= '    ' . self::indent($code, 1) . "\n\n";
         }
@@ -233,8 +305,8 @@ class RenderHelper
     }
 
     /**
-     * True when the property carries an unevaluatedItems validator of either form among its own
-     * validators, or when a branch of one of its compositions carries one.
+     * True when the property or a branch of one of its compositions carries an unevaluatedItems validator (the
+     * schema-form as well as the `false`-form, which reads the indices credited by a sibling `contains`).
      *
      * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
      * property's validator chain runs (ahead of any composition validator, which may credit
@@ -245,32 +317,123 @@ class RenderHelper
      * into the slot of the property in the same way, also when the branch is a `not` branch or
      * the condition of an if/then/else.
      *
-     * The validators of the property itself match the shared base class, not the schema-form
-     * subclass: `unevaluatedItems: false` produces a `NoUnevaluatedItemsValidator`, a sibling of
+     * The validators match the shared base class, not the schema-form subclass:
+     * `unevaluatedItems: false` produces a `NoUnevaluatedItemsValidator`, a sibling of
      * `UnevaluatedItemsValidator` rather than a subclass of it, and it reads the very same slot.
      * Testing for the schema form alone leaves the `false` form — the more common spelling —
      * without a reset.
-     *
-     * The branch scan matches the schema form only, and does not need the base class: a branch
-     * declaring `unevaluatedItems` next to anything that claims indices is refused at generation
-     * time, so the `false` form can only survive in a branch where nothing writes the slot — and
-     * the `false` form never writes it itself. There is no credit left to leak into a later pass.
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {
-        foreach ($property->getValidators() as $propertyValidator) {
-            if ($propertyValidator->getValidator() instanceof AbstractUnevaluatedItemsValidator) {
-                return true;
-            }
+        return EvaluatedItemsScope::isTracked($property);
+    }
+
+    /**
+     * Renders the validators of the property which validates one element of a container (the items of an array, the
+     * value of an additional property, ...).
+     *
+     * An element which carries an unevaluatedItems validator is validated in an evaluation scope of its own: the
+     * element starts without any evaluated indices and hands the indices of the enclosing arrays back untouched. The
+     * indices are tracked by the name of an array property, and the element shares that name with its siblings (all
+     * inner arrays of an outer array), with the enclosing array (the schema-form items carry the name of the
+     * enclosing property) or, as a recursive reference, with the definition it refers to.
+     *
+     * The scope covers all tracked arrays, not the key of the element: the validators of a recursive reference were
+     * created for the property of the definition and track the name of that property, the element carries the name of
+     * its position (`tuple item #0 of array ...`). Scoping the name of the element was rejected: from the second level
+     * of a recursion on, the element and its validators disagree on the key and the indices a nested level evaluated
+     * were credited to the level enclosing it. Nothing outside of the element reads the indices while it is
+     * validated, an empty set for every array is the state the element has to start with.
+     *
+     * The scope is restored in a `finally` block, a failing element (the exception is collected by the caller) and a
+     * `continue` of the caller must not leave the credits of the element behind. Resetting the set without restoring
+     * it was rejected: the set of the enclosing array holds the indices a sibling `contains` credited before the
+     * elements are validated, a following unevaluatedItems check of the enclosing array would lose them. Separate
+     * keys per element were rejected as well: the element index is not available to the validators of the element
+     * (extracted methods and closures) and a reference cycle validates the same location on several levels at once.
+     */
+    public function renderValidators(PropertyInterface $property, Schema $schema, int $indentLevel = 0): string
+    {
+        $renderedValidators = array_filter(
+            array_map(
+                fn(PropertyValidatorInterface $validator): string => $this->renderValidator($validator, $schema),
+                $property->getOrderedValidators(),
+            ),
+            static fn(string $renderedValidator): bool => $renderedValidator !== '',
+        );
+
+        $code = implode("\n", $renderedValidators);
+
+        if ($this->hasUnevaluatedItemsValidator($property)) {
+            $code = implode(
+                "\n",
+                [
+                    '$savedEvaluatedItemIndices = $this->_evaluatedItemIndices;',
+                    '$this->_evaluatedItemIndices = [];',
+                    'try {',
+                    '    ' . self::indent($code, 1),
+                    '} finally {',
+                    '    $this->_evaluatedItemIndices = $savedEvaluatedItemIndices;',
+                    '}',
+                ],
+            );
         }
 
-        foreach (ArrayItemFilterScope::declarationsOf($property, true) as $declaration) {
-            if ($declaration->validator instanceof UnevaluatedItemsValidator) {
-                return true;
-            }
+        return self::indent($code, $indentLevel);
+    }
+
+    /**
+     * Renders the validation of one element of a container (see renderValidators()) as a call of a method of its own.
+     *
+     * The validators of the element are rendered into the method, not into the validators of the container: an element
+     * which references the schema owning the container (a tree whose additional items are trees again) renders the
+     * container, which renders the element again. The method is registered before its body is rendered, so the
+     * recursive occurrence renders the call of the method instead. As a side effect the nested validators of an
+     * element run in a scope of their own: the variables a validator shares with its closure (error lists, counters)
+     * can't collide with the variables of a validator of the same kind validating the container.
+     *
+     * Extracting only the elements which are part of a reference cycle was rejected: the cycle is only known once every
+     * reference is resolved and the rendering would need a global state tracking the properties being rendered.
+     *
+     * @param string $methodName Reserved by the validator of the container (see extractedMethodNameCandidate()), all
+     *                           clones of the validator bound to other properties call the same method.
+     */
+    public function renderExtractedValidators(
+        PropertyInterface $property,
+        Schema $schema,
+        string $methodName,
+        int $indentLevel = 0,
+    ): string {
+        if (!$property->getOrderedValidators()) {
+            return '';
         }
 
-        return false;
+        if (!$schema->hasMethod($methodName)) {
+            $schema->addMethod(
+                $methodName,
+                new PropertyValidationMethod($methodName, $property, $schema, $this->generatorConfiguration),
+            );
+        }
+
+        return self::indent("\$this->$methodName(\$value, \$modelData);", $indentLevel);
+    }
+
+    /**
+     * The name of a method extracted for the validator of the property: derived from the attribute and the schema of
+     * the property only, so it is stable between generation runs. The caller reserves the name in the schema which
+     * receives the method (Schema::reserveMethodName()) as validators of identical properties share the candidate.
+     *
+     * Mixing the identity of the validator or of the property into the name was rejected: it shifts with unrelated
+     * schemas processed earlier in the run and renames the methods of classes which did not change.
+     */
+    public static function extractedMethodNameCandidate(PropertyInterface $property, string $kind): string
+    {
+        return sprintf(
+            '_validate%s_%s_%s',
+            str_replace(' ', '', ucfirst($property->getAttribute())),
+            $kind,
+            md5(json_encode($property->getJsonSchema()->getJson())),
+        );
     }
 
     /**
@@ -278,7 +441,8 @@ class RenderHelper
      * for arrays (recursively, preserving string keys for associative arrays), plain var_export() for everything
      * else. var_export() alone always emits the old array (...) syntax for arrays, which - unlike its output for
      * scalars - is genuinely multi-line and needs the caller to account for indentation; routing every array value
-     * embedded in generated code through this method avoids that.
+     * embedded in generated code through this method avoids that. The literal never spans multiple lines: a string
+     * with a control character is written as a double quoted string with escape sequences (see exportScalar()).
      */
     public static function varExportArray(mixed $values): string
     {
@@ -291,7 +455,7 @@ class RenderHelper
         $entries = [];
         foreach ($values as $key => $value) {
             $exportedValue = is_array($value) ? self::varExportArray($value) : self::exportScalar($value);
-            $entries[] = $isList ? $exportedValue : var_export($key, true) . ' => ' . $exportedValue;
+            $entries[] = $isList ? $exportedValue : self::exportScalar($key) . ' => ' . $exportedValue;
         }
 
         return '[' . implode(', ', $entries) . ']';
@@ -300,10 +464,19 @@ class RenderHelper
     /**
      * var_export(null, true) returns the string "NULL" - unlike its output for true/false, which is already
      * lowercase "true"/"false" - so it's the one scalar case PSR-12's lowercase-constant rule always rejects.
+     *
+     * var_export() writes a control character of a string as it is: a line break would split the literal over two
+     * lines of the generated code, and the indentation of the generated code would become part of the value. Such a
+     * string is written as a double quoted string with escape sequences instead.
      */
     private static function exportScalar(mixed $value): string
     {
-        return $value === null ? 'null' : var_export($value, true);
+        return match (true) {
+            $value === null => 'null',
+            is_string($value) && preg_match(self::CONTROL_CHARACTERS_PATTERN, $value) === 1
+                => self::exportDoubleQuoted($value),
+            default => var_export($value, true),
+        };
     }
 
     /**
@@ -338,7 +511,7 @@ class RenderHelper
             $keyed['/' . addcslashes((string) $rawPattern, '/') . '/'] = $value;
         }
 
-        return var_export($keyed, true);
+        return self::varExportArray($keyed);
     }
 
     public static function filterClassImports(array $imports, string $namespace): array

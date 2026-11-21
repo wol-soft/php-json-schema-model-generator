@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "countOrString": {
+      "type": [
+        "integer",
+        "string"
+      ]
+    },
+    "countOrNumber": {
+      "type": [
+        "integer",
+        "number"
+      ]
+    },
+    "fixed": {
+      "const": 1
+    },
+    "choice": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "mixedChoice": {
+      "enum": [
+        1,
+        "a"
+      ]
+    },
+    "numberChoice": {
+      "enum": [
+        1,
+        2.5
+      ]
+    },
+    "countOrNumberConst": {
+      "type": [
+        "integer",
+        "number"
+      ],
+      "const": 1
+    },
+    "countOrNumberChoice": {
+      "type": [
+        "integer",
+        "number"
+      ],
+      "enum": [
+        1.0,
+        2.5
+      ]
+    }
+  }
+}

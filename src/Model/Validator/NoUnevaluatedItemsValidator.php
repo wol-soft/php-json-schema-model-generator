@@ -17,13 +17,16 @@ use PHPModelGenerator\Utils\ArrayItemsCoverage;
  */
 class NoUnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 {
-    public function __construct(PropertyInterface $property, ArrayItemsCoverage $siblingCoverage)
+    /**
+     * @param ArrayItemsCoverage[] $siblingCoverages see AbstractUnevaluatedItemsValidator
+     */
+    public function __construct(PropertyInterface $property, array $siblingCoverages)
     {
         $this->isResolved = true;
 
         parent::__construct(
             $property,
-            $siblingCoverage,
+            $siblingCoverages,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'NoUnevaluatedItems.phptpl',
             UnevaluatedItemsException::class,
             ['&$unevaluatedItems'],

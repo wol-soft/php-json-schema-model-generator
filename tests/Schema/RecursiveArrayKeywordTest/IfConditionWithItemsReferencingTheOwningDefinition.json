@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "if": {
+        "items": {
+          "$ref": "#/definitions/node"
+        },
+        "minItems": 1
+      },
+      "then": {
+        "maxItems": 2
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

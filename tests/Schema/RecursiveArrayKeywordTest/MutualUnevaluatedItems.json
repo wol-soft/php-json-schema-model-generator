@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "definitions": {
+    "stringList": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": {
+        "$ref": "#/definitions/integerList"
+      }
+    },
+    "integerList": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        }
+      ],
+      "unevaluatedItems": {
+        "$ref": "#/definitions/stringList"
+      }
+    }
+  },
+  "properties": {
+    "chain": {
+      "$ref": "#/definitions/stringList"
+    }
+  }
+}

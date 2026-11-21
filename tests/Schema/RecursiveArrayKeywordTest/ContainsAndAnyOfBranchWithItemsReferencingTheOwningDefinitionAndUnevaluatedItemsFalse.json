@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "contains": {
+        "const": "k"
+      },
+      "anyOf": [
+        {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/node"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        {}
+      ],
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

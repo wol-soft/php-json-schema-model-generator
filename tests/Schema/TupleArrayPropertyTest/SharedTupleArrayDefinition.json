@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "definitions": {
+    "pair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "first": {
+      "$ref": "#/definitions/pair"
+    },
+    "second": {
+      "$ref": "#/definitions/pair"
+    }
+  }
+}

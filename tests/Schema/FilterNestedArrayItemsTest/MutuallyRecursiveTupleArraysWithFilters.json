@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "definitions": {
+    "days": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string",
+          "filter": [
+            {
+              "filter": "dateTime",
+              "outputFormat": "Ymd"
+            }
+          ]
+        },
+        {
+          "$ref": "#/definitions/years"
+        }
+      ]
+    },
+    "years": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string",
+          "filter": [
+            {
+              "filter": "dateTime",
+              "outputFormat": "Y"
+            }
+          ]
+        },
+        {
+          "$ref": "#/definitions/days"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "chain": {
+      "$ref": "#/definitions/days"
+    }
+  }
+}

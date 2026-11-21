@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "pair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "extra": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    }
+  }
+}

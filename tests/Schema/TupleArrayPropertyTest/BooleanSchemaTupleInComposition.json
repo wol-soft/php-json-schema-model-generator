@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "branch": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": [false]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

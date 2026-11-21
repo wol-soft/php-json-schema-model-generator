@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "itemsSlot": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      }
+    },
+    "compositionSlot": {
+      "type": "array",
+      "contains": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string",
+            "minLength": 3
+          }
+        ]
+      }
+    },
+    "conditionSlot": {
+      "type": "array",
+      "contains": {
+        "if": {
+          "type": "integer"
+        },
+        "then": {
+          "minimum": 10
+        },
+        "else": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

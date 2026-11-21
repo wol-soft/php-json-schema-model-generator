@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "definitions": {
+    "untypedItems": {
+      "minItems": 1
+    },
+    "untypedString": {
+      "minLength": 2
+    }
+  },
+  "properties": {
+    "siblingWithoutType": {
+      "$ref": "#/definitions/untypedItems",
+      "maxItems": 2
+    },
+    "siblingWithType": {
+      "type": "array",
+      "$ref": "#/definitions/untypedItems",
+      "maxItems": 2
+    },
+    "siblingWithTypeList": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "$ref": "#/definitions/untypedItems",
+      "maxItems": 2,
+      "maxLength": 3
+    },
+    "siblingWithObjectType": {
+      "type": "object",
+      "$ref": "#/definitions/untypedItems"
+    },
+    "siblingWithObjectTypeList": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "$ref": "#/definitions/untypedItems"
+    },
+    "siblingEnum": {
+      "$ref": "#/definitions/untypedString",
+      "enum": [
+        "a",
+        "ab",
+        "abc"
+      ]
+    }
+  }
+}

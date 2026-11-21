@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^p": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    }
+  }
+}

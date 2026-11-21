@@ -20,6 +20,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -45,6 +46,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getIntegerProperty());
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('nestedConstStructureDataProvider')]
     public function testNotProvidedOptionalNestedConstPropertyIsValid(string $file): void
     {
@@ -64,6 +66,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('validArrayConstValues')]
     public function testProvidedArrayConstPropertyIsValid(string $file, ?array $value): void
     {
@@ -89,6 +92,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('invalidArrayConstDataProvider')]
     public function testNotMatchingArrayConstPropertyThrowsAnException(
         string $file,
@@ -117,6 +121,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('nestedConstStructureDataProvider')]
     public function testNullForNestedConstPropertyWithImplicitNullDisabledThrowsAnException(string $file): void
     {

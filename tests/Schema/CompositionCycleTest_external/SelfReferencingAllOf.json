@@ -1,0 +1,18 @@
+{
+  "type": "array",
+  "definitions": {
+    "other": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/other"
+    }
+  ]
+}

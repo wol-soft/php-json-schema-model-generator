@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "allOf": [
+        {
+          "items": {
+            "$ref": "#/definitions/node"
+          }
+        },
+        {
+          "maxItems": 2
+        }
+      ]
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

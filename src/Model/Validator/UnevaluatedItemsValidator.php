@@ -28,6 +28,12 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
     private readonly PropertyInterface $validationProperty;
 
     /**
+     * The error map `$invalidItems` needs no name of its own: the validators of an unevaluated item (which may be an
+     * array with unevaluatedItems itself) are rendered into a method of their own (see
+     * RenderHelper::renderExtractedValidators()), an inner validator never shares the scope of this one.
+     *
+     * @param ArrayItemsCoverage[] $siblingCoverages see AbstractUnevaluatedItemsValidator
+     *
      * @throws SchemaException
      */
     public function __construct(
@@ -35,7 +41,7 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertiesStructure,
-        ArrayItemsCoverage $siblingCoverage,
+        array $siblingCoverages,
     ) {
         $this->validationProperty = (new PropertyFactory())->create(
             $schemaProcessor,
@@ -51,13 +57,16 @@ class UnevaluatedItemsValidator extends AbstractUnevaluatedItemsValidator
 
         parent::__construct(
             $property,
-            $siblingCoverage,
+            $siblingCoverages,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'UnevaluatedItems.phptpl',
             InvalidUnevaluatedItemsException::class,
             ['&$invalidItems'],
             [
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
+                'validationMethod' => $schema->reserveMethodName(
+                    RenderHelper::extractedMethodNameCandidate($property, 'UnevaluatedItem'),
+                ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],

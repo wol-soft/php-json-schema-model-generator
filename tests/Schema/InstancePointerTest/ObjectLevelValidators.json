@@ -1,0 +1,103 @@
+{
+  "type": "object",
+  "properties": {
+    "min": {
+      "type": "object",
+      "minProperties": 2,
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      }
+    },
+    "max": {
+      "type": "object",
+      "maxProperties": 1,
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      }
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "allOfObject": {
+      "type": "object",
+      "allOf": [
+        {
+          "properties": {
+            "b": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "b"
+          ]
+        }
+      ]
+    },
+    "notObject": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "a"
+        ]
+      }
+    },
+    "conditional": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "if": {
+        "required": [
+          "a"
+        ]
+      },
+      "then": {
+        "properties": {
+          "b": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "b"
+        ]
+      }
+    },
+    "additionalSchema": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "names": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 2
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "patternProperties": {
+        "^a": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

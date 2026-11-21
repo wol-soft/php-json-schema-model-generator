@@ -7,11 +7,6 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\ResolvableInterface;
 
-/**
- * Interface PropertyValidatorInterface
- *
- * @package PHPModelGenerator\Model\Validator
- */
 interface PropertyValidatorInterface extends ResolvableInterface
 {
     /**
@@ -28,6 +23,21 @@ interface PropertyValidatorInterface extends ResolvableInterface
      * Get the additional data of the exception which is thrown if the validation fails
      */
     public function getExceptionParams(): array;
+
+    /**
+     * Get the source code of the value which is provided to the exception if the validation fails. The default is the
+     * validated value, a validator which compares the value in another representation than the validated one (eg. the
+     * data of a model) provides the value it compared.
+     */
+    public function getProvidedValueCode(): string;
+
+    /**
+     * Whether the validator validates the generated class itself (a validator of the base property of a schema, eg.
+     * minProperties or the composition of an object) instead of a value of the data. The name of the property which
+     * its exception receives is the name of the generated class: a label for the message text, no name inside of the
+     * validated data.
+     */
+    public function validatesGeneratedClass(): bool;
 
     /**
      * Get the source code which is required to set up the validator (eg. initialize variables)

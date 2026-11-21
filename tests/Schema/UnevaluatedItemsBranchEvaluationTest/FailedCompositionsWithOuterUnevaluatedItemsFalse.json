@@ -1,0 +1,77 @@
+{
+  "type": "object",
+  "properties": {
+    "integersInBranch": {
+      "type": "array",
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "unevaluatedItems": {
+                "type": "integer"
+              }
+            },
+            {
+              "minItems": 3
+            }
+          ]
+        },
+        {
+          "maxItems": 10
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "stringsInBranch": {
+      "type": "array",
+      "anyOf": [
+        {
+          "if": {
+            "contains": {
+              "type": "string"
+            },
+            "unevaluatedItems": {
+              "type": "string"
+            }
+          },
+          "then": {
+            "maxItems": 1
+          }
+        },
+        {
+          "maxItems": 10
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "integers": {
+      "type": "array",
+      "allOf": [
+        {
+          "unevaluatedItems": {
+            "type": "integer"
+          }
+        },
+        {
+          "minItems": 3
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "strings": {
+      "type": "array",
+      "if": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": {
+          "type": "string"
+        }
+      },
+      "then": {
+        "maxItems": 1
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

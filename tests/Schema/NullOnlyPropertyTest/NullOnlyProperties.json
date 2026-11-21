@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "constNull": {
+      "const": null
+    },
+    "enumNull": {
+      "enum": [null]
+    },
+    "typeNull": {
+      "type": "null"
+    },
+    "typeNullConstNull": {
+      "type": "null",
+      "const": null
+    },
+    "typeNullEnumNull": {
+      "type": "null",
+      "enum": [null]
+    },
+    "multiTypeConstNull": {
+      "type": ["null", "string"],
+      "const": null
+    },
+    "requiredConstNull": {
+      "const": null
+    },
+    "requiredEnumNull": {
+      "enum": [null]
+    },
+    "requiredTypeNull": {
+      "type": "null"
+    }
+  },
+  "required": [
+    "requiredConstNull",
+    "requiredEnumNull",
+    "requiredTypeNull"
+  ]
+}

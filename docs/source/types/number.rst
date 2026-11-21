@@ -3,6 +3,8 @@ Numeric types
 
 Used for properties containing numeric values. Properties with the type `integer` are converted to the PHP type `int`, Properties with the type `number` to the type `float` (even if an integral number is provided).
 
+A float with a zero fractional part (``1.0``) is an integer: a property of the type `integer` accepts it and holds it as `int`, the keywords of the property (e.g. ``minimum``, ``enum``) validate the `int`. A float with a fractional part, an infinite float and a float beyond the range of an `int` are rejected. A property with a type list which contains `integer` holds an integral float as `int` as well, unless the list also contains `number`: then the property holds every number as `float`. A property which holds integers and floats (a type list with `integer` and `number`, or an enum of integers and floats) compares a number with its ``enum`` or ``const`` by value: ``1.0`` equals the allowed ``1``.
+
 .. code-block:: json
 
     {

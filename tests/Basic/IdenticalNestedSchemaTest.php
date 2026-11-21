@@ -293,6 +293,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
      * Nested schemas which differ only in the order of a list whose order matters (the items of a tuple) are
      * different classes; a different order of a list which is a set (required) still maps to one class.
      */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testNestedSchemasDifferingOnlyInTheOrderOfTupleItemsAreDifferentClasses(): void
     {
         $className = $this->generateClassFromFile(

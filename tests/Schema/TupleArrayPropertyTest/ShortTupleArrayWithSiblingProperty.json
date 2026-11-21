@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "number": {
+      "type": "integer"
+    },
+    "pair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

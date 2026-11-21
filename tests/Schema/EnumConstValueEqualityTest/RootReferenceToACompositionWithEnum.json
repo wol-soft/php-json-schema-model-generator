@@ -1,0 +1,39 @@
+{
+  "$ref": "#/$defs/choice",
+  "$defs": {
+    "choice": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "a"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "b": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "b"
+          ]
+        }
+      ],
+      "enum": [
+        {
+          "a": 1
+        },
+        {
+          "b": 2
+        }
+      ]
+    }
+  }
+}

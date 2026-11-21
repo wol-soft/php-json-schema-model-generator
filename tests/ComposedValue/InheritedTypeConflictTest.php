@@ -187,7 +187,9 @@ class InheritedTypeConflictTest extends AbstractPHPModelGeneratorTestCase
     public function testEmptyEnumOfAnAllOfBranchKeepsItsOwnDiagnostic(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/^Empty enum property value in file .+\.json at line \d+, column \d+$/');
+        $this->expectExceptionMessageMatches(
+            "/^Empty enum property 'value' in file .+\.json at line \d+, column \d+$/",
+        );
 
         $this->generateClassFromFileTemplate(
             'ListCompositionBranchUnderTypedProperty.json',

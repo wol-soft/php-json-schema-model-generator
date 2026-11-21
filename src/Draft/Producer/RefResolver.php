@@ -6,12 +6,16 @@ namespace PHPModelGenerator\Draft\Producer;
 
 use Exception;
 use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Draft\Modifier\ConstModifier;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\Factory\Any\EnumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -194,6 +198,12 @@ class RefResolver implements PropertyProducerInterface
             // though the same composition written inline generates fine.
             if ($this->hasComposedPropertyValidator($property)) {
                 $schemaProcessor->transferComposedPropertiesToSchema($property, $schema);
+                $this->applyValueKeywordsToTheClass(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $property->getJsonSchema(),
+                );
 
                 return $property;
             }
@@ -237,6 +247,33 @@ class RefResolver implements PropertyProducerInterface
         $schema->adoptEvaluatedPropertiesOfReferencedSchema($property->getNestedSchema());
 
         return $property;
+    }
+
+    /**
+     * The enum and the const of a definition consisting of a composition constrain the object of the class which
+     * references the definition at its root, exactly as written inline at the root: EnumValidatorFactory and
+     * ConstModifier build them as validators of the object for the property of a class root. The property built for
+     * the definition carries them as validators of a property, which the transfer of the composition doesn't take
+     * over. Transferring those validators was rejected: they compare the value of a property instead of the data of
+     * the object and wouldn't validate an update of the object. The keywords of other types (minLength, ...) never
+     * apply to the object of a class.
+     *
+     * @throws SchemaException
+     */
+    private function applyValueKeywordsToTheClass(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $definitionSchema,
+    ): void {
+        $rootProperty = new BaseProperty($propertyName, new PropertyType('object'), $definitionSchema);
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($definitionSchema);
+
+        foreach ($builtDraft->getTypes()['any']->getModifiers() as $modifier) {
+            if ($modifier instanceof EnumValidatorFactory || $modifier instanceof ConstModifier) {
+                $modifier->modify($schemaProcessor, $schema, $rootProperty, $definitionSchema);
+            }
+        }
     }
 
     /**

@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "definitions": {
+    "containsString": {
+      "contains": {
+        "type": "string"
+      }
+    }
+  },
+  "properties": {
+    "tags": {
+      "type": "array",
+      "$ref": "#/definitions/containsString",
+      "unevaluatedItems": false
+    }
+  }
+}

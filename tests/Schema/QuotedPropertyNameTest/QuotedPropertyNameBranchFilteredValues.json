@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "pick's": {
+          "type": "string",
+          "filter": "dateTime"
+        }
+      },
+      "required": [
+        "pick's"
+      ]
+    },
+    {
+      "properties": {
+        "other's": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "other's"
+      ]
+    }
+  ]
+}

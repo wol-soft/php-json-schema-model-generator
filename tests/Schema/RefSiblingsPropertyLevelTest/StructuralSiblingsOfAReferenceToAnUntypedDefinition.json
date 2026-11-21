@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "$defs": {
+    "empty": {},
+    "anything": true,
+    "atLeastThreeCharacters": {
+      "minLength": 3
+    }
+  },
+  "properties": {
+    "objectType": {
+      "type": "object",
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "withoutType": {
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "booleanDefinition": {
+      "$ref": "#/$defs/anything",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "definitionWithKeywords": {
+      "$ref": "#/$defs/atLeastThreeCharacters",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "typeList": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "stringType": {
+      "type": "string",
+      "$ref": "#/$defs/empty",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

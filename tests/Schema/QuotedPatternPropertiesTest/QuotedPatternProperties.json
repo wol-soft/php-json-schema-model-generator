@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "denied": {
+      "type": "object",
+      "patternProperties": {
+        "^no's": false
+      }
+    },
+    "deniedBackslash": {
+      "type": "object",
+      "patternProperties": {
+        "^a\\\\b$": false
+      }
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "known": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^it's": {
+          "type": "string"
+        },
+        "^b\\\\": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

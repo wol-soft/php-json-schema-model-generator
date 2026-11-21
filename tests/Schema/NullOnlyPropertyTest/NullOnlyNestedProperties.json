@@ -1,0 +1,80 @@
+{
+  "type": "object",
+  "properties": {
+    "nestedObject": {
+      "type": "object",
+      "properties": {
+        "constNull": {
+          "const": null
+        },
+        "enumNull": {
+          "enum": [null]
+        }
+      }
+    },
+    "arrayOfConstNull": {
+      "type": "array",
+      "items": {
+        "const": null
+      }
+    },
+    "arrayOfEnumNull": {
+      "type": "array",
+      "items": {
+        "enum": [null]
+      }
+    },
+    "tupleWithConstNull": {
+      "type": "array",
+      "items": [
+        {
+          "const": null
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": false
+    },
+    "allOfConstNull": {
+      "allOf": [
+        {
+          "type": "null"
+        },
+        {
+          "const": null
+        }
+      ]
+    },
+    "anyOfConstNull": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "oneOfEnumNull": {
+      "oneOf": [
+        {
+          "enum": [null]
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "requiredAllOfConstNull": {
+      "allOf": [
+        {
+          "const": null
+        }
+      ]
+    }
+  },
+  "required": [
+    "requiredAllOfConstNull"
+  ]
+}

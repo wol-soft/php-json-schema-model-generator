@@ -1,0 +1,74 @@
+{
+  "type": "object",
+  "properties": {
+    "firstTrue": {
+      "type": "array",
+      "items": [
+        true,
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "middleTrue": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        true,
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "lastTrue": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        true
+      ]
+    },
+    "firstFalse": {
+      "type": "array",
+      "items": [
+        false,
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "middleFalse": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        false,
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "lastFalse": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        false
+      ]
+    }
+  }
+}

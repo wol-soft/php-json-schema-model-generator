@@ -22,6 +22,15 @@ use PHPModelGenerator\Utils\ArrayItemsCoverage;
 class ItemsValidatorFactory extends AbstractValidatorFactory
 {
     /**
+     * @param bool $supportTupleForm the tuple form of the draft: `items` as an array of schemas and `additionalItems`
+     *                               for the items behind the tuple (up to Draft 2019-09; Draft 2020-12 replaced both
+     *                               by `prefixItems` and the schema form of `items`). Only the factory registered
+     *                               for `items` rejects it, the one for `prefixItems` reads its own tuple.
+     */
+    public function __construct(private readonly bool $supportTupleForm = true)
+    {}
+
+    /**
      * @throws SchemaException
      */
     public function modify(
@@ -31,6 +40,10 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
+
+        if (!$this->supportTupleForm) {
+            $this->rejectTupleForm($property, $propertySchema);
+        }
 
         if (!isset($json[$this->key])) {
             return;
@@ -79,11 +92,12 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
                 // `items: false` means the array must be empty. MaxItemsException's constructor
                 // requires both the maxItems limit and the actual count of the offending array
                 // — define $count via the expression so the validator can pass it as the fifth
-                // constructor argument alongside the literal 0 maxItems.
+                // constructor argument alongside the literal 0 maxItems. The type guard skips a
+                // property which isn't provided (null with implicit null), like the maxItems check.
                 $property->addValidator(
                     (new PropertyValidator(
                         $property,
-                        '($count = count($value)) > 0',
+                        'is_array($value) && ($count = count($value)) > 0',
                         MaxItemsException::class,
                         [0, '&$count'],
                     ))->withJsonPointer($itemsPointer),
@@ -111,6 +125,48 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
                 $property,
             ))->withJsonPointer($itemsPointer),
         );
+    }
+
+    /**
+     * The tuple form doesn't exist in Draft 2020-12: its meta-schema requires `items` to be a schema and doesn't know
+     * `additionalItems`. The tuple is `prefixItems`, the items behind it are validated by `items`. Generating the
+     * 2019-09 meaning anyway was rejected: a 2020-12 schema the meta-schema calls invalid would generate silently, and
+     * `additionalItems`, an unknown keyword there, would be validated. Ignoring the keywords was rejected as well: a
+     * tuple the author wrote would silently validate nothing.
+     *
+     * An empty array is the empty schema (json_decode() can't tell `[]` from `{}`), not a tuple.
+     *
+     * @throws SchemaException
+     */
+    private function rejectTupleForm(PropertyInterface $property, JsonSchema $propertySchema): void
+    {
+        $json = $propertySchema->getJson();
+        $items = $json[$this->key] ?? null;
+
+        if (is_array($items) && $items !== [] && array_is_list($items)) {
+            throw new SchemaException(
+                sprintf(
+                    "The tuple form of 'items' of property '%s' in file %s doesn't exist in Draft 2020-12: use "
+                        . "'prefixItems' for the tuple or declare Draft 2019-09 or earlier in '\$schema'",
+                    $property->getName(),
+                    $propertySchema->getFile(),
+                ),
+                $propertySchema,
+            );
+        }
+
+        if (array_key_exists('additionalItems', $json)) {
+            throw new SchemaException(
+                sprintf(
+                    "The keyword 'additionalItems' of property '%s' in file %s doesn't exist in Draft 2020-12: use "
+                        . "'items' for the items behind a 'prefixItems' tuple or declare Draft 2019-09 or earlier in "
+                        . "'\$schema'",
+                    $property->getName(),
+                    $propertySchema->getFile(),
+                ),
+                $propertySchema,
+            );
+        }
     }
 
     /**
@@ -209,7 +265,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         $property->addValidator(
             (new PropertyValidator(
                 $property,
-                '($amount = count($value)) > ' . $expectedAmount,
+                'is_array($value) && ($amount = count($value)) > ' . $expectedAmount,
                 AdditionalTupleItemsException::class,
                 [$expectedAmount, '&$amount'],
             ))->withJsonPointer($additionalItemsPointer),

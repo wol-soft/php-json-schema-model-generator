@@ -6,21 +6,14 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
-/**
- * Class PropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class PropertyValidator extends AbstractPropertyValidator
 {
-    /**
-     * PropertyValidator constructor.
-     */
     public function __construct(
         PropertyInterface $property,
         protected string $check,
         string $exceptionClass,
         array $exceptionParams = [],
+        protected string $providedValueCode = self::VALIDATED_VALUE_CODE,
     ) {
         $this->isResolved = true;
 
@@ -33,5 +26,10 @@ class PropertyValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         return $this->check;
+    }
+
+    public function getProvidedValueCode(): string
+    {
+        return $this->providedValueCode;
     }
 }

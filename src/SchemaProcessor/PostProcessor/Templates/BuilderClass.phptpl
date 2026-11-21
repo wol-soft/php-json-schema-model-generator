@@ -83,7 +83,7 @@ class {{ class }}Builder implements BuilderInterface
              */
             public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, false, true) }}
             {
-                return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
+                return $this->_rawModelDataInput['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] ?? null;
             }
 
             /**
@@ -97,13 +97,13 @@ class {{ class }}Builder implements BuilderInterface
                 {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
             ): static {
                 if (
-                    array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
-                    && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
+                    array_key_exists('{{ viewHelper.escapeSingleQuoted(property.getName()) }}', $this->_rawModelDataInput)
+                    && $this->_rawModelDataInput['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] === ${{ property.getAttribute(true) }}
                 ) {
                     return $this;
                 }
 
-                $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                $value = $modelData['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = ${{ property.getAttribute(true) }};
 
                 {% foreach property.getOrderedValidators() as validator %}
                     {{ viewHelper.renderValidator(validator, schema, 2) }}
@@ -115,7 +115,7 @@ class {{ class }}Builder implements BuilderInterface
                     }
                 {% endif %}
 
-                $this->_rawModelDataInput['{{ property.getName() }}'] = $value;
+                $this->_rawModelDataInput['{{ viewHelper.escapeSingleQuoted(property.getName()) }}'] = $value;
 
                 return $this;
             }

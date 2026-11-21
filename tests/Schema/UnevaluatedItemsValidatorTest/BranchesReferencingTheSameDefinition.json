@@ -1,0 +1,57 @@
+{
+  "type": "object",
+  "$defs": {
+    "stringsOrEmpty": {
+      "type": "array",
+      "anyOf": [
+        {
+          "unevaluatedItems": {
+            "type": "string"
+          }
+        },
+        {
+          "maxItems": 0
+        }
+      ]
+    },
+    "stringItemsOrEmpty": {
+      "type": "array",
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "maxItems": 0
+        }
+      ]
+    }
+  },
+  "properties": {
+    "branchUnevaluatedItems": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/stringsOrEmpty"
+        },
+        {
+          "$ref": "#/$defs/stringsOrEmpty"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "branchItems": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/stringItemsOrEmpty"
+        },
+        {
+          "$ref": "#/$defs/stringItemsOrEmpty"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

@@ -6,11 +6,6 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 
-/**
- * Class AdditionalItemsValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class AdditionalItemsValidator extends AdditionalPropertiesValidator
 {
     protected const PROPERTY_NAME = 'additional item';
@@ -19,4 +14,6 @@ class AdditionalItemsValidator extends AdditionalPropertiesValidator
     protected const ADDITIONAL_PROPERTIES_KEY = 'additionalItems';
 
     protected const EXCEPTION_CLASS = InvalidAdditionalTupleItemsException::class;
+    protected const EXTRACTED_VALIDATION_KIND = 'AdditionalItem';
+    protected const VALIDATES_ARRAY = true;
 }

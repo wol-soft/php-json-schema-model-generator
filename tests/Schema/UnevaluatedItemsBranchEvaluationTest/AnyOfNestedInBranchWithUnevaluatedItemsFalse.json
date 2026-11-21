@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "items": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxItems": 0
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ]
+    }
+  }
+}

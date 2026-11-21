@@ -13,14 +13,22 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
- * Creates the properties for the references into the definitions of one schema document. A property is shared by all
- * reference sites which point to the same definition and carry identical metadata.
+ * Creates the properties for the references into the definitions of one schema document. A property is shared by the
+ * reference sites which point to the same definition with identical metadata and name, and by the recursive references
+ * found while it is created.
  */
 class SchemaDefinition
 {
     protected ResolvedDefinitionsCollection $resolvedPaths;
     /** @var array<string, PropertyProxy[]> */
     protected array $unresolvedProxies = [];
+    /**
+     * The entry which is currently created for a definition: a reference to the definition found while the entry is
+     * created is a recursive reference.
+     *
+     * @var array<string, string>
+     */
+    private array $entriesInCreation = [];
 
     public function __construct(
         protected JsonSchema $source,
@@ -89,10 +97,24 @@ class SchemaDefinition
             $objectAsserted ? '1' : '0',
         ]);
 
-        if (!$this->resolvedPaths->offsetExists($key)) {
+        // The name of the property is metadata as well: the validators of a property name it in their exceptions and
+        // in checks (the key of the property in the provided data), a property shared by differently named references
+        // reports the name of the first reference for all of them (or doesn't validate the later ones at all). Each
+        // name therefore gets a property of its own. Only a recursive reference (found while the entry of the
+        // definition is created) shares the entry of the property which is created: the recursion has to end in that
+        // property, a name specific entry would be created again and again.
+        // A definition describing an object gets a property per name as well, its class is still generated once
+        // (SchemaProcessor::processSchema() returns the class of the same signature). Sharing the property of an
+        // object was rejected: the property is more than an instance check, the keywords which target the property
+        // instead of the shared class (const, enum, filter, default) are validated by it, and the const of an optional
+        // property checks for the key of the first reference in the provided data.
+        $entryKey = $this->entriesInCreation[$key] ?? $key . '-' . md5($propertyName);
+
+        if (!$this->resolvedPaths->offsetExists($entryKey)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
             // to the currently created property
-            $this->resolvedPaths->offsetSet($key, null);
+            $this->resolvedPaths->offsetSet($entryKey, null);
+            $this->entriesInCreation[$key] = $entryKey;
 
             try {
                 $property = (new PropertyFactory())
@@ -105,30 +127,33 @@ class SchemaDefinition
                         $isArrayItem,
                     );
 
-                $this->resolvedPaths->offsetSet($key, $property);
+                $this->resolvedPaths->offsetSet($entryKey, $property);
+                unset($this->entriesInCreation[$key]);
 
                 /** @var PropertyProxy $proxy */
-                foreach ($this->unresolvedProxies[$key] ?? [] as $proxy) {
+                foreach ($this->unresolvedProxies[$entryKey] ?? [] as $proxy) {
                     $proxy->resolve();
                 }
 
-                unset($this->unresolvedProxies[$key]);
+                unset($this->unresolvedProxies[$entryKey]);
 
                 return $property;
             } catch (PHPModelGeneratorException $exception) {
-                $this->resolvedPaths->offsetUnset($key);
+                $this->resolvedPaths->offsetUnset($entryKey);
+                unset($this->entriesInCreation[$key]);
 
                 // The path was navigated above, so everything thrown while the property of the definition is built
                 // is a fault in the definition. Restating it as "Unresolved Reference" (RefResolver does so for
-                // every unmarked exception) would hide the real cause behind the reference site.
+                // every unmarked exception) would hide the real cause behind the reference site: the message of the
+                // real cause (eg. a rejected composition) would only be available as previous exception.
                 throw $exception instanceof SchemaException ? $exception->markAsReferencedSchemaFailure() : $exception;
             }
         }
 
-        $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
-        $this->unresolvedProxies[$key][] = $proxy;
+        $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $entryKey);
+        $this->unresolvedProxies[$entryKey][] = $proxy;
 
-        if ($this->resolvedPaths->offsetGet($key)) {
+        if ($this->resolvedPaths->offsetGet($entryKey)) {
             $proxy->resolve();
         }
 

@@ -229,26 +229,26 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A not composition evaluates an absent property like null (see ComposedNotTest::
-     * testNotProvidedOptionalNotNullPropertyThrowsAnException), which the always-valid schema matches: its negation
-     * is violated whether the property is provided or not.
+     * The negation of the always-valid schema rejects every provided value. An absent optional property is not
+     * validated by the not composition (see ComposedNotTest::testNotProvidedOptionalNotNullPropertyIsValid): the
+     * subschema of a property applies to a provided value only.
      */
-    public function testNegatedReferenceToTrueIsNeverValid(): void
+    public function testNegatedReferenceToTrueRejectsEveryProvidedValue(): void
     {
         $className = $this->generateClassFromFile('NotReferenceToTrue.json');
 
-        foreach ([[], ['notAnything' => 'x']] as $input) {
-            $this->assertInstantiationFailsWithMessage(
-                $className,
-                $input,
-                NotException::class,
-                <<<MSG
-                Invalid value for 'notAnything' declined by composition constraint
-                  Requires to match none composition element but matched 1 element
-                  - Composition element #1: Valid
-                MSG,
-            );
-        }
+        $this->assertNull((new $className([]))->getNotAnything());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['notAnything' => 'x'],
+            NotException::class,
+            <<<MSG
+            Invalid value for 'notAnything' declined by composition constraint
+              Requires to match none composition element but matched 1 element
+              - Composition element #1: Valid
+            MSG,
+        );
     }
 
     public static function rootLevelAllOfWithTrueBranchDataProvider(): array

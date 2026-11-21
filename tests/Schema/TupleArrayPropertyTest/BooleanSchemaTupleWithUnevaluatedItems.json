@@ -1,23 +1,20 @@
 {
   "type": "object",
   "properties": {
-    "tags": {
+    "anything": {
       "type": "array",
       "items": [
         true,
         {
           "type": "string"
         }
-      ]
+      ],
+      "unevaluatedItems": false
     },
-    "blocked": {
+    "nothing": {
       "type": "array",
-      "items": [
-        {
-          "type": "string"
-        },
-        false
-      ]
+      "items": [false],
+      "unevaluatedItems": false
     }
   }
 }

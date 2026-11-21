@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "definitions": {
+    "notInteger": {
+      "not": {
+        "type": "integer"
+      }
+    },
+    "notShortList": {
+      "type": "array",
+      "not": {
+        "maxItems": 1
+      }
+    }
+  },
+  "properties": {
+    "notIntegerA": {
+      "$ref": "#/definitions/notInteger"
+    },
+    "notIntegerB": {
+      "$ref": "#/definitions/notInteger"
+    },
+    "notShortListA": {
+      "$ref": "#/definitions/notShortList"
+    },
+    "notShortListB": {
+      "$ref": "#/definitions/notShortList"
+    }
+  }
+}

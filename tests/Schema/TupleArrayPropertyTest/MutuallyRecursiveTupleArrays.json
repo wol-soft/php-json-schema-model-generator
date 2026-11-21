@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "definitions": {
+    "names": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/numbers"
+        }
+      ]
+    },
+    "numbers": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        },
+        {
+          "$ref": "#/definitions/names"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "chain": {
+      "$ref": "#/definitions/names"
+    }
+  }
+}

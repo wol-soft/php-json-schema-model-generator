@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "definitions": {
+    "list": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "$ref": "#/definitions/holder"
+      }
+    },
+    "holder": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "contains": {
+        "$ref": "#/definitions/list"
+      }
+    }
+  },
+  "properties": {
+    "chain": {
+      "$ref": "#/definitions/list"
+    }
+  }
+}
