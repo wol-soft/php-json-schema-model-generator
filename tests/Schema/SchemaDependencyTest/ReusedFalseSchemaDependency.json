@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "credit_card": {
+      "type": "integer"
+    },
+    "card": {
+      "type": "object",
+      "properties": {
+        "credit_card": {
+          "type": "integer"
+        }
+      },
+      "dependencies": {
+        "credit_card": false
+      }
+    }
+  },
+  "dependencies": {
+    "credit_card": false
+  }
+}
