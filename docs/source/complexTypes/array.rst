@@ -600,6 +600,8 @@ Uniqueness
 
 The items of an array can be forced to be unique with the `uniqueItems` keyword.
 
+Items are compared as JSON values: objects are equal if they contain the same keys with equal values, independent of the order of the keys, and numbers are equal if they have the same value, independent of their type (``1`` and ``1.0`` are the same item). The order of the items of a nested list matters. Values of different types are never equal, so ``0``, ``false``, ``null``, ``""`` and ``"0"`` are five different items. Items which are transformed into model instances are compared by the data they were created from.
+
 .. code-block:: json
 
     {

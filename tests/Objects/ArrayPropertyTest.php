@@ -274,6 +274,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Array containing strings' => [['a', 'b', 'c']],
                 'Array containing numbers' => [[1, 1.5, 2]],
                 'Array containing mixed values' => [[1, 'a', '1', 9, null]],
+                'Array containing values which are only loosely equal' => [[0, false, null, '', '0']],
+                'Array containing an integer and a boolean' => [[1, true]],
+                'Array containing objects with different values' => [[['a' => 1, 'b' => 2], ['a' => 1, 'b' => 3]]],
+                'Array containing objects with different keys' => [[['a' => 1], ['b' => 1]]],
+                'Array containing lists with a different order' => [[[1, 2], [2, 1]]],
+                'Array containing a nested number and a nested string' => [[['a' => 1], ['a' => '1']]],
+                'Array containing a single item' => [[['a' => 1]]],
                 'Empty array' => [[]],
                 'null' => [null],
             ],
@@ -305,9 +312,42 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Array containing strings' => [['a', 'b', 'a']],
                 'Array containing numbers (int violation)' => [[1, 1.5, 1]],
                 'Array containing numbers (float violation)' => [[1, 1.5, 1.5, 2]],
-                'Array containing mixed values' => [[1, 'a', '1', 9, '1', null]]
+                'Array containing mixed values' => [[1, 'a', '1', 9, '1', null]],
+                'Array containing objects with the same keys in the same order' => [[['a' => 1], ['a' => 1]]],
+                'Array containing objects with the same keys in a different order' => [
+                    [['a' => 1, 'b' => 2], ['b' => 2, 'a' => 1]],
+                ],
+                'Array containing nested objects with the same keys in a different order' => [
+                    [['x' => ['a' => 1, 'b' => 2]], ['x' => ['b' => 2, 'a' => 1]]],
+                ],
+                'Array containing an integer and a float with the same value' => [[1, 1.0]],
+                'Array containing a float and an integer with the same value' => [[2.0, 'a', 2]],
+                'Array containing nested numbers of different types' => [[['a' => 1], ['a' => 1.0]]],
+                'Array containing lists with nested numbers of different types' => [[[1, 2], [1.0, 2.0]]],
+                'Array containing duplicates which are not neighbours after sorting' => [
+                    [['b' => 1, 'a' => 2], 'x', ['a' => 2, 'b' => 1]],
+                ],
             ],
         );
+    }
+
+    /**
+     * Items which are transformed into model instances are compared by the data they were created from, a comparison
+     * of the instances would treat equal objects as different ones.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testUniqueConstraintComparesObjectItemsByTheirData(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ArrayPropertyUniqueObjectItems.json', $configuration);
+
+        // different objects are valid
+        $object = new $className(['property' => [['a' => 1, 'b' => 2], ['a' => 2, 'b' => 1]]]);
+        $this->assertCount(2, $object->getProperty());
+
+        // the same data with a different key order is a duplicate
+        $this->expectValidationError($configuration, "Items of array 'property' are not unique");
+
+        new $className(['property' => [['a' => 1, 'b' => 2], ['b' => 2, 'a' => 1]]]);
     }
 
     /**
