@@ -269,6 +269,44 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    // --- minContains = 0 and maxContains = 0 (no item may match) ---
+
+    /**
+     * One generated class covers: null, arrays in which no item matches (including the empty
+     * array), and the failure for an array in which one item matches.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('validationMethodDataProvider')]
+    public function testMaxContainsZeroWithMinContainsZeroAllowsOnlyArraysWithoutMatches(
+        GeneratorConfiguration $config,
+    ): void {
+        $className = $this->generateClassFromFile('ContainsWithMinMaxContainsZero.json', $config);
+
+        // null is valid (optional property)
+        $this->assertNull((new $className(['property' => null]))->getProperty());
+
+        // arrays in which no item matches the contains schema pass
+        foreach ([[], [1, 2], [null, true, 1.5, [], ['a']]] as $valid) {
+            $this->assertSame($valid, (new $className(['property' => $valid]))->getProperty());
+        }
+
+        // one matching item > maxContains=0 → MaxContainsException; also verify exception metadata
+        try {
+            new $className(['property' => [1, 'a', 2]]);
+            $this->fail('Expected MaxContainsException for an array with one matching item');
+        } catch (Exception $exception) {
+            $this->assertStringContainsString(
+                "Array 'property' must not contain more than 0 items matching the contains constraint,"
+                    . ' 1 matching items provided',
+                $exception->getMessage(),
+            );
+            $maxContainsException = $config->collectErrors() ? $exception->getErrors()[0] : $exception;
+            $this->assertInstanceOf(MaxContainsException::class, $maxContainsException);
+            $this->assertSame(0, $maxContainsException->getMaxContains());
+            $this->assertSame(1, $maxContainsException->getMatches());
+        }
+    }
+
     // --- Draft 07 silently ignores minContains / maxContains ---
 
     public function testDraft07IgnoresMinContainsAndAppliesBasicContainsOnly(): void
@@ -334,7 +372,6 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidMaxContainsValueDataProvider(): array
     {
         return [
-            'zero'             => ['0', '0'],
             'negative integer' => ['-1', '-1'],
             'float'            => ['2.5', '2\.5'],
             'string'           => ['"3"', "'3'"],
@@ -346,8 +383,25 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
     public function testMinContainsGreaterThanMaxContainsThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/minContains \(3\) must not be larger than maxContains \(2\)/');
+        $this->expectExceptionMessageMatches(
+            "/^minContains \(3\) must not be larger than maxContains \(2\) for property 'list' in file .+$/",
+        );
 
         $this->generateClassFromFile('MinContainsExceedsMaxContains.json');
+    }
+
+    /**
+     * Without an explicit minContains the default of 1 applies, so maxContains = 0 can never be
+     * satisfied by any array: contains requires one match, maxContains forbids it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testMaxContainsZeroWithoutMinContainsThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^minContains \(1\) must not be larger than maxContains \(0\) for property 'list' in file .+$/",
+        );
+
+        $this->generateClassFromFileTemplate('InvalidMaxContains.json', ['0'], null, false);
     }
 }
