@@ -271,6 +271,11 @@ passing ``if`` followed by a failing ``then``) contributes nothing, not even the
 the passing ``if`` — as with a failed ``allOf``, keys it would have claimed show up as
 unevaluated in the error report when errors are collected.
 
+An ``if`` which has neither a ``then`` nor an ``else`` branch is a valid schema which can never change the validation
+result. The generator emits a warning at generation time but doesn't reject the schema: when the instance matches the
+condition, the properties and items the ``if`` evaluates still count as evaluated for an enclosing
+``unevaluatedProperties`` or ``unevaluatedItems``. Without one of these keywords the ``if`` has no effect at all.
+
 A composition nested inside a branch (an ``anyOf`` inside an ``allOf`` branch, a conditional
 inside a ``oneOf`` branch, ...) contributes the claims of its own successful branches to the
 enclosing branch, to any depth.
