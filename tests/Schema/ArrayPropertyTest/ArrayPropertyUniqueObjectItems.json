@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "integer"
+          },
+          "b": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

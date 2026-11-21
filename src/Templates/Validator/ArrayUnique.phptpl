@@ -1,17 +1,13 @@
 is_array($value) && (static function (array $items): bool {
-    if (empty($items)) {
-        return false;
-    }
+    $seenItems = [];
 
-    asort($items);
-    $lastSeen = array_shift($items);
-
-    foreach ($items as $value) {
-        if ($value === $lastSeen) {
+    foreach (\PHPModelGenerator\Utils\JsonValue::normalize($items) as $item) {
+        // wrapped to compare the item as an element of a structure: 1 and 1.0 are the same item of an array
+        if (\PHPModelGenerator\Utils\JsonValue::contains($seenItems, [$item])) {
             return true;
         }
 
-        $lastSeen = $value;
+        $seenItems[] = [$item];
     }
 
     return false;
