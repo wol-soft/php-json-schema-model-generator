@@ -91,6 +91,11 @@ class RecursiveDirectoryProviderTest extends TestCase
      * differs between Linux ("No such device or address") and BSD/macOS ("Device not configured"),
      * so only the PHP-authored "Failed to open stream:" prefix (produced by PHP's own streams code,
      * not the OS) is asserted precisely; the underlying reason is matched loosely.
+     *
+     * The argument list of the "file_get_contents()" call is matched loosely as well: up to PHP 8.5 PHP's
+     * warning repeats the path ("file_get_contents(/path/unreadable.sock)"), PHP 8.6 leaves it out
+     * ("file_get_contents()"). Requiring the path would fail on PHP 8.6 although the generator reports the
+     * failure correctly.
      */
     public function testGetRefToUnreadableLocalFileThrowsSchemaException(): void
     {
@@ -111,8 +116,7 @@ class RecursiveDirectoryProviderTest extends TestCase
             $this->expectException(SchemaException::class);
             $this->expectExceptionMessageMatches(
                 '/^Failed to read referenced JSON-Schema file ' . preg_quote($refFilename, '/') . ' from .+'
-                    . preg_quote($refFilename, '/') . ': file_get_contents\(.+' . preg_quote($refFilename, '/')
-                    . '\): Failed to open stream: .+$/',
+                    . preg_quote($refFilename, '/') . ': file_get_contents\(.*\): Failed to open stream: .+$/',
             );
 
             $provider->getRef($currentFile, null, $refFilename);
