@@ -1181,6 +1181,55 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * An `if` without `then` and `else` doesn't change the validation result, but when the instance matches the
+     * condition the indices it evaluates are credited to the sibling `unevaluatedItems`. The generation warns about
+     * the otherwise pointless keyword instead of rejecting the schema.
+     *
+     * - `['a']` — the condition matches and evaluates index 0;
+     * - `['a', 'b']` — index 1 is evaluated by nothing;
+     * - `[5]` — the condition fails, so it evaluates nothing and index 0 is unevaluated.
+     */
+    public function testIfWithoutThenAndElseCreditsItsIndicesToUnevaluatedItemsAndWarns(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'IfWithoutThenAndElse.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "'if' for property '{property}' has no effective 'then' or 'else' branch: it doesn't change the"
+                    . ' validation result and only credits the items or properties it evaluates to an enclosing'
+                    . ' unevaluatedItems or unevaluatedProperties',
+                ['property' => 'list'],
+            ),
+            "Expected a warning for the 'if' without 'then' and 'else'",
+        );
+
+        $accepted = new $className(['list' => ['a']]);
+        $this->assertSame(['a'], $accepted->getList());
+
+        foreach ([['a', 'b'], [5]] as $list) {
+            try {
+                new $className(['list' => $list]);
+                $this->fail('Expected UnevaluatedItemsException');
+            } catch (UnevaluatedItemsException $exception) {
+                $expectedIndices = $list === [5] ? [0] : [1];
+
+                $this->assertSame(
+                    "Provided JSON for 'list' contains not allowed unevaluated items [#{$expectedIndices[0]}]",
+                    $exception->getMessage(),
+                );
+                $this->assertSame($expectedIndices, $exception->getUnevaluatedItems());
+            }
+        }
+    }
+
+    /**
      * A transforming filter (here `dateTime`) declared inside `unevaluatedItems`'s subschema
      * behaves like a filter on any other property: the transformed value is persisted (the
      * getter reports `DateTime` instances, not the raw strings), an already-transformed value

@@ -2061,4 +2061,49 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             . 'must not be flagged as vacuous.',
         );
     }
+
+    /**
+     * An `if` without `then` and `else` doesn't change the validation result, but when the instance matches the
+     * condition the properties it evaluates are credited to the sibling `unevaluatedProperties`. The generation
+     * warns about the otherwise pointless keyword instead of rejecting the schema.
+     */
+    public function testIfWithoutThenAndElseCreditsItsPropertiesToUnevaluatedPropertiesAndWarns(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'IfWithoutThenAndElse.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $expectedWarning = "'if' for property '{property}' has no effective 'then' or 'else' branch: it doesn't"
+            . ' change the validation result and only credits the items or properties it evaluates to an enclosing'
+            . ' unevaluatedItems or unevaluatedProperties';
+
+        // The property of an object level conditional is named like the generated class, which is not predictable.
+        $this->assertCount(
+            1,
+            array_filter(
+                $logger->getEntries(),
+                static fn(array $entry): bool => $entry['level'] === 'warning'
+                    && $entry['message'] === $expectedWarning,
+            ),
+            "Expected exactly one warning for the 'if' without an effective 'then' or 'else'",
+        );
+
+        // The condition matches: the keys its properties declare are evaluated.
+        $accepted = new $className(['kind' => 'A', 'valueA' => 'hello']);
+        $this->assertSame(['kind' => 'A', 'valueA' => 'hello'], $accepted->meta()->rawInput());
+
+        // The condition fails: nothing it declares is evaluated, valueA is unevaluated.
+        try {
+            new $className(['kind' => 'B', 'valueA' => 'hello']);
+            $this->fail('Expected UnevaluatedPropertiesException');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided JSON for '.*' contains not allowed unevaluated properties \\['valueA'\\]$/",
+                $exception->getMessage(),
+            );
+        }
+    }
 }

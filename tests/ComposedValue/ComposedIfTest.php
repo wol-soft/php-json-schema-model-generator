@@ -15,6 +15,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -339,12 +340,39 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function testIncompleteCompositionThrowsAnException(): void
+    /**
+     * An `if` without `then` and `else` is a valid schema which doesn't change the validation result. The generation
+     * warns about it instead of rejecting the schema and the condition doesn't affect the validation.
+     */
+    public function testIfWithoutThenAndElseWarnsAndDoesNotChangeTheValidationResult(): void
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Incomplete conditional composition for property');
+        $logger = new RecordingLogger();
 
-        $this->generateClassFromFile('IncompleteConditional.json');
+        $className = $this->generateClassFromFile(
+            'IncompleteConditional.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $expectedWarning = "'if' for property '{property}' has no effective 'then' or 'else' branch: it doesn't"
+            . ' change the validation result and only credits the items or properties it evaluates to an enclosing'
+            . ' unevaluatedItems or unevaluatedProperties';
+
+        // The property of an object level conditional is named like the generated class, which is not predictable.
+        $this->assertCount(
+            1,
+            array_filter(
+                $logger->getEntries(),
+                static fn(array $entry): bool => $entry['level'] === 'warning'
+                    && $entry['message'] === $expectedWarning,
+            ),
+            "Expected exactly one warning for the 'if' without an effective 'then' or 'else'",
+        );
+
+        // The condition matches
+        $this->assertSame('USA', (new $className(['country' => 'USA']))->getCountry());
+        // The condition fails
+        $this->assertSame('Canada', (new $className(['country' => 'Canada']))->getCountry());
+        $this->assertNull((new $className([]))->getCountry());
     }
 
     public function testCrossTypedThenElseProducesUnionHint(): void
