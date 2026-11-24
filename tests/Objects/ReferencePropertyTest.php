@@ -1733,6 +1733,58 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * An empty reference token of a JSON pointer selects the member with the empty key (RFC 6901): the pointer
+     * `#/$defs//$defs/` walks `$defs`, the empty key, `$defs` and the empty key again, and `#/` selects the empty key
+     * of the document root. Neither the registration of the definitions of a schema nor the resolution of the pointer
+     * may drop the empty tokens or loop on them.
+     */
+    public function testRefPointerWithEmptyReferenceTokensResolvesTheMemberWithTheEmptyKey(): void
+    {
+        $className = $this->generateClassFromFile('EmptyTokensInRefPointer.json');
+
+        $object = new $className(['item' => 1.5, 'rootEmptyKey' => 'a']);
+        $this->assertSame(1.5, $object->getItem());
+        $this->assertSame('a', $object->getRootEmptyKey());
+
+        try {
+            new $className(['item' => 'a']);
+            $this->fail('Expected a ValidationException for the item');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Invalid type for 'item': requires 'float', got 'string'", $exception->getMessage());
+        }
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage("Invalid type for 'rootEmptyKey': requires 'string', got 'integer'");
+
+        new $className(['rootEmptyKey' => 1]);
+    }
+
+    /**
+     * A pointer with empty reference tokens which doesn't select a member is an unresolved reference, as it is
+     * without empty tokens: the tokens must neither be dropped (which would resolve the pointer to a different
+     * schema) nor exhaust the memory.
+     */
+    #[DataProvider('unresolvedEmptyTokenReferenceProvider')]
+    public function testRefPointerWithEmptyReferenceTokensWhichIsNotResolvedThrowsAnException(string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            sprintf('/^Unresolved Reference %s in file .*\.json$/', preg_quote($reference, '/')),
+        );
+
+        $this->generateClassFromFileTemplate('EmptyTokensInUnresolvedRefPointer.json', [$reference]);
+    }
+
+    public static function unresolvedEmptyTokenReferenceProvider(): array
+    {
+        return [
+            'missing member behind an empty token' => ['#/$defs//missing'],
+            'trailing empty token below a schema without the empty key' => ['#/$defs//$defs//'],
+            'empty token of a member which does not exist' => ['#/$defs///'],
+        ];
+    }
+
+    /**
      * A base-level $ref transfers the base validators of the referenced schema onto the referencing class. The
      * AdditionalPropertiesValidator among them is one instance shared with the referenced schema, which has already
      * switched it to collecting the additional properties into `_additionalProperties`. The referencing class

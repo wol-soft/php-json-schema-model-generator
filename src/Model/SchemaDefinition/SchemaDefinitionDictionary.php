@@ -38,7 +38,9 @@ class SchemaDefinitionDictionary extends ArrayObject
             $this->addDefinition(
                 $key,
                 new SchemaDefinition(
-                    $schema->getJsonSchema()->navigate(JsonSchemaUtil::encodePointer($key)),
+                    // A list, not the string pointer: the key may be the empty string, which a string pointer
+                    // reads as "stay at this schema" instead of as the member with the empty key.
+                    $schema->getJsonSchema()->navigate([JsonSchemaUtil::encodePointer($key)]),
                     $schemaProcessor,
                     $schema,
                 ),
@@ -73,7 +75,8 @@ class SchemaDefinitionDictionary extends ArrayObject
             }
 
             $this->fetchDefinitionsById(
-                $jsonSchema->navigate(JsonSchemaUtil::encodePointer($key)),
+                // A string pointer for the empty key would navigate to $jsonSchema itself and recurse endlessly.
+                $jsonSchema->navigate([JsonSchemaUtil::encodePointer($key)]),
                 $schemaProcessor,
                 $schema,
             );
@@ -159,7 +162,7 @@ class SchemaDefinitionDictionary extends ArrayObject
         try {
             $target = $this->getDefinition($reference, $schemaProcessor, $path, $baseId)
                 ?->getSource()
-                ->navigate(implode('/', $path));
+                ->navigate($path);
 
             if ($target === null) {
                 return null;
