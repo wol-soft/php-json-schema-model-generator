@@ -1031,6 +1031,25 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Pins the current rejection of the satisfiable branch above, with the complete message. A
+     * known-gap test which ends incomplete cannot cover the code which produces the rejection,
+     * as the coverage of an incomplete test is discarded; this test runs the rejection to its end.
+     * It has to be deleted when the schema is accepted: it then fails, while the known-gap test
+     * turns green and states the expected behaviour.
+     */
+    #[DataProvider('allOfBranchAcceptingObjectOrNullDataProvider')]
+    public function testAllOfBranchAcceptingObjectOrNullIsCurrentlyRejectedAsHavingNoNestedSchema(
+        string $schemaFile,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^No nested schema for composed property \S+ in file \S+\.json found at line \d+, column \d+$/",
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    /**
      * The same satisfiable branch behind a `$ref` is not accepted either: Draft 07 rejects it as
      * having no nested schema like the inline branch, and the later drafts crash generation with a
      * PHP error (a class path is read from a missing nested schema) instead of a schema error.
