@@ -1086,6 +1086,40 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A `$ref` branch to a number definition with a keyword, under a number property, inherits the
+     * declared type as a sibling of the reference. In the drafts which apply the siblings of a
+     * `$ref` the merge of the sibling with the definition ran the number modifiers twice, and the
+     * int-to-float cast was rendered nested into itself: the generated class didn't even parse.
+     * A `type` the author writes next to the reference (referenceWithType) took the same path.
+     */
+    public function testPropertyLevelAllOfReferenceToNumberDefinitionCastsOnce(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfReferenceToNumberDefinitionWithKeyword.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className(['property' => 5, 'referenceWithType' => 5]);
+        $this->assertSame(5.0, $object->getProperty());
+        $this->assertSame(5.0, $object->getReferenceWithType());
+
+        try {
+            new $className(['property' => 0.5]);
+            $this->fail('Expected a ValidationException for the value 0.5');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'property' must not be smaller than 1
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
      * An allOf branch of `{"type": ["object", "null"]}` is satisfied by every object, so the
      * schema is satisfiable and the generated class has to accept an object. The branch carries
      * no nested schema (the object sub-property of a multi-type declaration holds it), and the
