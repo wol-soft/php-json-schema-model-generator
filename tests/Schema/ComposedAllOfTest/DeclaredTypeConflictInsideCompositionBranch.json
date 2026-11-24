@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "properties": {
+    "inheritedTypeInAnyOfBranch": {
+      "type": "string",
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "authoredTypeInOneOfBranch": {
+      "oneOf": [
+        {
+          "type": "string",
+          "allOf": [
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "allOfInNot": {
+      "type": "string",
+      "not": {
+        "allOf": [
+          {
+            "type": "integer"
+          }
+        ]
+      }
+    },
+    "deadAnyOfInAnyOfBranch": {
+      "type": "string",
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "required": [
+    "allOfInNot"
+  ]
+}

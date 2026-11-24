@@ -180,6 +180,11 @@ The check follows these rules:
   overlaps the declared type the schema is rejected with a ``SchemaException``. The type of the property
   is narrowed to the overlap of the declared type and the branch types instead of being replaced by the
   branch types.
+* A composition inside a branch of an ``anyOf``, ``oneOf``, ``not``, ``if``, ``then`` or ``else`` only
+  makes that branch dead (or the ``not`` always hold), the schema stays satisfiable: its conflicts with the
+  declared type are reported with a warning instead of a ``SchemaException``. For example
+  ``{"type": "string", "not": {"allOf": [{"type": "integer"}]}}`` accepts every string. An ``allOf`` inside an
+  ``allOf`` branch is rejected like the outer one.
 * ``integer`` is a subtype of ``number``: ``{"type": "number", "allOf": [{"type": "integer"}]}`` is valid
   and generates an ``int`` property. The ``number`` keywords of the property and of its branches are then
   applied as ``integer`` keywords: the ``int`` to ``float`` cast is dropped, and ``minimum``, ``maximum``,

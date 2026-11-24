@@ -797,6 +797,61 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A composition inside a branch of an anyOf, oneOf, not, if, then or else only makes that
+     * branch dead (or the not always hold), the schema stays satisfiable: a declared-type conflict
+     * there is reported with a warning instead of failing the generation, whether the type of the
+     * branch was written by the author or passed down. Failing the generation was rejected:
+     * `{"type": "string", "not": {"allOf": [{"type": "integer"}]}}` accepts every string.
+     */
+    public function testDeclaredTypeConflictInsideACompositionBranchIsReported(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DeclaredTypeConflictInsideCompositionBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setLogger($recordingLogger),
+        );
+
+        $expectedWarnings = [
+            ['allOf', 1, 'inheritedTypeInAnyOfBranch', 'int'],
+            ['allOf', 1, 'authoredTypeInOneOfBranch', 'int'],
+            ['allOf', 1, 'allOfInNot', 'int'],
+            ['anyOf', 1, 'deadAnyOfInAnyOfBranch', 'int'],
+            ['anyOf', 2, 'deadAnyOfInAnyOfBranch', 'bool'],
+        ];
+
+        foreach ($expectedWarnings as [$keyword, $branchNumber, $propertyName, $branchType]) {
+            $this->assertTrue(
+                $this->hasLogEntry(
+                    $recordingLogger->getEntries(),
+                    'warning',
+                    "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                        . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                    [
+                        'keyword' => $keyword,
+                        'branch' => $branchNumber,
+                        'property' => $propertyName,
+                        'branchType' => $branchType,
+                        'declaredType' => 'string',
+                    ],
+                ),
+                "Expected a warning for $keyword branch #$branchNumber of $propertyName.",
+            );
+        }
+
+        $object = new $className([
+            'inheritedTypeInAnyOfBranch' => 'text',
+            'authoredTypeInOneOfBranch' => 'text',
+            'allOfInNot' => 'text',
+            'deadAnyOfInAnyOfBranch' => 'text',
+        ]);
+        $this->assertSame('text', $object->getInheritedTypeInAnyOfBranch());
+        $this->assertSame('text', $object->getAuthoredTypeInOneOfBranch());
+        $this->assertSame('text', $object->getAllOfInNot());
+        $this->assertSame('text', $object->getDeadAnyOfInAnyOfBranch());
+    }
+
+    /**
      * The declared type of the property takes part in the allOf conflict check: a branch type
      * which is disjoint from it can never be satisfied together with the property's own type
      * check, so the schema is rejected at generation time instead of producing a class which
@@ -921,6 +976,15 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 'string | bool',
                 'int | float',
                 2,
+                true,
+            ],
+            // An allOf inside an allOf branch is as unsatisfiable as the outer allOf.
+            'allOf inside an allOf branch' => [
+                'DeclaredTypeConflictInsideAllOfBranch.json',
+                "'property'",
+                'string',
+                'int',
+                1,
                 true,
             ],
             'property defined by a reference' => [

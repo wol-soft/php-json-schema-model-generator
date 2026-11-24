@@ -1038,10 +1038,18 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * conflict. A branch which inherited the property type (see inheritPropertyType()) overlaps
      * the declared type by construction.
      *
+     * A composition which belongs to a branch of an anyOf, oneOf, not, if, then or else only makes
+     * that branch dead (or the not always hold) while the schema stays satisfiable, so its
+     * conflicts are reported with a warning for each disjoint branch instead of failing the
+     * generation - see isInsideNonAllOfBranch(). Failing the generation there was rejected:
+     * `{"type": "string", "not": {"allOf": [{"type": "integer"}]}}` accepts every string. The
+     * conflict of allOf branches with each other keeps failing the generation in every position.
+     *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
      * @throws SchemaException when an allOf branch is disjoint from the declared type, or when no
-     *                         anyOf / oneOf branch overlaps it.
+     *                         anyOf / oneOf branch overlaps it, unless the composition belongs to
+     *                         a branch of another composition.
      */
     protected static function assertBranchTypesAreSatisfiable(
         GeneratorConfiguration $generatorConfiguration,
@@ -1086,8 +1094,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         $declaredType = implode(' | ', $declaredTypeNames);
+        $isFatal = !self::isInsideNonAllOfBranch($property->getJsonSchema()->getPointer());
 
-        if ($keyword === 'allOf') {
+        if ($isFatal && $keyword === 'allOf') {
             throw new SchemaException(
                 sprintf(
                     "Property '%s' is declared with type '%s' which conflicts with the type '%s' of allOf branch #%d"
@@ -1103,7 +1112,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             );
         }
 
-        if (count($disjointBranchTypeNames) === count($compositionProperties)) {
+        if ($isFatal && count($disjointBranchTypeNames) === count($compositionProperties)) {
             throw new SchemaException(
                 sprintf(
                     "Property '%s' is declared with type '%s' which conflicts with the types %s of all %s branches"
@@ -1136,6 +1145,54 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ],
             );
         }
+    }
+
+    /**
+     * Whether the schema at $pointer is a branch of an anyOf, oneOf, not, if, then or else, directly
+     * or through allOf branches, below the nearest property or definition. A value which fails such
+     * a branch can still be valid. The pointer is walked from the start and the keyword slots are
+     * consumed pairwise, like BranchNameResolver does, so a property named like a composition
+     * keyword (`/properties/anyOf/allOf/0`) is not mistaken for the keyword. An allOf branch alone
+     * doesn't count: whatever can't satisfy an allOf branch can't satisfy the allOf either.
+     */
+    private static function isInsideNonAllOfBranch(string $pointer): bool
+    {
+        $segments = array_values(array_filter(explode('/', $pointer), 'strlen'));
+        $segmentCount = count($segments);
+        $insideNonAllOfBranch = false;
+
+        for ($index = 0; $index < $segmentCount; $index++) {
+            $segment = $segments[$index];
+
+            if (in_array($segment, ['allOf', 'anyOf', 'oneOf', 'not', 'if', 'then', 'else'], true)) {
+                $insideNonAllOfBranch = $insideNonAllOfBranch || $segment !== 'allOf';
+
+                if ($index + 1 < $segmentCount && is_numeric($segments[$index + 1])) {
+                    $index++;
+                }
+
+                continue;
+            }
+
+            // Any other keyword leads to another value (a property, an item, a definition, ...);
+            // the keywords followed by a user chosen key consume that key as well.
+            $insideNonAllOfBranch = false;
+
+            $keyedKeywords = [
+                'properties',
+                'definitions',
+                '$defs',
+                'patternProperties',
+                'dependencies',
+                'dependentSchemas',
+            ];
+
+            if (in_array($segment, $keyedKeywords, true)) {
+                $index++;
+            }
+        }
+
+        return $insideNonAllOfBranch;
     }
 
     /**
@@ -1750,6 +1807,13 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         $nonNullNames = self::narrowToDeclaredType($property, $nonNullNames);
+
+        if (!$nonNullNames) {
+            // The branches don't overlap the declared type: the allOf can never be satisfied. It is
+            // only accepted inside a branch of another composition (see
+            // assertBranchTypesAreSatisfiable()), where the property keeps its declared type.
+            return;
+        }
 
         $nullable = ($allBranchesAllowNull || $hasBranchWithOptionalProperty) ? true : null;
         $property->setType(new PropertyType($nonNullNames, $nullable));
