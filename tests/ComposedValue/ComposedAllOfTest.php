@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use Error;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -993,6 +994,59 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->generateClassFromFile('RootLevelAllOfBranchTypeConflictsWithRootType.json');
+    }
+
+    /**
+     * An allOf branch of `{"type": ["object", "null"]}` is satisfied by every object, so the
+     * schema is satisfiable and the generated class has to accept an object. The branch carries
+     * no nested schema (the object sub-property of a multi-type declaration holds it), and the
+     * transfer of composed properties into the class treats every typed branch without a nested
+     * schema as a contradiction instead, rejecting the schema with a "No nested schema" error.
+     *
+     * Known gap: the test turns green by itself as soon as the schema is accepted.
+     */
+    #[DataProvider('allOfBranchAcceptingObjectOrNullDataProvider')]
+    public function testAllOfBranchAcceptingObjectOrNullIsAccepted(string $schemaFile, array $input): void
+    {
+        try {
+            $className = $this->generateClassFromFile($schemaFile);
+        } catch (SchemaException) {
+            $this->markTestIncomplete(
+                'Known gap: an allOf branch which accepts an object or null is rejected as having no nested schema.',
+            );
+        }
+
+        $this->assertNotNull(new $className($input));
+    }
+
+    public static function allOfBranchAcceptingObjectOrNullDataProvider(): array
+    {
+        return [
+            'schema root' => ['RootLevelAllOfBranchAcceptingObjectOrNull.json', ['name' => 'Hannes']],
+            'object property' => [
+                'PropertyLevelAllOfBranchAcceptingObjectOrNull.json',
+                ['property' => ['name' => 'Hannes']],
+            ],
+        ];
+    }
+
+    /**
+     * The same satisfiable branch behind a `$ref` crashes generation with a PHP error (a class
+     * path is read from a missing nested schema) instead of a schema error.
+     *
+     * Known gap: the test turns green by itself as soon as the schema is accepted.
+     */
+    public function testAllOfReferenceToObjectOrNullIsAccepted(): void
+    {
+        try {
+            $className = $this->generateClassFromFile('RootLevelAllOfReferenceToObjectOrNull.json');
+        } catch (Error) {
+            $this->markTestIncomplete(
+                'Known gap: an allOf reference to an object or null definition crashes the generation.',
+            );
+        }
+
+        $this->assertNotNull(new $className(['name' => 'Hannes']));
     }
 
     private static function declaredTypeConflictMessagePattern(
