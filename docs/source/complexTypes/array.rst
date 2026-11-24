@@ -338,6 +338,56 @@ any element satisfies the constraint).
 ``contains: false`` — no element could ever satisfy the constraint; any array value raises a
 ``ContainsException`` at runtime. The generator also emits a warning at generation time.
 
+Limiting the number of matches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since Draft 2019-09 the number of items which must match the ``contains`` schema can be limited with
+``minContains`` and ``maxContains``. Both must be non-negative integers. If ``minContains`` is omitted it defaults
+to ``1``, if ``maxContains`` is omitted the number of matches is not limited. Draft 7 ignores both keywords.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "contains": {
+                    "type": "string"
+                },
+                "minContains": 0,
+                "maxContains": 0
+            }
+        }
+    }
+
+``minContains: 0`` makes the ``contains`` constraint optional. Combined with ``maxContains: 0`` only arrays in which
+no item matches the ``contains`` schema are valid. Contradicting limits are rejected with a *SchemaException* while the
+classes are generated: ``minContains`` larger than ``maxContains`` as well as ``maxContains: 0`` without
+``minContains: 0``, as the omitted ``minContains`` defaults to ``1``.
+
+Possible exceptions:
+
+* Array 'example' must not contain less than 2 items matching the contains constraint, 1 matching items provided
+* Array 'example' must not contain more than 0 items matching the contains constraint, 1 matching items provided
+
+The thrown exceptions will be a *PHPModelGenerator\\Exception\\Arrays\\MinContainsException* or a *PHPModelGenerator\\Exception\\Arrays\\MaxContainsException*. They provide the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+    // get the number of items which match the contains schema
+    public function getMatches(): int
+    // get the configured minContains (MinContainsException) or maxContains (MaxContainsException)
+    public function getMinContains(): int
+    public function getMaxContains(): int
+
 Unevaluated Items
 -----------------
 

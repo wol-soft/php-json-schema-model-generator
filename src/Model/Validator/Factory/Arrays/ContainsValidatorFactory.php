@@ -109,7 +109,7 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
         }
 
         if (array_key_exists('maxContains', $json)) {
-            if (!is_int($json['maxContains']) || $json['maxContains'] < 1) {
+            if (!is_int($json['maxContains']) || $json['maxContains'] < 0) {
                 throw new SchemaException(
                     sprintf(
                         "Invalid maxContains %s for property '%s' in file %s",
@@ -130,11 +130,16 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             );
         }
 
-        if (isset($json['minContains'], $json['maxContains']) && $json['minContains'] > $json['maxContains']) {
+        // An absent minContains defaults to 1, so maxContains: 0 without minContains: 0 contradicts itself:
+        // contains requires one match while maxContains allows none. Comparing only explicit values would
+        // generate a class which rejects every array.
+        $effectiveMinContains = $json['minContains'] ?? 1;
+
+        if (isset($json['maxContains']) && $effectiveMinContains > $json['maxContains']) {
             throw new SchemaException(
                 sprintf(
                     "minContains (%s) must not be larger than maxContains (%s) for property '%s' in file %s",
-                    $json['minContains'],
+                    $effectiveMinContains,
                     $json['maxContains'],
                     $property->getName(),
                     $propertySchema->getFile(),
