@@ -1,7 +1,19 @@
 {
   "type": "object",
   "properties": {
-    "property": {
+    "numberBranch": {
+      "type": "integer",
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 10
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "multiTypeProperty": {
       "type": [
         "number",
         "string"

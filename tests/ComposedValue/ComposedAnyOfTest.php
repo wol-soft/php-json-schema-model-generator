@@ -938,61 +938,48 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * A number branch of an integer property is narrowed to int together with the property, and
-     * its range keywords are rebuilt for the integer type: the number type registers them behind
-     * an `is_float` guard, which never holds once the int-to-float cast of the branch is gone.
+     * its range keywords are rebuilt for the integer type (numberBranch): the number type
+     * registers them behind an `is_float` guard, which never holds once the int-to-float cast of
+     * the branch is gone. A multi-type declaration containing `number` is narrowed to int by an
+     * integer branch the same way (multiTypeProperty): the number variant's int-to-float cast is
+     * dropped (otherwise 42 reaches the integer branch as 42.0 and only a string could match),
+     * the type check accepts an int instead of a float next to the string, and the number range
+     * keywords keep applying to the int value.
      */
-    public function testAnyOfNumberBranchNarrowedToIntegerKeepsRangeConstraints(): void
+    public function testAnyOfNumberNarrowedToIntegerKeepsItsConstraints(): void
     {
         $className = $this->generateClassFromFile(
-            'PropertyLevelAnyOfIntegerNarrowingKeepsRangeConstraints.json',
+            'PropertyLevelAnyOfNumberNarrowedToInteger.json',
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
-        try {
-            new $className(['property' => 5]);
-            $this->fail('Expected a ValidationException for the value 5');
-        } catch (ValidationException $exception) {
-            $this->assertSame(
-                <<<ERROR
-                Invalid value for 'property' declined by composition constraint
-                  Requires to match at least one composition element
-                  - Composition element #1: Failed
-                    * Value for 'property' must not be smaller than 10
-                  - Composition element #2: Failed
-                    * Invalid type for 'property': requires 'string', got 'integer'
-                ERROR,
-                $exception->getMessage(),
-            );
-        }
-
-        $this->assertSame(15, (new $className(['property' => 15]))->getProperty());
-    }
-
-    /**
-     * A multi-type declaration containing `number` is narrowed to int by an integer branch: the
-     * number variant's int-to-float cast is dropped (otherwise 42 reaches the integer branch as
-     * 42.0 and only a string could match), the type check accepts an int instead of a float next
-     * to the string, and the number range keywords keep applying to the int value.
-     */
-    public function testAnyOfMultiTypeNumberNarrowedToIntegerAcceptsIntegers(): void
-    {
-        $className = $this->generateClassFromFile(
-            'PropertyLevelAnyOfMultiTypeNumberNarrowedToInteger.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-        );
-
-        $this->assertSame(42, (new $className(['property' => 42]))->getProperty());
-        $this->assertSame('ab', (new $className(['property' => 'ab']))->getProperty());
+        $this->assertSame(15, (new $className(['numberBranch' => 15]))->getNumberBranch());
+        $this->assertSame(42, (new $className(['multiTypeProperty' => 42]))->getMultiTypeProperty());
+        $this->assertSame('ab', (new $className(['multiTypeProperty' => 'ab']))->getMultiTypeProperty());
 
         $invalidInputs = [
-            [5, "Value for 'property' must not be smaller than 10"],
-            [4.5, "Invalid type for 'property': requires ['int', 'string'], got 'double'"],
+            [
+                ['numberBranch' => 5],
+                <<<ERROR
+                Invalid value for 'numberBranch' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Value for 'numberBranch' must not be smaller than 10
+                  - Composition element #2: Failed
+                    * Invalid type for 'numberBranch': requires 'string', got 'integer'
+                ERROR,
+            ],
+            [['multiTypeProperty' => 5], "Value for 'multiTypeProperty' must not be smaller than 10"],
+            [
+                ['multiTypeProperty' => 4.5],
+                "Invalid type for 'multiTypeProperty': requires ['int', 'string'], got 'double'",
+            ],
         ];
 
-        foreach ($invalidInputs as [$invalidValue, $expectedMessage]) {
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
             try {
-                new $className(['property' => $invalidValue]);
-                $this->fail("Expected a ValidationException for the value $invalidValue");
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
             } catch (ValidationException $exception) {
                 $this->assertSame($expectedMessage, $exception->getMessage());
             }
