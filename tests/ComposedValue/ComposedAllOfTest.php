@@ -798,7 +798,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'property' is defined with conflicting types in allOf composition branches/",
+            "/^Property 'property' is defined with conflicting types in allOf composition branches"
+                . ' \\(file \\S+\\): allOf requires all constraints to hold simultaneously, making this schema'
+                . ' unsatisfiable at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('PropertyLevelAllOfConflictingTypes.json');

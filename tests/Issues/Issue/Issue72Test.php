@@ -128,8 +128,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             "/^Property '$propertyNamePattern' is defined with conflicting types in allOf composition"
-                . ' branches \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold'
-                . " simultaneously, making this schema unsatisfiable\\. at line 1, column $columnPattern$/",
+                . ' branches \\(file (.*)\\.json\\): allOf requires all constraints to hold'
+                . " simultaneously, making this schema unsatisfiable at line 1, column $columnPattern$/",
         );
 
         $this->generateClassFromFile($schemaFile);

@@ -10,6 +10,7 @@ use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\MessageFormatter;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -882,7 +883,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * disjoint from the declared one: in the drafts which apply the siblings of a `$ref` the
      * passed down type would be merged with the referenced type and fail the generation with a
      * conflict between the reference and a sibling `type` the author never wrote. Left as
-     * authored, the branch is dead and reported by assertBranchTypesOverlapDeclaredType() like an
+     * authored, the branch is dead and reported by assertBranchTypesAreSatisfiable() like an
      * inline branch with a disjoint type (a warning for anyOf / oneOf, a conflict for allOf).
      *
      * Not passing the declared type into any `$ref` branch was rejected: a reference to an untyped
@@ -922,14 +923,19 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * After all composition branches resolve, derive the parent property's type from the
      * branch types and apply it. Skips when any branch has a nested schema (object merging
-     * is handled elsewhere) - see assertNoAllOfConflict() for the allOf conflict check, which
-     * is asserted up front and unconditionally, independently of whether type transfer itself
-     * proceeds or is skipped for this reason.
+     * is handled elsewhere).
+     *
+     * Conflicting branch types are not detected here: assertBranchTypesAreSatisfiable() owns
+     * every generation-time type conflict of a composition and runs before this method, whether
+     * the type transfer proceeds or is skipped. Asserting the allOf conflict from here as well was
+     * rejected: the question "are these branches in conflict" would be answered from two places,
+     * and a post processor recomputing the type (EnumPostProcessor) has nothing to assert, as the
+     * schema was checked when it was processed.
      *
      * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
      * are valid, so the PHP type is the intersection. Branches with no declared type impose no
      * constraint and are excluded from the intersection. An empty intersection (contradictory
-     * branch types) throws SchemaException because no value can ever be valid.
+     * branch types) was already rejected by assertBranchTypesAreSatisfiable().
      *
      * anyOf / oneOf: union of all typed branch types — at least one branch must pass, so the PHP
      * type is the union. An untyped branch accepts every value, making the composition satisfied
@@ -943,26 +949,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
-     *
-     * @throws SchemaException when allOf branches declare conflicting types, including an
-     *                          object-shaped branch conflicting with a scalar-typed branch.
      */
     public static function transferPropertyType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $isAllOf,
     ): void {
-        // Conflict detection is a single topic regardless of branch shape, so it is asserted
-        // once, up front, from this one call site - see assertNoAllOfConflict(). This is
-        // deliberately unconditional with respect to the nested-schema early return just below:
-        // that early return is about type TRANSFER (there is nothing to compute a PHP type from
-        // when object merging owns the branch), not about conflict detection, and keeping the two
-        // concerns apart is what lets one method own the entire "are these allOf branches in
-        // conflict" question instead of it being reachable from two different places.
-        if ($isAllOf) {
-            self::assertNoAllOfConflict($property, $compositionProperties);
-        }
-
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
                 return;
@@ -1003,9 +995,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * Checks the `type` of every composition branch against the `type` declared on the property
-     * the composition belongs to. The property validates its own declared type independently of
-     * the composition, so a branch type which does not overlap it can never match:
+     * The single entry point for the generation-time type conflicts of a composition, called once
+     * every branch is resolved and before transferPropertyType(). For allOf, the branches are
+     * checked against each other first (see assertNoAllOfConflict()). Then the `type` of every
+     * branch is checked against the `type` declared on the property the composition belongs to.
+     * The property validates its own declared type independently of the composition, so a branch
+     * type which does not overlap it can never match:
      *
      * - allOf: every branch must hold, so one disjoint branch makes the schema unsatisfiable and
      *   is rejected.
@@ -1034,8 +1029,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * @throws SchemaException when an allOf branch is disjoint from the declared type, or when no
      *                         anyOf / oneOf branch overlaps it.
      */
-    public static function assertBranchTypesOverlapDeclaredType(
-        SchemaProcessor $schemaProcessor,
+    protected static function assertBranchTypesAreSatisfiable(
+        GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $compositionProperties,
         string $keyword,
@@ -1058,7 +1053,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         if (
             !($property instanceof BaseProperty)
             && !$property->isRequired()
-            && $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
+            && $generatorConfiguration->isImplicitNullAllowed()
         ) {
             $effectiveTypeNames[] = 'null';
         }
@@ -1115,7 +1110,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         foreach ($disjointBranchTypeNames as $index => $branchTypeNames) {
-            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            $generatorConfiguration->getLogger()->warning(
                 "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
                     . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
                 [
@@ -1580,8 +1575,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         throw new SchemaException(
             sprintf(
                 "Property '%s' is defined with conflicting types in allOf composition branches"
-                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
-                    . ' making this schema unsatisfiable.',
+                    . ' (file %s): allOf requires all constraints to hold simultaneously,'
+                    . ' making this schema unsatisfiable',
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
             ),
@@ -1678,9 +1673,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * ALL typed branches allow it.
      *
      * Does not throw: an empty non-null intersection is already rejected by
-     * assertNoAllOfConflict(), called unconditionally before transferPropertyType() ever reaches
-     * this method, so by the time we get here an empty intersection can only mean "every branch
-     * allows null" rather than a genuine conflict.
+     * assertBranchTypesAreSatisfiable(), called unconditionally before transferPropertyType(), so
+     * by the time we get here an empty intersection can only mean "every branch allows null"
+     * rather than a genuine conflict.
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      */

@@ -77,8 +77,8 @@ class OneOfValidatorFactory
                     $schema,
                 ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
-                        self::assertBranchTypesOverlapDeclaredType(
-                            $schemaProcessor,
+                        self::assertBranchTypesAreSatisfiable(
+                            $schemaProcessor->getGeneratorConfiguration(),
                             $property,
                             $compositionProperties,
                             $this->key,

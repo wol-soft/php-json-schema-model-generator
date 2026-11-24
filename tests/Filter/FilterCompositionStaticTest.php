@@ -335,7 +335,9 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'filteredProperty' is defined with conflicting types in allOf composition branches/",
+            "/^Property 'filteredProperty' is defined with conflicting types in allOf composition branches"
+                . ' \\(file \\S+\\): allOf requires all constraints to hold simultaneously, making this schema'
+                . ' unsatisfiable at line \\d+, column \\d+$/',
         );
 
         // Contradictory branches: integer AND string simultaneously — impossible. The
