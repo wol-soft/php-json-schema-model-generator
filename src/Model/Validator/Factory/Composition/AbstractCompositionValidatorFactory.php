@@ -30,6 +30,7 @@ use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\BranchNameResolver;
+use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
 
@@ -1130,11 +1131,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * Narrows the non-null type names derived from the branches to the non-null names the property
-     * declares itself, so the declared type takes part in the type hint instead of being replaced
-     * by the branch types. An empty result keeps the branch names unchanged: it only arises when a
-     * post processor rewrote the branch types (e.g. an enum class replacing `string`), and
-     * returning nothing there would drop the type hint of such a property.
+     * Narrows the primitive non-null type names derived from the branches to the non-null names the
+     * property declares itself, so the declared type takes part in the type hint instead of being
+     * replaced by the branch types.
+     *
+     * Class names are passed through untouched. They are produced from the declared type, not
+     * declared by it: the enum post processor rewrites the branches of a `type: string` property to
+     * enum classes, and the property then returns such an enum object. Intersecting the class names
+     * with the declared `string` would drop them, leaving a `?string` type hint on a getter which
+     * returns an enum and throws a TypeError.
      *
      * @param string[] $nonNullNames
      *
@@ -1151,9 +1156,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             return $nonNullNames;
         }
 
-        $narrowedNames = TypeIntersection::compute($nonNullNames, $declaredNonNullNames);
+        $primitiveNames = array_values(array_filter($nonNullNames, TypeCheck::isPrimitive(...)));
+        $classNames = array_values(array_diff($nonNullNames, $primitiveNames));
 
-        return $narrowedNames === [] ? $nonNullNames : $narrowedNames;
+        return array_merge(TypeIntersection::compute($primitiveNames, $declaredNonNullNames), $classNames);
     }
 
     /**

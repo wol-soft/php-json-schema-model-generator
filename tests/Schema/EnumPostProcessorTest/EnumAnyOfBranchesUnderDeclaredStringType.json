@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "state": {
+      "type": "string",
+      "anyOf": [
+        {
+          "enum": [
+            "active",
+            "inactive"
+          ]
+        },
+        {
+          "enum": [
+            "pending"
+          ]
+        }
+      ]
+    }
+  }
+}
