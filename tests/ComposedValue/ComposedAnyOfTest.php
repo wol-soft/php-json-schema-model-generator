@@ -842,20 +842,74 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * An integer and a number branch under a declared number: the union keeps float, so the
-     * property stays a float property with its int to float cast. Retyping to int only happens
-     * when float is no longer part of the narrowed type.
+     * An integer and a number branch under a declared number: the narrowed type is int | float,
+     * as every branch is intersected with the declared type on its own before the union is built.
+     * The property doesn't cast an int to float before the composition, so the integer branch
+     * sees the int: casting first was rejected, it made the integer branch reject every int
+     * (`{"type": "number", "anyOf": [{"type": "integer", "maximum": 3}, ...]}` rejected 2). The
+     * stored value is the one of the first matching branch: an int from the integer branch, a
+     * float from the number branch. The range keywords of the property apply to an int as well.
      */
-    public function testAnyOfWithIntegerAndNumberBranchesKeepsNumberPropertyAsFloat(): void
+    public function testAnyOfWithIntegerAndNumberBranchesTypesNumberPropertyAsIntOrFloat(): void
     {
         $className = $this->generateClassFromFile(
             'PropertyLevelAnyOfNumberDeclaredWithIntegerAndNumberBranch.json',
-            (new GeneratorConfiguration())->setImmutable(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
-        $this->assertEqualsCanonicalizing(['float', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
-        $this->assertSame(5.0, (new $className(['property' => 5]))->getProperty());
+        foreach (['getProperty', 'getRangedProperty'] as $getter) {
+            $this->assertEqualsCanonicalizing(['int', 'float', 'null'], $this->getReturnTypeNames($className, $getter));
+        }
+        $this->assertEqualsCanonicalizing(
+            ['int', 'float', 'null'],
+            $this->getReturnTypeNames($className, 'getMultiTypeProperty'),
+        );
+
+        $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
+        $this->assertSame(5, (new $className(['multiTypeProperty' => 5]))->getMultiTypeProperty());
+        $this->assertSame(5.5, (new $className(['multiTypeProperty' => 5.5]))->getMultiTypeProperty());
+        $this->assertSame(2, (new $className(['rangedProperty' => 2]))->getRangedProperty());
+        $this->assertSame(12.0, (new $className(['rangedProperty' => 12]))->getRangedProperty());
+        $this->assertSame(12.5, (new $className(['rangedProperty' => 12.5]))->getRangedProperty());
+
+        // Every branch is an integer branch: the narrowed type is int only, the property is
+        // retyped to integer and rejects floats with its own type check.
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getIntegerBranchesOnly'),
+        );
+        $this->assertSame(2, (new $className(['integerBranchesOnly' => 2]))->getIntegerBranchesOnly());
+        $this->assertSame(6, (new $className(['integerBranchesOnly' => 6]))->getIntegerBranchesOnly());
+
+        $invalidInputs = [
+            [
+                ['rangedProperty' => 5],
+                <<<ERROR
+                Invalid value for 'rangedProperty' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Value for 'rangedProperty' must not be larger than 3
+                  - Composition element #2: Failed
+                    * Value for 'rangedProperty' must not be smaller than 10
+                ERROR,
+            ],
+            [['rangedProperty' => 0], "Value for 'rangedProperty' must not be smaller than 1"],
+            [['rangedProperty' => 0.5], "Value for 'rangedProperty' must not be smaller than 1"],
+            [
+                ['integerBranchesOnly' => 4.5],
+                "Invalid type for 'integerBranchesOnly': requires 'int', got 'double'",
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
     }
 
     /**

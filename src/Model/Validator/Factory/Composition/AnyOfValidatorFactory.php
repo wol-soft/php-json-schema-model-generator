@@ -87,7 +87,7 @@ class AnyOfValidatorFactory
                             $this->key,
                         );
                         self::transferPropertyType($property, $compositionProperties, false);
-                        self::retypeNumberPropertiesNarrowedToInt(
+                        self::retypeNumberPropertiesForNarrowedType(
                             $schemaProcessor,
                             $schema,
                             $property,

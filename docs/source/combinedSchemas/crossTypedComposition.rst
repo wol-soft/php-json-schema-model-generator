@@ -185,6 +185,11 @@ The check follows these rules:
   applied as ``integer`` keywords: the ``int`` to ``float`` cast is dropped, and ``minimum``, ``maximum``,
   ``exclusiveMinimum``, ``exclusiveMaximum`` and ``multipleOf`` keep validating the ``int`` value. The same
   applies to a ``number`` within a multi-type declaration such as ``["number", "null"]``.
+* ``anyOf`` / ``oneOf`` narrow every branch to the declared type on its own. A ``number`` property with an
+  ``integer`` and a ``number`` branch generates an ``int | float`` property: the ``int`` is not cast to ``float``
+  before the branches are validated, so the ``integer`` branch sees it, and the property stores the value of the
+  first branch which matches. ``{"type": "number", "oneOf": [{"type": "integer"}, {"type": "number"}]}`` therefore
+  rejects ``5`` (it matches both branches) and accepts ``5.5``.
 * ``null`` is a type like any other: a declared ``string`` and a ``null`` branch do not overlap. With
   `implicit null <../gettingStarted.html#implicit-null>`__ enabled an optional property additionally accepts
   ``null``, so a ``null`` branch overlaps its declared type. A required property is not widened.

@@ -1217,18 +1217,29 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * Retypes every `number` property among $property and its composition branches to `integer`
-     * once the composition narrowed the type of $property to `int` (and not to `float`).
+     * Retypes the `number` properties among $property and its composition branches once the
+     * composition narrowed the type of $property to include `int`.
      *
      * A `number` property casts an int input to float and checks for a float before any other
      * validation runs, and the draft registers its range keywords (minimum, multipleOf, ...) behind
-     * an `is_float` guard. Under an `int` type all of it is wrong: a `{type: integer}` branch would
-     * see 42.0 and reject the value 42 which the narrowed type accepts, the float check would
-     * reject the int that is left once the cast is gone, and the `is_float` guard never holds for
-     * an int, so the range keywords would silently stop applying. Everything the draft's `number`
-     * type added is therefore removed and the draft's `integer` type modifiers are run instead,
-     * which rebuilds the type check and the range keywords for an int, like PropertyMerger does
-     * when it narrows float to int.
+     * an `is_float` guard. Under a type which accepts `int` all of it is wrong: a `{type: integer}`
+     * branch would see 42.0 and reject the value 42 which the narrowed type accepts, the float
+     * check would reject the int that is left once the cast is gone, and the `is_float` guard never
+     * holds for an int, so the range keywords would silently stop applying. The cast is therefore
+     * removed and the draft's `integer` type modifiers are run, which build the type check and the
+     * range keywords for an int, like PropertyMerger does when it narrows float to int:
+     *
+     * - Narrowed to `int` only (allOf with an integer branch, or anyOf / oneOf whose branches all
+     *   admit int only): everything the draft's `number` type added is removed, the property
+     *   becomes an integer property. The branches are retyped together with the property: a
+     *   `number` branch hands its cast value on as the value of the property, so leaving its cast
+     *   in place would store a float in a property whose type hint says `int`, and its range
+     *   keywords would stop applying just like the property's.
+     * - Narrowed to `int | float` (anyOf / oneOf with an integer and a number branch): the float
+     *   check becomes an int | float check and the `number` range keywords stay next to the
+     *   `integer` ones, so both an int and a float are checked. Only the property is changed: every
+     *   anyOf / oneOf branch validates its own copy of the value, so a number branch may keep
+     *   casting it, and the property stores the value of the first branch which matched.
      *
      * Rejected alternatives:
      * - Dropping the type check without a replacement: an anyOf narrowed to int by an `integer` and
@@ -1240,21 +1251,20 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *   of every number property, and a custom draft would still carry the float-only guards.
      * - Hard-coding the range keywords: duplicates the draft registration and misses the keywords a
      *   custom draft registers for `number`.
-     *
-     * The branches are retyped together with the property: a `number` branch casts the value it is
-     * handed by reference, so leaving its cast in place would store a float in a property whose
-     * type hint says `int`, and its range keywords would stop applying just like the property's.
+     * - Keeping the cast of an `int | float` property and casting after the composition instead:
+     *   needs a post-validation step the model template doesn't have, and the range keywords of the
+     *   property would still have to be rebuilt for the raw int.
      *
      * Only a property which carries the cast is changed: a plain `number` property or branch, or a
      * multi-type property or branch whose `number` variant carries it (see
-     * retypeMultiTypeNumberVariantToInteger()). The narrowed type is read from $property, so this
-     * runs after transferPropertyType().
+     * retypeMultiTypeNumberVariant()). The narrowed type is read from $property, so this runs
+     * after transferPropertyType().
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
      * @throws SchemaException
      */
-    protected static function retypeNumberPropertiesNarrowedToInt(
+    protected static function retypeNumberPropertiesForNarrowedType(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $property,
@@ -1262,13 +1272,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     ): void {
         $typeNames = $property->getType()?->getNames() ?? [];
 
-        if (!in_array('int', $typeNames, true) || in_array('float', $typeNames, true)) {
+        if (!in_array('int', $typeNames, true)) {
             return;
         }
 
-        foreach ([$property, ...$compositionProperties] as $candidate) {
+        $keepFloat = in_array('float', $typeNames, true);
+
+        foreach ($keepFloat ? [$property] : [$property, ...$compositionProperties] as $candidate) {
             if (self::carriesIntToFloatCast($candidate)) {
-                self::retypeNumberPropertyToInteger($schemaProcessor, $schema, $candidate);
+                self::retypeNumberProperty($schemaProcessor, $schema, $candidate, $keepFloat);
                 continue;
             }
 
@@ -1277,11 +1289,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $decorator instanceof PropertyTransferDecorator
                     && self::carriesIntToFloatCast($decorator->getProperty())
                 ) {
-                    self::retypeMultiTypeNumberVariantToInteger(
+                    self::retypeMultiTypeNumberVariant(
                         $schemaProcessor,
                         $schema,
                         $candidate,
                         $decorator->getProperty(),
+                        $keepFloat,
                     );
                 }
             }
@@ -1297,14 +1310,17 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
+     * @param bool $keepFloat true to retype to `int | float`, false to retype to `int`
+     *
      * @throws SchemaException
      */
-    private static function retypeNumberPropertyToInteger(
+    private static function retypeNumberProperty(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $candidate,
+        bool $keepFloat,
     ): void {
-        $numberKeywords = self::getNumberKeywords($schemaProcessor, $candidate);
+        $numberKeywords = $keepFloat ? [] : self::getNumberKeywords($schemaProcessor, $candidate);
 
         self::removeIntToFloatCast($candidate);
         $candidate->filterValidators(
@@ -1312,6 +1328,20 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 !($validator->getValidator() instanceof TypeCheckInterface)
                 && !in_array($validator->getSourceKey(), $numberKeywords, true),
         );
+
+        if ($keepFloat) {
+            // The integer type check modifier skips a property whose type check already accepts
+            // an int, so it adds nothing next to this one.
+            $candidate->addValidator(
+                (new MultiTypeCheckValidator(
+                    ['int', 'float'],
+                    $candidate,
+                    $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
+                        && !$candidate->isRequired(),
+                ))->withJsonPointer($candidate->getJsonSchema()->getPointer() . '/type'),
+                2,
+            );
+        }
 
         self::applyIntegerTypeModifiers($schemaProcessor, $schema, $candidate);
     }
@@ -1321,22 +1351,27 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * its number variant, which the multi-type property reaches through a
      * PropertyTransferDecorator, while the validators of every variant were copied onto the
      * multi-type property, and one MultiTypeCheckValidator checks all declared types. The cast is
-     * removed from the variant, the copied number validators from the multi-type property, and
-     * the type check is rebuilt with `int` in place of `float`, keeping the other declared types.
-     * Replacing it with an int-only check was rejected: `["number", "string"]` narrowed by an
-     * `integer` and a `string` branch has to keep accepting strings. The integer type modifiers
-     * then rebuild the range keywords; their type check modifier adds nothing, as the rebuilt
-     * check already accepts `int`.
+     * removed from the variant, and the type check is rebuilt with `int` in place of `float` (or
+     * next to it, for `int | float`), keeping the other declared types. For `int` only, the copied
+     * number validators are removed from the multi-type property as well. Replacing the check with
+     * an int-only check was rejected: `["number", "string"]` narrowed by an `integer` and a
+     * `string` branch has to keep accepting strings. The integer type modifiers then build the
+     * range keywords for an int; their type check modifier adds nothing, as the rebuilt check
+     * already accepts `int`.
+     *
+     * @param bool $keepFloat true to retype the variant to `int | float`, false to retype it to `int`
      *
      * @throws SchemaException
      */
-    private static function retypeMultiTypeNumberVariantToInteger(
+    private static function retypeMultiTypeNumberVariant(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $multiTypeProperty,
         PropertyInterface $numberVariant,
+        bool $keepFloat,
     ): void {
-        $numberKeywords = self::getNumberKeywords($schemaProcessor, $multiTypeProperty);
+        $numberKeywords = $keepFloat ? [] : self::getNumberKeywords($schemaProcessor, $multiTypeProperty);
+        $replacementTypeNames = $keepFloat ? ['int', 'float'] : ['int'];
         $multiTypeChecks = [];
 
         foreach ($multiTypeProperty->getValidators() as $validator) {
@@ -1354,10 +1389,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         foreach ($multiTypeChecks as $multiTypeCheck) {
             $multiTypeProperty->addValidator(
-                $multiTypeCheck->getValidator()->withTypes(array_values(array_unique(array_map(
-                    static fn(string $typeName): string => $typeName === 'float' ? 'int' : $typeName,
+                $multiTypeCheck->getValidator()->withTypes(array_values(array_unique(array_merge(...array_map(
+                    static fn(string $typeName): array => $typeName === 'float' ? $replacementTypeNames : [$typeName],
                     $multiTypeCheck->getValidator()->getTypes(),
-                )))),
+                ))))),
                 $multiTypeCheck->getPriority(),
             );
         }
@@ -1729,16 +1764,26 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         ));
 
         $hasNull = $hasExplicitNullBranch || in_array('null', $allNames, true);
-        $nonNullNames = array_values(array_filter(
-            array_unique($allNames),
-            static fn(string $typeName): bool => $typeName !== 'null',
-        ));
+
+        // Every branch is narrowed to the declared type on its own before the union is built.
+        // Building the union first and narrowing it afterwards was rejected: an integer and a
+        // number branch under a declared number would give [int, float] ∩ [float] = [float],
+        // dropping the int the integer branch accepts (int is a subtype of float only within a
+        // single intersection). Union of the narrowed branches is [int] ∪ [float] = [int, float].
+        $nonNullNames = array_values(array_unique(array_merge(...array_map(
+            static fn(CompositionPropertyDecorator $branch): array => self::narrowToDeclaredType(
+                $property,
+                array_values(array_filter(
+                    $branch->getType()->getNames(),
+                    static fn(string $typeName): bool => $typeName !== 'null',
+                )),
+            ),
+            $typedBranches,
+        ))));
 
         if (!$nonNullNames) {
             return;
         }
-
-        $nonNullNames = self::narrowToDeclaredType($property, $nonNullNames);
 
         $nullable = ($hasNull || $hasBranchWithOptionalProperty) ? true : null;
         $property->setType(new PropertyType($nonNullNames, $nullable));

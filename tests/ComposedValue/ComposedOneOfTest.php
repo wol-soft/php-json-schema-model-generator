@@ -727,20 +727,89 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * An integer and a number branch under a declared number: the union keeps float, so the
-     * property stays a float property with its int to float cast. Retyping to int only happens
-     * when float is no longer part of the narrowed type. A float matches the number branch only,
-     * so oneOf accepts it.
+     * An integer and a number branch under a declared number: the narrowed type is int | float,
+     * as every branch is intersected with the declared type on its own before the union is built.
+     * The property doesn't cast an int to float before the composition, so the integer branch
+     * sees the int: an int matches both branches and is rejected, a float matches the number
+     * branch only. Casting first was rejected: the integer branch then never matched, so oneOf
+     * accepted an int. The range keywords of the property apply to an int as well.
      */
-    public function testOneOfWithIntegerAndNumberBranchesKeepsNumberPropertyAsFloat(): void
+    public function testOneOfWithIntegerAndNumberBranchesTypesNumberPropertyAsIntOrFloat(): void
     {
         $className = $this->generateClassFromFile(
             'PropertyLevelOneOfNumberDeclaredWithIntegerAndNumberBranch.json',
-            (new GeneratorConfiguration())->setImmutable(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
-        $this->assertEqualsCanonicalizing(['float', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
+        foreach (['getProperty', 'getRangedProperty'] as $getter) {
+            $this->assertEqualsCanonicalizing(['int', 'float', 'null'], $this->getReturnTypeNames($className, $getter));
+        }
+        $this->assertEqualsCanonicalizing(
+            ['int', 'float', 'null'],
+            $this->getReturnTypeNames($className, 'getMultiTypeProperty'),
+        );
+
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
+        $this->assertSame(5.5, (new $className(['multiTypeProperty' => 5.5]))->getMultiTypeProperty());
+        $this->assertSame(2, (new $className(['rangedProperty' => 2]))->getRangedProperty());
+        $this->assertSame(12.0, (new $className(['rangedProperty' => 12]))->getRangedProperty());
+        $this->assertSame(12.5, (new $className(['rangedProperty' => 12.5]))->getRangedProperty());
+
+        // Every branch is an integer branch: the narrowed type is int only, the property is
+        // retyped to integer and rejects floats with its own type check.
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getIntegerBranchesOnly'),
+        );
+        $this->assertSame(2, (new $className(['integerBranchesOnly' => 2]))->getIntegerBranchesOnly());
+        $this->assertSame(6, (new $className(['integerBranchesOnly' => 6]))->getIntegerBranchesOnly());
+
+        $invalidInputs = [
+            [
+                ['rangedProperty' => 5],
+                <<<ERROR
+                Invalid value for 'rangedProperty' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'rangedProperty' must not be larger than 3
+                  - Composition element #2: Failed
+                    * Value for 'rangedProperty' must not be smaller than 10
+                ERROR,
+            ],
+            [['rangedProperty' => 0], "Value for 'rangedProperty' must not be smaller than 1"],
+            [['rangedProperty' => 0.5], "Value for 'rangedProperty' must not be smaller than 1"],
+            [
+                ['integerBranchesOnly' => 4.5],
+                "Invalid type for 'integerBranchesOnly': requires 'int', got 'double'",
+            ],
+            [
+                ['property' => 5],
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                ERROR,
+            ],
+            [
+                ['multiTypeProperty' => 5],
+                <<<ERROR
+                Invalid value for 'multiTypeProperty' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                ERROR,
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
     }
 
     /**
