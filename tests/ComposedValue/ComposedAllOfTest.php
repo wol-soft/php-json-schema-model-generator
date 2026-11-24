@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
-use Error;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
+use Error;
 use ReflectionClass;
 use ReflectionMethod;
 use stdClass;
@@ -626,16 +626,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function testRootLevelAllOfWithScalarBranchThrowsConflictingTypeException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'[^']*'", 'object', 'int', 1),
-        );
-
-        $this->generateClassFromFile('NoNestedSchema.json');
-    }
-
     #[DataProvider('validationInSetterDataProvider')]
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
@@ -809,61 +799,145 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     /**
      * The declared type of the property takes part in the allOf conflict check: a branch type
      * which is disjoint from it can never be satisfied together with the property's own type
-     * check, so the schema is rejected at generation time instead of producing a class that
-     * rejects every value.
+     * check, so the schema is rejected at generation time instead of producing a class which
+     * rejects every value. The message names the declared type, and the first conflicting branch
+     * with its position and type.
      */
-    public function testPropertyTypeContradictedByTheTypeOfAnAllOfBranchIsRejected(): void
-    {
+    #[DataProvider('declaredTypeConflictDataProvider')]
+    public function testPropertyTypeContradictedByTheTypeOfAnAllOfBranchIsRejected(
+        string $schemaFile,
+        string $quotedPropertyNamePattern,
+        string $declaredType,
+        string $branchType,
+        int $branchNumber,
+        bool $implicitNull,
+    ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", 'string', 'int', 1),
+            self::declaredTypeConflictMessagePattern(
+                $quotedPropertyNamePattern,
+                $declaredType,
+                $branchType,
+                $branchNumber,
+            ),
         );
 
-        $this->generateClassFromFile('PropertyLevelAllOfBranchContradictsPropertyType.json');
+        $this->generateClassFromFile($schemaFile, implicitNull: $implicitNull);
     }
 
-    /**
-     * A `$ref` branch whose definition declares a type disjoint from the declared type of the
-     * property conflicts like an inline branch, and is reported with the declared-type conflict
-     * instead of a conflict between the reference and a sibling `type` the author never wrote.
-     */
-    public function testPropertyLevelAllOfReferenceBranchDisjointFromPropertyTypeThrowsSchemaException(): void
+    public static function declaredTypeConflictDataProvider(): array
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", 'string', 'int', 1),
-        );
-
-        $this->generateClassFromFile('PropertyLevelAllOfReferenceBranchConflictsWithPropertyType.json');
-    }
-
-    /**
-     * A type-changing filter does not exempt the property from the check: the branch type is
-     * validated against the raw input, so a `type: integer` branch contradicts a declared
-     * `type: string` even though the filter outputs a DateTime. Comparing the branch against the
-     * filter's output type is deliberately not done - it would let a raw string pass a
-     * `type: integer` check after the transformation.
-     */
-    public function testPropertyLevelAllOfBranchTypeDisjointFromFilteredPropertyTypeThrowsSchemaException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", 'string', 'int', 1),
-        );
-
-        $this->generateClassFromFile('PropertyLevelAllOfBranchTypeConflictsWithFilteredPropertyType.json');
+        return [
+            'scalar branch on a scalar property' => [
+                'PropertyLevelAllOfBranchContradictsPropertyType.json',
+                "'property'",
+                'string',
+                'int',
+                1,
+                true,
+            ],
+            // The branch type validates the raw input, so a type-changing filter (string to
+            // DateTime) does not exempt the property. Comparing the branch against the output type
+            // of the filter was rejected: it would let a raw string pass a `type: integer` check
+            // after the transformation.
+            'scalar branch on a filtered property' => [
+                'PropertyLevelAllOfBranchTypeConflictsWithFilteredPropertyType.json',
+                "'property'",
+                'string',
+                'int',
+                1,
+                true,
+            ],
+            'object branch on a string property' => [
+                'PropertyLevelAllOfObjectBranchConflictsWithStringProperty.json',
+                "'property'",
+                'string',
+                'object',
+                1,
+                true,
+            ],
+            'string branch on an object property' => [
+                'PropertyLevelAllOfScalarBranchConflictsWithObjectProperty.json',
+                // An object property is named after the class generated for it.
+                "'[^']*'",
+                'object',
+                'string',
+                1,
+                true,
+            ],
+            // Without implicit null, `null` is a type like any other.
+            'null branch without implicit null' => [
+                'PropertyLevelAllOfNullBranchOptionalProperty.json',
+                "'property'",
+                'string',
+                'null',
+                1,
+                false,
+            ],
+            // Implicit null doesn't apply to a required property (its type check rejects null),
+            // so its declared type isn't widened. Widening on the configuration alone was
+            // rejected: it would accept a schema whose branch can never be satisfied.
+            'null branch on a required property with implicit null' => [
+                'PropertyLevelAllOfNullBranchRequiredProperty.json',
+                "'property'",
+                'string',
+                'null',
+                1,
+                true,
+            ],
+            // Reported with the conflict instead of the unrelated "No nested schema for composed
+            // property" failure the schema root produced before.
+            'scalar branch at the schema root' => [
+                'RootLevelAllOfBranchTypeConflictsWithRootType.json',
+                "'[^']*'",
+                'object',
+                'int',
+                1,
+                true,
+            ],
+            // Reported with the conflict instead of a conflict between the reference and a sibling
+            // `type` the author never wrote (the declared type is not passed down into it).
+            'reference branch' => [
+                'PropertyLevelAllOfReferenceBranchConflictsWithPropertyType.json',
+                "'property'",
+                'string',
+                'int',
+                1,
+                true,
+            ],
+            // Every type of both sides is named; the always-true branch ahead of the conflicting
+            // one constrains no type and is skipped.
+            'multi-type branch on a multi-type property' => [
+                'PropertyLevelAllOfMultiTypeBranchConflictsWithMultiTypeProperty.json',
+                "'property'",
+                'string | bool',
+                'int | float',
+                2,
+                true,
+            ],
+            'property defined by a reference' => [
+                'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
+                "'property'",
+                'string',
+                'int',
+                1,
+                true,
+            ],
+        ];
     }
 
     /**
      * A branch type which overlaps the declared type is not a conflict: integer is a subtype of
      * number in both directions, a multi-type declaration overlaps a branch naming one of its
-     * types, and untyped / `true` branches impose no type constraint.
+     * types, and untyped / `true` branches impose no type constraint. A number property narrowed
+     * to int by an integer branch checks for an int and no longer casts int input to float:
+     * floats and strings are rejected by the property itself with the narrowed type.
      */
     public function testPropertyLevelAllOfBranchTypeOverlappingPropertyTypeIsAccepted(): void
     {
         $className = $this->generateClassFromFile(
             'PropertyLevelAllOfBranchTypeNarrowsPropertyType.json',
-            (new GeneratorConfiguration())->setImmutable(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
         $this->assertEqualsCanonicalizing(
@@ -886,58 +960,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(7, $object->getKeptInteger());
         $this->assertSame('text', $object->getKeptString());
         $this->assertSame('ab', $object->getUntypedBranch());
-    }
-
-    /**
-     * The type of an object branch takes part in the check like any other branch type: a string
-     * property cannot hold the object an object branch requires, and an object property cannot
-     * hold the string a string branch requires.
-     */
-    #[DataProvider('objectAndScalarDeclaredTypeConflictDataProvider')]
-    public function testPropertyLevelAllOfObjectAndScalarTypesAcrossPropertyAndBranchThrowSchemaException(
-        string $schemaFile,
-        string $quotedPropertyNamePattern,
-        string $declaredType,
-        string $branchType,
-    ): void {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern($quotedPropertyNamePattern, $declaredType, $branchType, 1),
-        );
-
-        $this->generateClassFromFile($schemaFile);
-    }
-
-    public static function objectAndScalarDeclaredTypeConflictDataProvider(): array
-    {
-        return [
-            'object branch on a string property' => [
-                'PropertyLevelAllOfObjectBranchConflictsWithStringProperty.json',
-                "'property'",
-                'string',
-                'object',
-            ],
-            'string branch on an object property' => [
-                'PropertyLevelAllOfScalarBranchConflictsWithObjectProperty.json',
-                // An object property is named after the class generated for it.
-                "'[^']*'",
-                'object',
-                'string',
-            ],
-        ];
-    }
-
-    /**
-     * A number property narrowed to int by an integer branch checks for an int and no longer
-     * casts int input to float: floats and strings are rejected by the property itself with the
-     * narrowed type in the message.
-     */
-    public function testPropertyLevelAllOfNumberPropertyNarrowedToIntegerRejectsNonIntegers(): void
-    {
-        $className = $this->generateClassFromFile(
-            'PropertyLevelAllOfBranchTypeNarrowsPropertyType.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-        );
 
         foreach ([[4.5, 'double'], ['text', 'string']] as [$invalidValue, $providedType]) {
             try {
@@ -953,18 +975,33 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Narrowing a `number` to `int` retypes it to `integer`, so the range keywords of the number
-     * keep applying to the int value: the number type registers them behind an `is_float` guard,
-     * which never holds once the int-to-float cast is gone, and they are rebuilt for the integer
-     * type. This holds for the property itself (narrowedProperty) and for a number branch of an
-     * integer property (narrowedBranch).
+     * Narrowing a `number` to `int` retypes it to `integer`, so its keywords keep applying to the
+     * int value: the number type registers the range keywords behind an `is_float` guard, which
+     * never holds once the int-to-float cast is gone, and they are rebuilt for the integer type.
+     * This holds for the property itself (narrowedProperty), for a number branch of an integer
+     * property (narrowedBranch), and for the number of a multi-type declaration (nullableNumber,
+     * numberOrString): its int-to-float cast is dropped as well (otherwise 42 reaches the integer
+     * branch as 42.0 and is rejected), and its type check accepts an int instead of a float next
+     * to the other declared types.
      */
-    public function testPropertyLevelAllOfNumberNarrowedToIntegerKeepsRangeConstraints(): void
+    public function testPropertyLevelAllOfNumberNarrowedToIntegerKeepsItsConstraints(): void
     {
         $className = $this->generateClassFromFile(
-            'PropertyLevelAllOfIntegerNarrowingKeepsRangeConstraints.json',
+            'PropertyLevelAllOfNumberNarrowedToInteger.json',
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
+
+        $object = new $className([
+            'narrowedProperty' => 12,
+            'narrowedBranch' => 15,
+            'nullableNumber' => 42,
+            'numberOrString' => 42,
+        ]);
+        $this->assertSame(12, $object->getNarrowedProperty());
+        $this->assertSame(15, $object->getNarrowedBranch());
+        $this->assertSame(42, $object->getNullableNumber());
+        $this->assertSame(42, $object->getNumberOrString());
+        $this->assertNull((new $className(['nullableNumber' => null]))->getNullableNumber());
 
         $invalidInputs = [
             [['narrowedProperty' => 4], "Value for 'narrowedProperty' must not be smaller than 10"],
@@ -988,41 +1025,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                     * Value for 'narrowedBranch' must be smaller than 20
                 ERROR,
             ],
-        ];
-
-        foreach ($invalidInputs as [$input, $expectedMessage]) {
-            try {
-                new $className($input);
-                $this->fail('Expected a ValidationException for ' . json_encode($input));
-            } catch (ValidationException $exception) {
-                $this->assertSame($expectedMessage, $exception->getMessage());
-            }
-        }
-
-        $object = new $className(['narrowedProperty' => 12, 'narrowedBranch' => 15]);
-        $this->assertSame(12, $object->getNarrowedProperty());
-        $this->assertSame(15, $object->getNarrowedBranch());
-    }
-
-    /**
-     * A multi-type declaration containing `number` is narrowed to int like a plain number: the
-     * number variant's int-to-float cast is dropped (otherwise 42 reaches the integer branch as
-     * 42.0 and is rejected), the type check accepts an int instead of a float next to the other
-     * declared types, and the number range keywords keep applying to the int value.
-     */
-    public function testPropertyLevelAllOfMultiTypeNumberNarrowedToIntegerAcceptsIntegers(): void
-    {
-        $className = $this->generateClassFromFile(
-            'PropertyLevelAllOfMultiTypeNumberNarrowedToInteger.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-        );
-
-        $object = new $className(['nullableNumber' => 42, 'numberOrString' => 42]);
-        $this->assertSame(42, $object->getNullableNumber());
-        $this->assertSame(42, $object->getNumberOrString());
-        $this->assertNull((new $className(['nullableNumber' => null]))->getNullableNumber());
-
-        $invalidInputs = [
             [['nullableNumber' => 5], "Value for 'nullableNumber' must not be smaller than 10"],
             [
                 ['nullableNumber' => 4.5],
@@ -1050,20 +1052,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Without implicit null, `null` is a type like any other: a declared `string` and a `null`
-     * branch are disjoint.
-     */
-    public function testPropertyLevelAllOfNullBranchOnStringPropertyThrowsSchemaException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", 'string', 'null', 1),
-        );
-
-        $this->generateClassFromFile('PropertyLevelAllOfNullBranchOptionalProperty.json', implicitNull: false);
-    }
-
-    /**
      * Implicit null widens the declared type of a property it applies to (optional property with
      * implicit null enabled): the property's own type check accepts null, so a `null` branch
      * can be satisfied and the schema is not a contradiction.
@@ -1078,36 +1066,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertNull((new $className([]))->getProperty());
         $this->assertNull((new $className(['property' => null]))->getProperty());
-    }
-
-    /**
-     * Implicit null does not apply to a required property (its type check rejects null), so the
-     * declared type is not widened and the `null` branch remains a contradiction. Widening on the
-     * configuration alone, regardless of `required`, was rejected: it would accept a schema whose
-     * branch can never be satisfied.
-     */
-    public function testPropertyLevelAllOfNullBranchWithImplicitNullOnRequiredPropertyThrowsSchemaException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", 'string', 'null', 1),
-        );
-
-        $this->generateClassFromFile('PropertyLevelAllOfNullBranchRequiredProperty.json', implicitNull: true);
-    }
-
-    /**
-     * At the schema root the same contradiction is reported with the conflict message instead of
-     * the unrelated "No nested schema for composed property" failure.
-     */
-    public function testRootLevelAllOfBranchTypeDisjointFromRootTypeThrowsSchemaException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'[^']*'", 'object', 'int', 1),
-        );
-
-        $this->generateClassFromFile('RootLevelAllOfBranchTypeConflictsWithRootType.json');
     }
 
     /**
@@ -1174,52 +1132,18 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     {
         try {
             $className = $this->generateClassFromFile('RootLevelAllOfReferenceToObjectOrNull.json');
-        } catch (SchemaException | Error) {
+        } catch (SchemaException | Error $exception) {
+            // Only the known crash ends the test incomplete; any other PHP error is a new defect.
+            if ($exception instanceof Error && !str_contains($exception->getMessage(), 'getClassPath() on null')) {
+                throw $exception;
+            }
+
             $this->markTestIncomplete(
                 'Known gap: an allOf reference to an object or null definition is rejected or crashes the generation.',
             );
         }
 
         $this->assertNotNull(new $className(['name' => 'Hannes']));
-    }
-
-    /**
-     * The conflict names every type of a multi-type declaration and of a multi-type branch, and the
-     * position of the first conflicting branch: an always-true branch ahead of it constrains no
-     * type and is skipped. A property defined by a `$ref` is checked against the type its
-     * definition declares, like an inline property.
-     */
-    #[DataProvider('declaredTypeConflictDetailsDataProvider')]
-    public function testPropertyLevelAllOfDeclaredTypeConflictNamesTypesAndBranch(
-        string $schemaFile,
-        string $declaredType,
-        string $branchType,
-        int $branchNumber,
-    ): void {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            self::declaredTypeConflictMessagePattern("'property'", $declaredType, $branchType, $branchNumber),
-        );
-
-        $this->generateClassFromFile($schemaFile);
-    }
-
-    public static function declaredTypeConflictDetailsDataProvider(): array
-    {
-        return [
-            'multi-type branch on a multi-type property' => [
-                'PropertyLevelAllOfMultiTypeBranchConflictsWithMultiTypeProperty.json',
-                'string | bool',
-                'int | float',
-                2,
-            ],
-            'property defined by a reference' => [
-                'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
-                'string',
-                'int',
-                1,
-            ],
-        ];
     }
 
     /**
