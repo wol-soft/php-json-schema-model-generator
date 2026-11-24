@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    },
+    "shortValue": {
+      "maxLength": 3
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/integerValue"
+        },
+        {
+          "$ref": "#/definitions/shortValue"
+        }
+      ]
+    }
+  }
+}

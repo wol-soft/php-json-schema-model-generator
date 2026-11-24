@@ -771,6 +771,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      */
     protected function inheritPropertyType(
         SchemaProcessor $schemaProcessor,
+        Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): array {
@@ -784,7 +785,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         switch ($this->key) {
             case 'not':
-                if (!isset($json[$this->key]['type'])) {
+                if (
+                    !isset($json[$this->key]['type'])
+                    && $this->canInheritPropertyType($schemaProcessor, $schema, $propertySchema, $this->key)
+                ) {
                     $json[$this->key]['type'] = $json['type'];
                     $injectedTypeBranchIndices[0] = true;
 
@@ -799,12 +803,26 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 break;
             case 'if':
                 return [
-                    $this->inheritIfPropertyType($schemaProcessor, $property, $propertySchema->withJson($json)),
+                    $this->inheritIfPropertyType(
+                        $schemaProcessor,
+                        $schema,
+                        $property,
+                        $propertySchema->withJson($json),
+                    ),
                     $injectedTypeBranchIndices,
                 ];
             default:
                 foreach ($json[$this->key] as $index => &$composedElement) {
-                    if (!is_bool($composedElement) && !isset($composedElement['type'])) {
+                    if (
+                        !is_bool($composedElement)
+                        && !isset($composedElement['type'])
+                        && $this->canInheritPropertyType(
+                            $schemaProcessor,
+                            $schema,
+                            $propertySchema,
+                            "$this->key/$index",
+                        )
+                    ) {
                         $composedElement['type'] = $json['type'];
                         $injectedTypeBranchIndices[$index] = true;
 
@@ -828,6 +846,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      */
     protected function inheritIfPropertyType(
         SchemaProcessor $schemaProcessor,
+        Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): JsonSchema {
@@ -838,7 +857,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 continue;
             }
 
-            if (!isset($json[$keyword]['type'])) {
+            if (
+                !isset($json[$keyword]['type'])
+                && $this->canInheritPropertyType($schemaProcessor, $schema, $propertySchema, $keyword)
+            ) {
                 $json[$keyword]['type'] = $json['type'];
 
                 $this->reportBranchWhichCannotSatisfyInheritedType(
@@ -852,6 +874,49 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         return $propertySchema->withJson($json);
+    }
+
+    /**
+     * Whether the declared type of $propertySchema may be passed down into the untyped branch at
+     * $branchPointer. It may not for a `$ref` branch whose referenced definition declares a type
+     * disjoint from the declared one: in the drafts which apply the siblings of a `$ref` the
+     * passed down type would be merged with the referenced type and fail the generation with a
+     * conflict between the reference and a sibling `type` the author never wrote. Left as
+     * authored, the branch is dead and reported by assertBranchTypesOverlapDeclaredType() like an
+     * inline branch with a disjoint type (a warning for anyOf / oneOf, a conflict for allOf).
+     *
+     * Not passing the declared type into any `$ref` branch was rejected: a reference to an untyped
+     * definition with type-specific keywords (e.g. `maxLength`) relies on the inherited type for
+     * them to apply. A reference which cannot be resolved yet (peekReference() returns null) keeps
+     * the inherited type, as before.
+     */
+    private function canInheritPropertyType(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        JsonSchema $propertySchema,
+        string $branchPointer,
+    ): bool {
+        $branchSchema = $propertySchema->navigate($branchPointer);
+        $reference = $branchSchema->getJson()['$ref'] ?? null;
+
+        if (!is_string($reference)) {
+            return true;
+        }
+
+        $target = $schema->getSchemaDictionary()->peekReference(
+            $reference,
+            $schemaProcessor,
+            $branchSchema->getBaseId(),
+        );
+
+        if (!is_array($target) || !isset($target['type'])) {
+            return true;
+        }
+
+        return TypeIntersection::compute(
+            self::normalizeTypeNames($target['type']),
+            self::normalizeTypeNames($propertySchema->getJson()['type']),
+        ) !== [];
     }
 
     /**

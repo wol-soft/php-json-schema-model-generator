@@ -821,6 +821,21 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A `$ref` branch whose definition declares a type disjoint from the declared type of the
+     * property conflicts like an inline branch, and is reported with the declared-type conflict
+     * instead of a conflict between the reference and a sibling `type` the author never wrote.
+     */
+    public function testPropertyLevelAllOfReferenceBranchDisjointFromPropertyTypeThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            self::declaredTypeConflictMessagePattern("'property'", 'string', 'int', 1),
+        );
+
+        $this->generateClassFromFile('PropertyLevelAllOfReferenceBranchConflictsWithPropertyType.json');
+    }
+
+    /**
      * A type-changing filter does not exempt the property from the check: the branch type is
      * validated against the raw input, so a `type: integer` branch contradicts a declared
      * `type: string` even though the filter outputs a DateTime. Comparing the branch against the

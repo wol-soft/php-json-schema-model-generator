@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/integerValue"
+        }
+      ]
+    }
+  }
+}

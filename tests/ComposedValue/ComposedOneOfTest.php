@@ -805,4 +805,57 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
             }
         }
     }
+
+    /**
+     * A `$ref` branch whose definition declares a type disjoint from the declared type of the
+     * property is dead like an inline branch: it is reported with a warning instead of failing the
+     * generation with a conflict between the reference and a sibling `type` the author never wrote.
+     * The declared type is not passed down into such a branch. A `$ref` branch to an untyped
+     * definition still inherits the declared type, so its string keywords apply.
+     */
+    public function testOneOfReferenceBranchDisjointFromPropertyTypeIsReported(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PropertyLevelOneOfDeadReferenceBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'oneOf',
+                    'branch' => 1,
+                    'property' => 'property',
+                    'branchType' => 'int',
+                    'declaredType' => 'string',
+                ],
+            ),
+            'Expected a warning for the dead oneOf reference branch.',
+        );
+
+        $this->assertSame('abc', (new $className(['property' => 'abc']))->getProperty());
+
+        try {
+            new $className(['property' => 'abcd']);
+            $this->fail('Expected a ValidationException for the value abcd');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid type for 'property': requires 'int', got 'string'
+                  - Composition element #2: Failed
+                    * Value for 'property' must not be longer than 3
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+    }
 }

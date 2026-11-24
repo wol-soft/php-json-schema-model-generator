@@ -41,6 +41,7 @@ class AnyOfValidatorFactory
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
             $schemaProcessor,
+            $schema,
             $property,
             $propertySchema,
         );

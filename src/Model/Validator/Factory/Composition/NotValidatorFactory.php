@@ -54,6 +54,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         // so it must run before we wrap it in an array for iteration.
         [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
             $schemaProcessor,
+            $schema,
             $property,
             $propertySchema,
         );
