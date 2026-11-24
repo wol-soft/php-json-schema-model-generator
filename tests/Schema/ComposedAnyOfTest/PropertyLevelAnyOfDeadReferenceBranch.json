@@ -9,7 +9,8 @@
     },
     "integerAlias": {
       "$ref": "#/definitions/integerValue"
-    }
+    },
+    "anything": true
   },
   "properties": {
     "property": {
@@ -31,6 +32,17 @@
         },
         {
           "type": "string"
+        }
+      ]
+    },
+    "booleanReferenceProperty": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/anything"
+        },
+        {
+          "type": "integer"
         }
       ]
     }

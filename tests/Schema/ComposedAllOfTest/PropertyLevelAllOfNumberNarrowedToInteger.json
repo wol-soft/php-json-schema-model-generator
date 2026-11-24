@@ -65,6 +65,18 @@
           "multipleOf": 1.5
         }
       ]
+    },
+    "multiTypeBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 10
+        }
+      ]
     }
   }
 }

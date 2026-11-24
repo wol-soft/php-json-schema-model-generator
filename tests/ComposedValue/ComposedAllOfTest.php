@@ -990,7 +990,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
      * property (narrowedBranch), and for the number of a multi-type declaration (nullableNumber,
      * numberOrString): its int-to-float cast is dropped as well (otherwise 42 reaches the integer
      * branch as 42.0 and is rejected), and its type check accepts an int instead of a float next
-     * to the other declared types.
+     * to the other declared types. A multi-type branch of an integer property is retyped the same
+     * way (multiTypeBranch).
      */
     public function testPropertyLevelAllOfNumberNarrowedToIntegerKeepsItsConstraints(): void
     {
@@ -1006,6 +1007,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'numberOrString' => 42,
             'fractionalMultipleOfProperty' => 3,
             'fractionalMultipleOfBranch' => -6,
+            'multiTypeBranch' => 15,
         ]);
         $this->assertSame(12, $object->getNarrowedProperty());
         $this->assertSame(15, $object->getNarrowedBranch());
@@ -1013,6 +1015,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getNumberOrString());
         $this->assertSame(3, $object->getFractionalMultipleOfProperty());
         $this->assertSame(-6, $object->getFractionalMultipleOfBranch());
+        $this->assertSame(15, $object->getMultiTypeBranch());
         $this->assertNull((new $className(['nullableNumber' => null]))->getNullableNumber());
 
         $invalidInputs = [
@@ -1038,6 +1041,15 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
             [['nullableNumber' => 5], "Value for 'nullableNumber' must not be smaller than 10"],
+            [
+                ['multiTypeBranch' => 5],
+                <<<ERROR
+                Invalid value for 'multiTypeBranch' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'multiTypeBranch' must not be smaller than 10
+                ERROR,
+            ],
             [
                 ['fractionalMultipleOfProperty' => 4],
                 "Value for 'fractionalMultipleOfProperty' must be a multiple of 1.5",
@@ -1085,12 +1097,28 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile(
             'PropertyLevelAllOfNullBranchOptionalProperty.json',
-            (new GeneratorConfiguration())->setImmutable(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
             implicitNull: true,
         );
 
         $this->assertNull((new $className([]))->getProperty());
         $this->assertNull((new $className(['property' => null]))->getProperty());
+
+        // Only null satisfies both the declared string and the null branch.
+        try {
+            new $className(['property' => 'text']);
+            $this->fail('Expected a ValidationException for a string');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid type for 'property': requires 'null', got 'string'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 
     /**

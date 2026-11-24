@@ -893,6 +893,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
         $this->assertSame(5, (new $className(['multiTypeProperty' => 5]))->getMultiTypeProperty());
         $this->assertSame(5.5, (new $className(['multiTypeProperty' => 5.5]))->getMultiTypeProperty());
+        $this->assertNull((new $className(['property' => null]))->getProperty());
         $this->assertSame(2, (new $className(['rangedProperty' => 2]))->getRangedProperty());
         $this->assertSame(12.0, (new $className(['rangedProperty' => 12]))->getRangedProperty());
         $this->assertSame(12.5, (new $className(['rangedProperty' => 12.5]))->getRangedProperty());
@@ -1037,6 +1038,12 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'Expected a warning for the dead anyOf branch referencing a reference.',
         );
         $this->assertSame('text', (new $className(['aliasProperty' => 'text']))->getAliasProperty());
+
+        // A reference to a boolean schema declares no type: the declared type is passed down as before.
+        $this->assertSame(
+            'text',
+            (new $className(['booleanReferenceProperty' => 'text']))->getBooleanReferenceProperty(),
+        );
 
         $this->assertSame('abc', (new $className(['property' => 'abc']))->getProperty());
 
