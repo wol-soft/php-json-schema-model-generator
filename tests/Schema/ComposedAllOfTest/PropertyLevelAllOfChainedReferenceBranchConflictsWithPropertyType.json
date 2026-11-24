@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    },
+    "integerAlias": {
+      "$ref": "#/definitions/integerValue"
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/integerAlias"
+        }
+      ]
+    }
+  }
+}

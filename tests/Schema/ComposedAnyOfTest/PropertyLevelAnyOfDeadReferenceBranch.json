@@ -6,6 +6,9 @@
     },
     "shortValue": {
       "maxLength": 3
+    },
+    "integerAlias": {
+      "$ref": "#/definitions/integerValue"
     }
   },
   "properties": {
@@ -17,6 +20,17 @@
         },
         {
           "$ref": "#/definitions/shortValue"
+        }
+      ]
+    },
+    "aliasProperty": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/integerAlias"
+        },
+        {
+          "type": "string"
         }
       ]
     }

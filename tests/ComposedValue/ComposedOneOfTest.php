@@ -919,6 +919,25 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
             'Expected a warning for the dead oneOf reference branch.',
         );
 
+        // A reference to a reference is followed down to the type of the definition at its end.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'oneOf',
+                    'branch' => 1,
+                    'property' => 'aliasProperty',
+                    'branchType' => 'int',
+                    'declaredType' => 'string',
+                ],
+            ),
+            'Expected a warning for the dead oneOf branch referencing a reference.',
+        );
+        $this->assertSame('text', (new $className(['aliasProperty' => 'text']))->getAliasProperty());
+
         $this->assertSame('abc', (new $className(['property' => 'abc']))->getProperty());
 
         try {

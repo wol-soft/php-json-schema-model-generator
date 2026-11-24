@@ -888,8 +888,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * Not passing the declared type into any `$ref` branch was rejected: a reference to an untyped
      * definition with type-specific keywords (e.g. `maxLength`) relies on the inherited type for
-     * them to apply. A reference which cannot be resolved yet (peekReference() returns null) keeps
-     * the inherited type, as before.
+     * them to apply. A reference to a reference is followed down to the first definition which
+     * declares a type, as the merge of the siblings conflicts with that type just the same. Each
+     * reference is resolved against the base of the branch, which is only right as long as the
+     * chain stays in the document of the branch: after a reference into another document the chain
+     * is not followed further. Such a chain, a reference which cannot be resolved yet
+     * (peekReference() returns null) and a cyclic chain keep the inherited type, as before.
      */
     private function canInheritPropertyType(
         SchemaProcessor $schemaProcessor,
@@ -898,19 +902,29 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         string $branchPointer,
     ): bool {
         $branchSchema = $propertySchema->navigate($branchPointer);
-        $reference = $branchSchema->getJson()['$ref'] ?? null;
+        $target = $branchSchema->getJson();
+        $visitedReferences = [];
 
-        if (!is_string($reference)) {
-            return true;
+        while (!isset($target['type']) && is_string($target['$ref'] ?? null)) {
+            $leftTheDocument = $visitedReferences !== [] && !str_starts_with(array_key_last($visitedReferences), '#');
+
+            if ($leftTheDocument || isset($visitedReferences[$target['$ref']])) {
+                return true;
+            }
+
+            $visitedReferences[$target['$ref']] = true;
+            $target = $schema->getSchemaDictionary()->peekReference(
+                $target['$ref'],
+                $schemaProcessor,
+                $branchSchema->getBaseId(),
+            );
+
+            if (!is_array($target)) {
+                return true;
+            }
         }
 
-        $target = $schema->getSchemaDictionary()->peekReference(
-            $reference,
-            $schemaProcessor,
-            $branchSchema->getBaseId(),
-        );
-
-        if (!is_array($target) || !isset($target['type'])) {
+        if ($visitedReferences === [] || !isset($target['type'])) {
             return true;
         }
 

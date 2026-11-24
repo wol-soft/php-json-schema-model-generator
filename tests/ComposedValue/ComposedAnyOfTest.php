@@ -1019,6 +1019,25 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'Expected a warning for the dead anyOf reference branch.',
         );
 
+        // A reference to a reference is followed down to the type of the definition at its end.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'anyOf',
+                    'branch' => 1,
+                    'property' => 'aliasProperty',
+                    'branchType' => 'int',
+                    'declaredType' => 'string',
+                ],
+            ),
+            'Expected a warning for the dead anyOf branch referencing a reference.',
+        );
+        $this->assertSame('text', (new $className(['aliasProperty' => 'text']))->getAliasProperty());
+
         $this->assertSame('abc', (new $className(['property' => 'abc']))->getProperty());
 
         try {
@@ -1103,5 +1122,43 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getMessage(),
             );
         }
+    }
+
+    /**
+     * A reference into another file whose root is a reference to a definition of that file is
+     * followed only up to the other file: its own references would be resolved against the file
+     * of the branch. The type of the definition is therefore not known, the declared type is
+     * passed down into the branch and conflicts with the referenced integer in the drafts which
+     * apply the siblings of a `$ref` ("$ref resolves to type 'int' but sibling 'type' declares
+     * 'string'"); in Draft 07 the dead branch is not reported.
+     *
+     * Known gap: the test turns green by itself as soon as the chain is followed across files.
+     */
+    public function testAnyOfReferenceBranchChainedAcrossFilesIsReported(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        try {
+            $this->generateClassFromFile(
+                'PropertyLevelAnyOfDeadExternalReferenceChainBranch.json',
+                (new GeneratorConfiguration())->setLogger($recordingLogger),
+            );
+        } catch (SchemaException) {
+            $this->markTestIncomplete('Known gap: a reference chain across files is not followed.');
+        }
+
+        $deadBranchReported = $this->hasLogEntry(
+            $recordingLogger->getEntries(),
+            'warning',
+            "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+            ['keyword' => 'anyOf', 'branch' => 1, 'property' => 'property', 'branchType' => 'int'],
+        );
+
+        if (!$deadBranchReported) {
+            $this->markTestIncomplete('Known gap: a reference chain across files is not followed.');
+        }
+
+        $this->assertTrue($deadBranchReported);
     }
 }

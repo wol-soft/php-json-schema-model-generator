@@ -197,7 +197,8 @@ The check follows these rules:
   conflict.
 * A ``$ref`` branch is checked with the ``type`` of the referenced definition. A branch which declares no
   ``type`` usually inherits the declared type, but not a ``$ref`` branch whose definition declares a type
-  which does not overlap it: such a branch is reported like an inline branch with that type. This also
+  which does not overlap it: such a branch is reported like an inline branch with that type. A reference to
+  a reference is followed to the definition at its end, as long as the chain stays within one file. This also
   applies to the ``not``, ``if``, ``then`` and ``else`` schemas.
 * A filter does not change the check. A branch ``type`` is validated against the raw input, so a
   ``{"type": "integer"}`` branch conflicts with a declared ``"type": "string"`` even if a filter

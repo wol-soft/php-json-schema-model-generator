@@ -905,6 +905,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 1,
                 true,
             ],
+            'reference branch referencing a reference' => [
+                'PropertyLevelAllOfChainedReferenceBranchConflictsWithPropertyType.json',
+                "'property'",
+                'string',
+                'int',
+                1,
+                true,
+            ],
             // Every type of both sides is named; the always-true branch ahead of the conflicting
             // one constrains no type and is skipped.
             'multi-type branch on a multi-type property' => [
