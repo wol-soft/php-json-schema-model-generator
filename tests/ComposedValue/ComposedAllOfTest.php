@@ -1183,14 +1183,72 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNotNull(new $className(['name' => 'Hannes']));
     }
 
+    /**
+     * The conflict names every type of a multi-type declaration and of a multi-type branch, and the
+     * position of the first conflicting branch: an always-true branch ahead of it constrains no
+     * type and is skipped. A property defined by a `$ref` is checked against the type its
+     * definition declares, like an inline property.
+     */
+    #[DataProvider('declaredTypeConflictDetailsDataProvider')]
+    public function testPropertyLevelAllOfDeclaredTypeConflictNamesTypesAndBranch(
+        string $schemaFile,
+        string $declaredType,
+        string $branchType,
+        int $branchNumber,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            self::declaredTypeConflictMessagePattern("'property'", $declaredType, $branchType, $branchNumber),
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public static function declaredTypeConflictDetailsDataProvider(): array
+    {
+        return [
+            'multi-type branch on a multi-type property' => [
+                'PropertyLevelAllOfMultiTypeBranchConflictsWithMultiTypeProperty.json',
+                'string | bool',
+                'int | float',
+                2,
+            ],
+            'property defined by a reference' => [
+                'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
+                'string',
+                'int',
+                1,
+            ],
+        ];
+    }
+
+    /**
+     * Branches which contradict each other are reported as such even if one of them contradicts
+     * the declared type as well: the cause is the branches. Reporting the declared-type conflict
+     * first was rejected, as it would blame the declared type for a schema whose allOf can't be
+     * satisfied with any declared type.
+     */
+    public function testPropertyLevelAllOfBranchConflictTakesPrecedenceOverDeclaredTypeConflict(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property 'property' is defined with conflicting types in allOf composition branches"
+                . ' \\(file \\S+\\): allOf requires all constraints to hold simultaneously, making this schema'
+                . ' unsatisfiable at line \\d+, column \\d+$/',
+        );
+
+        $this->generateClassFromFile('PropertyLevelAllOfBranchesConflictWithEachOtherAndPropertyType.json');
+    }
+
     private static function declaredTypeConflictMessagePattern(
         string $quotedPropertyNamePattern,
         string $declaredType,
         string $branchType,
         int $branchNumber,
     ): string {
-        return '/^Property ' . $quotedPropertyNamePattern . " is declared with type '$declaredType' which conflicts"
-            . " with the type '$branchType' of allOf branch #$branchNumber \(file .+\): allOf requires all"
+        return '/^Property ' . $quotedPropertyNamePattern
+            . " is declared with type '" . preg_quote($declaredType, '/') . "' which conflicts with the type '"
+            . preg_quote($branchType, '/') . "' of allOf branch #$branchNumber \(file .+\): allOf requires all"
             . ' constraints to hold simultaneously, making this schema unsatisfiable at line \d+, column \d+$/';
     }
 

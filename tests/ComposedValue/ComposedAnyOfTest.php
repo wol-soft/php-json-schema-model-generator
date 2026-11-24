@@ -741,11 +741,14 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A anyOf branch whose type does not overlap the declared type of the property can never
+     * An anyOf branch whose type does not overlap the declared type of the property can never
      * match. It is reported with a warning, and the property type is narrowed to the overlap of
      * the declared type and the branch types instead of being replaced by the branch types:
      * the declared number overlaps the integer branch (integer is a subtype of number), the
-     * string branch is dead.
+     * string branch is dead. The narrowed property checks for an int itself, so a float or a
+     * string is rejected by its own type check. Dropping that check was rejected: the string
+     * would no longer meet the declared number and would be accepted by the string branch. The
+     * types of a multi-type declaration and of a multi-type branch are all named in the warning.
      */
     public function testAnyOfBranchTypeDisjointFromPropertyTypeIsReportedAndPropertyTypeIsNarrowed(): void
     {
@@ -753,30 +756,54 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 
         $className = $this->generateClassFromFile(
             'PropertyLevelAnyOfPartiallyDeadBranch.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setLogger($recordingLogger),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setLogger($recordingLogger),
         );
 
-        $this->assertTrue(
-            $this->hasLogEntry(
-                $recordingLogger->getEntries(),
-                'warning',
-                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
-                [
-                    'keyword' => 'anyOf',
-                    'branch' => 2,
-                    'property' => 'property',
-                    'branchType' => 'string',
-                    'declaredType' => 'float',
-                ],
-            ),
-            'Expected a warning for the dead anyOf branch.',
-        );
+        $deadBranches = [
+            ['property', 2, 'string', 'float'],
+            ['multiTypeProperty', 1, 'int | float', 'string | bool'],
+        ];
+
+        foreach ($deadBranches as [$propertyName, $branchNumber, $branchType, $declaredType]) {
+            $this->assertTrue(
+                $this->hasLogEntry(
+                    $recordingLogger->getEntries(),
+                    'warning',
+                    "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                        . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                    [
+                        'keyword' => 'anyOf',
+                        'branch' => $branchNumber,
+                        'property' => $propertyName,
+                        'branchType' => $branchType,
+                        'declaredType' => $declaredType,
+                    ],
+                ),
+                "Expected a warning for the dead anyOf branch of $propertyName.",
+            );
+        }
 
         $this->assertEqualsCanonicalizing(['int', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
         $this->assertEqualsCanonicalizing(['int', 'null'], $this->getParameterTypeNames($className, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getReturnTypeNames($className, 'getMultiTypeProperty'),
+        );
 
         $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
+        $this->assertSame('text', (new $className(['multiTypeProperty' => 'text']))->getMultiTypeProperty());
+
+        foreach ([[4.5, 'double'], ['5', 'string']] as [$invalidValue, $providedType]) {
+            try {
+                new $className(['property' => $invalidValue]);
+                $this->fail("Expected a ValidationException for the value of type $providedType");
+            } catch (ValidationException $exception) {
+                $this->assertSame(
+                    "Invalid type for 'property': requires 'int', got '$providedType'",
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 
     /**
@@ -798,47 +825,44 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     /**
      * Without implicit null a `null` branch is dead for a declared string property and is
      * reported. Implicit null widens the declared type of an optional property to "string | null",
-     * so the same branch can match and nothing is reported.
+     * so the same branch can match and nothing is reported for it. A required property is not
+     * widened: its own type check rejects null, so its `null` branch stays dead with implicit null.
      */
     public function testAnyOfNullBranchIsReportedOnlyWhenImplicitNullDoesNotApply(): void
     {
-        $deadBranchWarning = "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-            . " which does not overlap the declared type '{declaredType}' and can never be satisfied";
+        $expectedWarnings = [
+            'implicit null disabled' => [false, ['property' => true, 'requiredProperty' => true]],
+            'implicit null enabled' => [true, ['property' => false, 'requiredProperty' => true]],
+        ];
 
-        $recordingLogger = new RecordingLogger();
-        $this->generateClassFromFile(
-            'PropertyLevelAnyOfNullBranch.json',
-            (new GeneratorConfiguration())->setLogger($recordingLogger),
-            implicitNull: false,
-        );
+        foreach ($expectedWarnings as $label => [$implicitNull, $warnedProperties]) {
+            $recordingLogger = new RecordingLogger();
+            $this->generateClassFromFile(
+                'PropertyLevelAnyOfNullBranch.json',
+                (new GeneratorConfiguration())->setLogger($recordingLogger),
+                implicitNull: $implicitNull,
+            );
 
-        $this->assertTrue(
-            $this->hasLogEntry(
-                $recordingLogger->getEntries(),
-                'warning',
-                $deadBranchWarning,
-                [
-                    'keyword' => 'anyOf',
-                    'branch' => 2,
-                    'property' => 'property',
-                    'branchType' => 'null',
-                    'declaredType' => 'string',
-                ],
-            ),
-            'Expected a warning for the null branch without implicit null.',
-        );
-
-        $recordingLogger = new RecordingLogger();
-        $this->generateClassFromFile(
-            'PropertyLevelAnyOfNullBranch.json',
-            (new GeneratorConfiguration())->setLogger($recordingLogger),
-            implicitNull: true,
-        );
-
-        $this->assertFalse(
-            $this->hasLogEntry($recordingLogger->getEntries(), 'warning', $deadBranchWarning),
-            'Expected no dead branch warning when implicit null applies to the property.',
-        );
+            foreach ($warnedProperties as $propertyName => $expectWarning) {
+                $this->assertSame(
+                    $expectWarning,
+                    $this->hasLogEntry(
+                        $recordingLogger->getEntries(),
+                        'warning',
+                        "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                            . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                        [
+                            'keyword' => 'anyOf',
+                            'branch' => 2,
+                            'property' => $propertyName,
+                            'branchType' => 'null',
+                            'declaredType' => 'string',
+                        ],
+                    ),
+                    "Unexpected dead branch warning state for $propertyName with $label.",
+                );
+            }
+        }
     }
 
     /**
@@ -1022,6 +1046,72 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
                     * Invalid type for 'property': requires 'int', got 'string'
                   - Composition element #2: Failed
                     * Value for 'property' must not be longer than 3
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * At the schema root the declared type is object, as for every schema which becomes a class.
+     * When every anyOf branch is a scalar branch no object can be valid, and the schema is
+     * rejected instead of failing later with an unrelated "No nested schema" error.
+     */
+    public function testRootLevelAnyOfWithAllBranchTypesDisjointFromObjectThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property '[^']*' is declared with type 'object' which conflicts with the types 'string', 'int'"
+                . " of all anyOf branches \\(file .+\\): anyOf requires at least one branch to be satisfied,"
+                . " making this schema unsatisfiable at line \\d+, column \\d+$/",
+        );
+
+        $this->generateClassFromFile('RootLevelAnyOfAllBranchesDead.json');
+    }
+
+    /**
+     * A scalar branch next to an object branch at the schema root can never match an object: it is
+     * reported, and the object branch alone decides whether the object is valid.
+     */
+    public function testRootLevelAnyOfScalarBranchNextToObjectBranchIsReported(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'RootLevelAnyOfPartiallyDeadBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
+                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                [
+                    'keyword' => 'anyOf',
+                    'branch' => 2,
+                    'branchType' => 'string',
+                    'declaredType' => 'object',
+                ],
+            ),
+            'Expected a warning for the dead scalar branch at the schema root.',
+        );
+
+        $this->assertSame('Hannes', (new $className(['name' => 'Hannes', 'age' => 42]))->getName());
+
+        try {
+            new $className(['name' => 'Hannes']);
+            $this->fail('Expected a ValidationException for an object without age');
+        } catch (ValidationException $exception) {
+            $this->assertMessageMatchesTemplate(
+                <<<'ERROR'
+                Invalid value for '%class%' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Missing required value for 'age'
+                  - Composition element #2: Failed
+                    * Invalid type for '%class%': requires 'string', got 'object'
                 ERROR,
                 $exception->getMessage(),
             );

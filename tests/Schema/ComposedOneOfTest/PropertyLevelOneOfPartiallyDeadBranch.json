@@ -11,6 +11,23 @@
           "type": "string"
         }
       ]
+    },
+    "multiTypeProperty": {
+      "type": [
+        "string",
+        "boolean"
+      ],
+      "oneOf": [
+        {
+          "type": [
+            "integer",
+            "number"
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
     }
   }
 }
