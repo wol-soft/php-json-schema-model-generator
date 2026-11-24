@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "nullableNumber": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 10,
+      "allOf": [
+        {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      ]
+    },
+    "numberOrString": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

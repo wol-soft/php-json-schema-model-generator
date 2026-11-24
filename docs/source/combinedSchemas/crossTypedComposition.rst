@@ -183,7 +183,8 @@ The check follows these rules:
 * ``integer`` is a subtype of ``number``: ``{"type": "number", "allOf": [{"type": "integer"}]}`` is valid
   and generates an ``int`` property. The ``number`` keywords of the property and of its branches are then
   applied as ``integer`` keywords: the ``int`` to ``float`` cast is dropped, and ``minimum``, ``maximum``,
-  ``exclusiveMinimum``, ``exclusiveMaximum`` and ``multipleOf`` keep validating the ``int`` value.
+  ``exclusiveMinimum``, ``exclusiveMaximum`` and ``multipleOf`` keep validating the ``int`` value. The same
+  applies to a ``number`` within a multi-type declaration such as ``["number", "null"]``.
 * ``null`` is a type like any other: a declared ``string`` and a ``null`` branch do not overlap. With
   `implicit null <../gettingStarted.html#implicit-null>`__ enabled an optional property additionally accepts
   ``null``, so a ``null`` branch overlaps its declared type. A required property is not widened.

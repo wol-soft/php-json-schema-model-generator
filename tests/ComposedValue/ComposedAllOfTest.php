@@ -988,6 +988,51 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A multi-type declaration containing `number` is narrowed to int like a plain number: the
+     * number variant's int-to-float cast is dropped (otherwise 42 reaches the integer branch as
+     * 42.0 and is rejected), the type check accepts an int instead of a float next to the other
+     * declared types, and the number range keywords keep applying to the int value.
+     */
+    public function testPropertyLevelAllOfMultiTypeNumberNarrowedToIntegerAcceptsIntegers(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfMultiTypeNumberNarrowedToInteger.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['nullableNumber' => 42, 'numberOrString' => 42]);
+        $this->assertSame(42, $object->getNullableNumber());
+        $this->assertSame(42, $object->getNumberOrString());
+        $this->assertNull((new $className(['nullableNumber' => null]))->getNullableNumber());
+
+        $invalidInputs = [
+            [['nullableNumber' => 5], "Value for 'nullableNumber' must not be smaller than 10"],
+            [
+                ['nullableNumber' => 4.5],
+                "Invalid type for 'nullableNumber': requires ['int', 'null'], got 'double'",
+            ],
+            [
+                ['numberOrString' => 'text'],
+                <<<ERROR
+                Invalid value for 'numberOrString' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid type for 'numberOrString': requires 'int', got 'string'
+                ERROR,
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+    }
+
+    /**
      * Without implicit null, `null` is a type like any other: a declared `string` and a `null`
      * branch are disjoint.
      */

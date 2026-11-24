@@ -889,4 +889,35 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame(15, (new $className(['property' => 15]))->getProperty());
     }
+
+    /**
+     * A multi-type declaration containing `number` is narrowed to int by an integer branch: the
+     * number variant's int-to-float cast is dropped (otherwise 42 reaches the integer branch as
+     * 42.0 and only a string could match), the type check accepts an int instead of a float next
+     * to the string, and the number range keywords keep applying to the int value.
+     */
+    public function testAnyOfMultiTypeNumberNarrowedToIntegerAcceptsIntegers(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAnyOfMultiTypeNumberNarrowedToInteger.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $this->assertSame(42, (new $className(['property' => 42]))->getProperty());
+        $this->assertSame('ab', (new $className(['property' => 'ab']))->getProperty());
+
+        $invalidInputs = [
+            [5, "Value for 'property' must not be smaller than 10"],
+            [4.5, "Invalid type for 'property': requires ['int', 'string'], got 'double'"],
+        ];
+
+        foreach ($invalidInputs as [$invalidValue, $expectedMessage]) {
+            try {
+                new $className(['property' => $invalidValue]);
+                $this->fail("Expected a ValidationException for the value $invalidValue");
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+    }
 }

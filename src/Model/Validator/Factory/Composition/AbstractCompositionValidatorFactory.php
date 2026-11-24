@@ -19,9 +19,11 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
@@ -1178,8 +1180,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * handed by reference, so leaving its cast in place would store a float in a property whose
      * type hint says `int`, and its range keywords would stop applying just like the property's.
      *
-     * Only a property which carries the cast (a plain `number` property or branch) is changed. The
-     * narrowed type is read from $property, so this runs after transferPropertyType().
+     * Only a property which carries the cast is changed: a plain `number` property or branch, or a
+     * multi-type property or branch whose `number` variant carries it (see
+     * retypeMultiTypeNumberVariantToInteger()). The narrowed type is read from $property, so this
+     * runs after transferPropertyType().
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
@@ -1198,16 +1202,33 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         foreach ([$property, ...$compositionProperties] as $candidate) {
-            $carriesIntToFloatCast = array_filter(
-                $candidate->getDecorators(),
-                static fn(PropertyDecoratorInterface $decorator): bool =>
-                    $decorator instanceof IntToFloatCastDecorator,
-            ) !== [];
-
-            if ($carriesIntToFloatCast) {
+            if (self::carriesIntToFloatCast($candidate)) {
                 self::retypeNumberPropertyToInteger($schemaProcessor, $schema, $candidate);
+                continue;
+            }
+
+            foreach ($candidate->getDecorators() as $decorator) {
+                if (
+                    $decorator instanceof PropertyTransferDecorator
+                    && self::carriesIntToFloatCast($decorator->getProperty())
+                ) {
+                    self::retypeMultiTypeNumberVariantToInteger(
+                        $schemaProcessor,
+                        $schema,
+                        $candidate,
+                        $decorator->getProperty(),
+                    );
+                }
             }
         }
+    }
+
+    private static function carriesIntToFloatCast(PropertyInterface $property): bool
+    {
+        return array_filter(
+            $property->getDecorators(),
+            static fn(PropertyDecoratorInterface $decorator): bool => $decorator instanceof IntToFloatCastDecorator,
+        ) !== [];
     }
 
     /**
@@ -1218,32 +1239,107 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         Schema $schema,
         PropertyInterface $candidate,
     ): void {
-        $candidateSchema = $candidate->getJsonSchema();
-        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($candidateSchema);
-        $numberKeywords = [];
+        $numberKeywords = self::getNumberKeywords($schemaProcessor, $candidate);
 
-        foreach ($builtDraft->getCoveredTypes('number') as $coveredType) {
-            if ($coveredType->getType() === 'number') {
-                $numberKeywords = array_filter(array_keys($coveredType->getModifiers()), is_string(...));
+        self::removeIntToFloatCast($candidate);
+        $candidate->filterValidators(
+            static fn(Validator $validator): bool =>
+                !($validator->getValidator() instanceof TypeCheckInterface)
+                && !in_array($validator->getSourceKey(), $numberKeywords, true),
+        );
+
+        self::applyIntegerTypeModifiers($schemaProcessor, $schema, $candidate);
+    }
+
+    /**
+     * A multi-type property (`"type": ["number", ...]`) carries no cast itself: the cast sits on
+     * its number variant, which the multi-type property reaches through a
+     * PropertyTransferDecorator, while the validators of every variant were copied onto the
+     * multi-type property, and one MultiTypeCheckValidator checks all declared types. The cast is
+     * removed from the variant, the copied number validators from the multi-type property, and
+     * the type check is rebuilt with `int` in place of `float`, keeping the other declared types.
+     * Replacing it with an int-only check was rejected: `["number", "string"]` narrowed by an
+     * `integer` and a `string` branch has to keep accepting strings. The integer type modifiers
+     * then rebuild the range keywords; their type check modifier adds nothing, as the rebuilt
+     * check already accepts `int`.
+     *
+     * @throws SchemaException
+     */
+    private static function retypeMultiTypeNumberVariantToInteger(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $multiTypeProperty,
+        PropertyInterface $numberVariant,
+    ): void {
+        $numberKeywords = self::getNumberKeywords($schemaProcessor, $multiTypeProperty);
+        $multiTypeChecks = [];
+
+        foreach ($multiTypeProperty->getValidators() as $validator) {
+            if ($validator->getValidator() instanceof MultiTypeCheckValidator) {
+                $multiTypeChecks[] = $validator;
             }
         }
 
-        $candidate
-            ->filterDecorators(
-                static fn(PropertyDecoratorInterface $decorator): bool =>
-                    !($decorator instanceof IntToFloatCastDecorator),
-            )
-            ->filterValidators(
-                static fn(Validator $validator): bool =>
-                    !($validator->getValidator() instanceof TypeCheckInterface)
-                    && !in_array($validator->getSourceKey(), $numberKeywords, true),
+        self::removeIntToFloatCast($numberVariant);
+        $multiTypeProperty->filterValidators(
+            static fn(Validator $validator): bool =>
+                !($validator->getValidator() instanceof MultiTypeCheckValidator)
+                && !in_array($validator->getSourceKey(), $numberKeywords, true),
+        );
+
+        foreach ($multiTypeChecks as $multiTypeCheck) {
+            $multiTypeProperty->addValidator(
+                $multiTypeCheck->getValidator()->withTypes(array_values(array_unique(array_map(
+                    static fn(string $typeName): string => $typeName === 'float' ? 'int' : $typeName,
+                    $multiTypeCheck->getValidator()->getTypes(),
+                )))),
+                $multiTypeCheck->getPriority(),
             );
+        }
+
+        self::applyIntegerTypeModifiers($schemaProcessor, $schema, $multiTypeProperty);
+    }
+
+    /**
+     * The keywords the draft registers validators for on the `number` type
+     *
+     * @return string[]
+     */
+    private static function getNumberKeywords(SchemaProcessor $schemaProcessor, PropertyInterface $property): array
+    {
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($property->getJsonSchema());
+
+        foreach ($builtDraft->getCoveredTypes('number') as $coveredType) {
+            if ($coveredType->getType() === 'number') {
+                return array_values(array_filter(array_keys($coveredType->getModifiers()), is_string(...)));
+            }
+        }
+
+        return [];
+    }
+
+    private static function removeIntToFloatCast(PropertyInterface $property): void
+    {
+        $property->filterDecorators(
+            static fn(PropertyDecoratorInterface $decorator): bool => !($decorator instanceof IntToFloatCastDecorator),
+        );
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private static function applyIntegerTypeModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+    ): void {
+        $propertySchema = $property->getJsonSchema();
 
         (new PropertyFactory())->applyTypeModifiers(
             $schemaProcessor,
             $schema,
-            $candidate,
-            $candidateSchema->withJson(array_merge($candidateSchema->getJson(), ['type' => 'integer'])),
+            $property,
+            $propertySchema->withJson(array_merge($propertySchema->getJson(), ['type' => 'integer'])),
         );
     }
 

@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "minimum": 10,
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string",
+          "minLength": 2
+        }
+      ]
+    }
+  }
+}

@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
- * Class PropertyTransferDecorator
- *
- * Can be used to transfer the decorators of one property to another
- *
- * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
+ * Transfers the decorators of one property to another
  */
 class PropertyTransferDecorator implements PropertyDecoratorInterface
 {
-    /**
-     * PropertyTransferDecorator constructor.
-     */
     public function __construct(private readonly PropertyInterface $property)
     {}
+
+    /**
+     * The property whose decorators are transferred, e.g. the variant of a multi-type property
+     */
+    public function getProperty(): PropertyInterface
+    {
+        return $this->property;
+    }
 
     /**
      * @inheritdoc
