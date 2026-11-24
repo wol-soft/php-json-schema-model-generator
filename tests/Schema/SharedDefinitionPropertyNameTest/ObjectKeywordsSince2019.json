@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "definitions": {
+    "strict": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  },
+  "properties": {
+    "strictA": {
+      "$ref": "#/definitions/strict"
+    },
+    "strictB": {
+      "$ref": "#/definitions/strict"
+    }
+  }
+}

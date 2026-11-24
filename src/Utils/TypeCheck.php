@@ -111,6 +111,107 @@ class TypeCheck
     }
 
     /**
+     * Build the condition which holds for a value that passes a type check, from the condition under which the type
+     * check fails (the check of a TypeCheckInterface validator, e.g. `!is_string($value) && $value !== null`).
+     *
+     * The conjunction of negated terms the type checks consist of is negated term by term (De Morgan), which keeps the
+     * generated code readable: `is_string($value) || $value === null` instead of `!(!is_string($value) && $value
+     * !== null)`. A check of another shape is wrapped in a negation, which is always correct.
+     */
+    public static function buildPassingCondition(string $failingCheck): string
+    {
+        $passingTerms = [];
+
+        foreach (self::splitAtTopLevel($failingCheck, ' && ') as $term) {
+            $passingTerm = self::negateTerm($term);
+
+            if ($passingTerm === null) {
+                return '!(' . $failingCheck . ')';
+            }
+
+            $passingTerms[] = $passingTerm;
+        }
+
+        return count($passingTerms) === 1 ? $passingTerms[0] : '(' . implode(' || ', $passingTerms) . ')';
+    }
+
+    /**
+     * @return string[]
+     */
+    private static function splitAtTopLevel(string $expression, string $separator): array
+    {
+        $parts = [];
+        $current = '';
+        $depth = 0;
+
+        for ($position = 0, $length = strlen($expression); $position < $length; $position++) {
+            if ($depth === 0 && substr($expression, $position, strlen($separator)) === $separator) {
+                $parts[] = $current;
+                $current = '';
+                $position += strlen($separator) - 1;
+                continue;
+            }
+
+            $depth += match ($expression[$position]) {
+                '(' => 1,
+                ')' => -1,
+                default => 0,
+            };
+            $current .= $expression[$position];
+        }
+
+        $parts[] = $current;
+
+        return $parts;
+    }
+
+    /**
+     * Negate a single term of a type check, null if the term has a shape which isn't known.
+     */
+    private static function negateTerm(string $term): ?string
+    {
+        if ($term === '$value !== null') {
+            return '$value === null';
+        }
+
+        if (preg_match('/^!(is_[a-z]+\(\$value\))$/', $term, $matches) === 1) {
+            return $matches[1];
+        }
+
+        // A negated group: `!($value instanceof DateTime)` or `!(is_array($value) && array_is_list($value))`
+        if (str_starts_with($term, '!(') && str_ends_with($term, ')')) {
+            $group = substr($term, 2, -1);
+
+            // The parentheses have to enclose the complete term: `!(a) || !(b)` starts and ends with a parenthesis but
+            // is no group. A disjunction inside of the group can't be negated term by term here.
+            if (self::isBalanced($group) && count(self::splitAtTopLevel($group, ' || ')) === 1) {
+                return count(self::splitAtTopLevel($group, ' && ')) === 1 ? $group : '(' . $group . ')';
+            }
+        }
+
+        return null;
+    }
+
+    private static function isBalanced(string $expression): bool
+    {
+        $depth = 0;
+
+        foreach (str_split($expression) as $character) {
+            $depth += match ($character) {
+                '(' => 1,
+                ')' => -1,
+                default => 0,
+            };
+
+            if ($depth < 0) {
+                return false;
+            }
+        }
+
+        return $depth === 0;
+    }
+
+    /**
      * Replace the property's TypeCheckValidator / MultiTypeCheckValidator with a
      * PassThroughTypeCheckValidator that also allows the given pass-through type names.
      *

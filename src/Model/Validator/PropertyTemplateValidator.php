@@ -10,20 +10,13 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Utils\RenderFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class PropertyTemplateValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class PropertyTemplateValidator extends AbstractPropertyValidator
 {
     /** @var Schema|null */
     protected $scope;
 
-    /**
-     * PropertyTemplateValidator constructor.
-     */
     public function __construct(
         PropertyInterface $property,
         protected string $template,
@@ -60,7 +53,11 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
             return rtrim($this->getRenderer()->renderTemplate(
                 $this->template,
                 // make sure the current bound property is available in the template
-                $this->templateValues + ['property' => $this->property],
+                $this->templateValues + [
+                    'property' => $this->property,
+                    // for the use inside of a single quoted string of the generated code
+                    'escapedPropertyName' => RenderHelper::escapeSingleQuoted($this->property->getName()),
+                ],
             ));
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);

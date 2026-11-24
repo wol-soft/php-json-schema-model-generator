@@ -15,9 +15,8 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class AdditionalPropertiesValidator
- *
- * @package PHPModelGenerator\Model\Validator
+ * Validates the keys of an object which are not declared as properties by a schema. Also the base of the validator for
+ * the additional items of a tuple array, which reads the items as the properties of the array.
  */
 class AdditionalPropertiesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
@@ -28,14 +27,27 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
 
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
+    /**
+     * The kind of the method validating an additional value (see RenderHelper::renderExtractedValidators()). The
+     * validators of the value run in a scope of their own: the validators of an array value (additional items,
+     * contains, ...) would otherwise assign the variables of this validator which the closure shares with its
+     * surroundings (`$properties`, `$invalidProperties`) and change the value and the invalid entries of the
+     * additional property being validated.
+     */
+    protected const EXTRACTED_VALIDATION_KIND = 'AdditionalProperty';
+
+    /**
+     * Whether the validator belongs to an array property. The check has to skip a value which is no array (a property
+     * which isn't provided, an untyped property), the value of an object is always the model data.
+     */
+    protected const VALIDATES_ARRAY = false;
+
     private readonly PropertyInterface $validationProperty;
     private bool $collectAdditionalProperties = false;
     /** @var string[] */
     private readonly array $declaredProperties;
 
     /**
-     * AdditionalPropertiesValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -58,7 +70,11 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             $this->resolve();
         });
 
-        $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
+        // The patterns describe the keys of an object. The schema is the class declaring an array property, its
+        // patterns have nothing to do with the indices of the array.
+        $patternProperties = static::VALIDATES_ARRAY
+            ? []
+            : array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
         $declaredProperties = array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []);
         // numeric property names are integer array keys
         $this->declaredProperties = array_map('strval', $declaredProperties);
@@ -69,6 +85,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             [
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
+                'typeGuard' => static::VALIDATES_ARRAY ? 'is_array($value) && ' : '',
                 'additionalProperties' => RenderHelper::varExportArray($declaredProperties),
                 'patternProperties' => $patternProperties
                     ? RenderHelper::varExportPcrePatterns($patternProperties)
@@ -80,6 +97,10 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             ],
             static::EXCEPTION_CLASS,
             ['&$invalidProperties'],
+        );
+
+        $this->templateValues['validationMethod'] = $schema->reserveMethodName(
+            RenderHelper::extractedMethodNameCandidate($this->property, static::EXTRACTED_VALIDATION_KIND),
         );
     }
 
@@ -120,7 +141,8 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
     }
 
     /**
-     * Initialize all variables which are required to execute a property names validator
+     * The values are validated by a closure which reads them as `$properties` and reports the invalid ones by
+     * `$invalidProperties`
      */
     public function getValidatorSetUp(): string
     {

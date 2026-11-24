@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Validator for patternProperties where the pattern schema is `false`.
@@ -52,8 +53,11 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator impl
 
     public function getCheck(): string
     {
-        $escapedPattern = addcslashes($this->pattern, '/');
-        $escapedPointer = addslashes($this->patternPointer);
+        // The pattern is a regex delimited by slashes which is embedded in a single quoted string: the delimiter is
+        // escaped for the regex, the result is escaped for the string. Escaping only the delimiter breaks the code
+        // for a quote and changes the regex for a backslash (`\\` is a single backslash in a single quoted string).
+        $escapedPattern = RenderHelper::escapeSingleQuoted(addcslashes($this->pattern, '/'));
+        $escapedPointer = RenderHelper::escapeSingleQuoted($this->patternPointer);
 
         return <<<PHP
             (function () use (\$properties, &\$invalidProperties) {

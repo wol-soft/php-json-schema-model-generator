@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "allOf": [
+          {
+            "items": [
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "contains": {
+              "const": "x"
+            }
+          }
+        ],
+        "unevaluatedItems": {
+          "type": "string"
+        }
+      }
+    },
+    "tupleSlot": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "integer"
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ],
+      "additionalItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
+        "unevaluatedItems": false
+      }
+    },
+    "unevaluatedSlot": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
+        "unevaluatedItems": {
+          "type": "boolean"
+        }
+      }
+    },
+    "containsSlot": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      }
+    }
+  },
+  "patternProperties": {
+    "^list_": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  },
+  "unevaluatedProperties": {
+    "type": "array",
+    "items": [
+      {
+        "type": "integer"
+      }
+    ],
+    "unevaluatedItems": {
+      "type": "string"
+    }
+  }
+}

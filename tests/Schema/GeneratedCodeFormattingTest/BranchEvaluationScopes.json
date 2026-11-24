@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "allOfBranch": {
+      "type": "array",
+      "allOf": [
+        {
+          "contains": {
+            "type": "string"
+          },
+          "unevaluatedItems": false
+        }
+      ]
+    },
+    "anyOfBranch": {
+      "type": "array",
+      "anyOf": [
+        {
+          "contains": {
+            "type": "string"
+          },
+          "unevaluatedItems": false
+        },
+        {
+          "maxItems": 0
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "oneOfBranch": {
+      "type": "array",
+      "oneOf": [
+        {
+          "contains": {
+            "type": "string"
+          },
+          "unevaluatedItems": {
+            "type": "integer"
+          }
+        }
+      ]
+    },
+    "notBranch": {
+      "type": "array",
+      "not": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      }
+    },
+    "ifCondition": {
+      "type": "array",
+      "if": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false,
+        "minItems": 2
+      },
+      "else": {
+        "maxItems": 5
+      },
+      "unevaluatedItems": false
+    },
+    "thenBranch": {
+      "type": "array",
+      "if": {
+        "minItems": 3
+      },
+      "then": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false,
+        "maxItems": 3
+      },
+      "unevaluatedItems": false
+    },
+    "elseBranch": {
+      "type": "array",
+      "if": {
+        "minItems": 3
+      },
+      "else": {
+        "contains": {
+          "type": "integer"
+        },
+        "unevaluatedItems": false,
+        "minItems": 2
+      },
+      "unevaluatedItems": false
+    },
+    "nestedComposition": {
+      "type": "array",
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "items": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxItems": 0
+            }
+          ],
+          "unevaluatedItems": false
+        }
+      ]
+    }
+  }
+}

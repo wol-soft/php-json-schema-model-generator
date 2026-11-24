@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "if": {
+        "maxItems": 0
+      },
+      "else": {
+        "items": [
+          {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          },
+          {
+            "$ref": "#/definitions/node"
+          }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

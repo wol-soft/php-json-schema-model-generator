@@ -407,6 +407,36 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($object->getProperty1()::class, $object->getProperty2()::class);
     }
 
+    /**
+     * The properties referencing the definition are no copies of each other: the enum of the definition is generated
+     * once and the properties share it without a notice about a duplicated signature.
+     */
+    public function testEnumDefinitionReferencedByDifferentlyNamedPropertiesIsMappedToOneEnum(): void
+    {
+        $this->addPostProcessor();
+
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'EnumDefinitionReferencedTwice.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertGeneratedEnums(1);
+
+        $duplicateEntries = array_filter(
+            $recordingLogger->getEntries(),
+            static fn(array $entry): bool => str_starts_with($entry['message'], 'Duplicated signature'),
+        );
+        $this->assertSame([], $duplicateEntries);
+
+        $object = new $className(['first' => 'active', 'second' => 'inactive']);
+
+        $this->assertSame('active', $object->getFirst()->value);
+        $this->assertSame('inactive', $object->getSecond()->value);
+        $this->assertSame($object->getFirst()::class, $object->getSecond()::class);
+    }
+
     public static function identicalEnumsDataProvider(): array
     {
         return [

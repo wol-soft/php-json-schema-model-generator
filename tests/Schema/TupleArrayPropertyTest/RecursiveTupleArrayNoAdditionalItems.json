@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/node"
+        }
+      ],
+      "additionalItems": false
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

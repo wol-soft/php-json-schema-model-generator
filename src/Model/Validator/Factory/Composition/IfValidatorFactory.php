@@ -39,6 +39,7 @@ class IfValidatorFactory
         }
 
         $this->assertSingleBranchSchemasAreWellFormed($property, $propertySchema, ['if', 'then', 'else']);
+        $this->assertNoCompositionCycle($schemaProcessor, $schema, $property, $propertySchema);
 
         $json = $propertySchema->getJson();
 
@@ -133,6 +134,7 @@ class IfValidatorFactory
                     $property->isRequired(),
                 ),
                 $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($compositionSchema),
+                $schema->getSchemaDictionary()->getReferencedSchemaChain($compositionSchema, $schemaProcessor),
             );
 
             // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by

@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\ConstModifier;
 use PHPModelGenerator\Draft\Modifier\DefaultValueModifier;
+use PHPModelGenerator\Draft\Modifier\IntegralFloatToIntModifier;
 use PHPModelGenerator\Draft\Modifier\IntToFloatModifier;
 use PHPModelGenerator\Draft\Modifier\NullModifier;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
@@ -76,7 +77,8 @@ class Draft_07 implements DraftInterface
                 ->addValidator('maximum', new MaximumValidatorFactory('is_int'))
                 ->addValidator('exclusiveMinimum', new ExclusiveMinimumValidatorFactory('is_int'))
                 ->addValidator('exclusiveMaximum', new ExclusiveMaximumValidatorFactory('is_int'))
-                ->addValidator('multipleOf', new MultipleOfPropertyValidatorFactory('is_int', true)))
+                ->addValidator('multipleOf', new MultipleOfPropertyValidatorFactory('is_int', true))
+                ->addModifier(new IntegralFloatToIntModifier()))
             ->addType((new Type('number'))
                 ->addValidator('minimum', new MinimumValidatorFactory('is_float'))
                 ->addValidator('maximum', new MaximumValidatorFactory('is_float'))

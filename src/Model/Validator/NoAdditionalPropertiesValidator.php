@@ -8,11 +8,6 @@ use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class NoAdditionalPropertiesValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class NoAdditionalPropertiesValidator extends PropertyTemplateValidator implements
     ObjectUpdateDependentValidatorInterface
 {
@@ -30,7 +25,11 @@ class NoAdditionalPropertiesValidator extends PropertyTemplateValidator implemen
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'NoAdditionalProperties.phptpl',
             [
                 'properties' => RenderHelper::varExportArray(array_keys($json['properties'] ?? [])),
-                'pattern' => addcslashes(join('|', array_keys($json['patternProperties'] ?? [])), "'/"),
+                // Delimiter of the regex first, then the single quoted string of the template: escaping the quote
+                // together with the delimiter left a backslash of a pattern unescaped, the regex of the string differs.
+                'pattern' => RenderHelper::escapeSingleQuoted(
+                    addcslashes(join('|', array_keys($json['patternProperties'] ?? [])), '/'),
+                ),
             ],
             AdditionalPropertiesException::class,
             ['&$additionalProperties'],

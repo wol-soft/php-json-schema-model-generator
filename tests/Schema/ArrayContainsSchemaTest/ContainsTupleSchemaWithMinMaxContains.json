@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "minContains": 2,
+      "maxContains": 3
+    }
+  }
+}

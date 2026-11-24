@@ -15,11 +15,6 @@ use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class EnumPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -406,14 +401,18 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testEmptyEnumThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/Empty enum property property in file .*\.json/');
+        $this->expectExceptionMessageMatches(
+            "/^Empty enum property 'property' in file .*\.json at line \d+, column \d+$/",
+        );
         $this->generateEnumClass('string', []);
     }
 
     public function testInvalidDefaultValueThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage("Invalid default value 11 for enum property property in file");
+        $this->expectExceptionMessageMatches(
+            "/^Invalid default value 11 for enum property 'property' in file .*\.json at line \d+, column \d+$/",
+        );
 
         $this->generateClassFromFile('EnumPropertyInvalidDefaultValue.json');
     }

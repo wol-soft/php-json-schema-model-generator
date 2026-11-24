@@ -46,6 +46,10 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
             'propertyNames' => [', "propertyNames": {"pattern": "^kind$"}', false, false, true],
             'schema dependency' => [', "dependencies": {"kind": {"maxProperties": 1}}', false, false, true],
             'nested composition' => [', "allOf": [{"maxProperties": 1}]', false, false, true],
+            'enum' => [', "enum": [{"kind": "B"}]', false, false, true],
+            'enum (object branch)' => [', "type": "object", "enum": [{"kind": "B"}]', false, false, true],
+            'const' => [', "const": {"kind": "B"}', false, false, true],
+            'const (object branch)' => [', "type": "object", "const": {"kind": "B"}', false, false, true],
         ];
     }
 

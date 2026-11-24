@@ -28,6 +28,18 @@ class BooleanItemsSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame([], $object->getItems());
     }
 
+    /**
+     * With implicit null the validators run for a property which isn't provided: the count of the items must only be
+     * checked for an array.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testItemsFalseAcceptsAMissingProperty(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('FalseItems.json', implicitNull: $implicitNull);
+
+        $this->assertNull((new $className([]))->getItems());
+    }
+
     #[DataProvider('nonEmptyArrayDataProvider')]
     public function testItemsFalseRejectsNonEmptyArray(
         GeneratorConfiguration $configuration,

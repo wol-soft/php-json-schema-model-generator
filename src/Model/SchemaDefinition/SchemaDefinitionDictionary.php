@@ -92,6 +92,91 @@ class SchemaDefinitionDictionary extends ArrayObject
     }
 
     /**
+     * Look up the schema the `$ref` of the provided schema points at, without creating a property: the raw JSON of the
+     * target, for a static inspection of the keywords of a referenced definition.
+     *
+     * @return array{0: JsonSchema, 1: SchemaDefinitionDictionary}|null The referenced schema and the dictionary of the
+     *                                                                   document it belongs to, null if the schema
+     *                                                                   has no reference, the reference can't be
+     *                                                                   resolved or it leads to a boolean schema
+     *
+     * @throws SchemaException A failure of a referenced file which is processed for the lookup
+     */
+    public function getReferencedSchema(JsonSchema $schema, SchemaProcessor $schemaProcessor): ?array
+    {
+        $reference = $schema->isBooleanSchema() ? null : $schema->getJson()['$ref'] ?? null;
+
+        if (!is_string($reference)) {
+            return null;
+        }
+
+        $path = [];
+
+        try {
+            $definition = $this->getDefinition($reference, $schemaProcessor, $path, $schema->getBaseId());
+
+            if ($definition === null) {
+                return null;
+            }
+
+            $target = $definition->getSource()->navigate(implode('/', $path));
+
+            // A boolean schema has no keywords: it references no further schema and evaluates no item
+            if ($target->isBooleanSchema()) {
+                return null;
+            }
+
+            return [$target, $definition->getSchema()->getSchemaDictionary()];
+        } catch (SchemaException $exception) {
+            // Resolving a reference to a file which isn't processed yet processes the file. A failure of the
+            // referenced file is the very failure the reference resolution reports, it must not be swallowed here:
+            // the file is registered as processed, the failure would be lost. Every other failure is an unresolvable
+            // reference (a missing file or definition, malformed JSON), which the reference resolution reports with
+            // its own message. Catching every exception was rejected: the providers and the navigation report all of
+            // these as a SchemaException, anything else is a defect which has to surface.
+            if ($exception->isReferencedSchemaFailure()) {
+                throw $exception;
+            }
+
+            return null;
+        }
+    }
+
+    /**
+     * The JSON of the schemas the `$ref` of the provided schema leads to, following a chain of references (a definition
+     * which is a reference itself). In Draft 2019-09 and later a reference next to other keywords (also the type a
+     * composition branch inherits) is merged into a property built from the keywords next to the reference, which only
+     * takes over the validators of the definition: a keyword without a validator (`items: true`) is only visible in the
+     * JSON of the definition.
+     *
+     * @return array<int, array<string, mixed>>
+     *
+     * @throws SchemaException A failure of a referenced file which is processed for the lookup
+     */
+    public function getReferencedSchemaChain(JsonSchema $schema, SchemaProcessor $schemaProcessor): array
+    {
+        $referencedJsons = [];
+        $visitedLocations = [];
+        $dictionary = $this;
+
+        while (($referenced = $dictionary->getReferencedSchema($schema, $schemaProcessor)) !== null) {
+            [$schema, $dictionary] = $referenced;
+            $location = $schema->getFile() . '#' . $schema->getPointer();
+
+            // A chain of references leading back to a definition of the chain ends at the repetition, following it
+            // further would never end. The cycle detection only rejects such a chain if it passes a composition.
+            if (isset($visitedLocations[$location])) {
+                break;
+            }
+
+            $visitedLocations[$location] = true;
+            $referencedJsons[] = $schema->getJson();
+        }
+
+        return $referencedJsons;
+    }
+
+    /**
      * @throws SchemaException
      */
     public function getDefinition(

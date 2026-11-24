@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "denied's": false,
+    "const's": {
+      "const": "x"
+    },
+    "not's true": {
+      "not": true
+    },
+    "oneOf false's": {
+      "oneOf": [
+        false,
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

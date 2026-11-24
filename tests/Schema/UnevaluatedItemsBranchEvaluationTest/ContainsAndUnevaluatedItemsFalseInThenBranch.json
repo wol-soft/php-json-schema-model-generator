@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "if": {
+        "minItems": 1
+      },
+      "then": {
+        "contains": {
+          "type": "string"
+        },
+        "unevaluatedItems": false
+      }
+    }
+  }
+}

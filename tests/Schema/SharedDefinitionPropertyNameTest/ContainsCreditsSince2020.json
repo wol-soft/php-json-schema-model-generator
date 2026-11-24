@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "definitions": {
+    "strictContaining": {
+      "type": "array",
+      "contains": {
+        "type": "integer"
+      },
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "strictContainingA": {
+      "$ref": "#/definitions/strictContaining"
+    },
+    "strictContainingB": {
+      "$ref": "#/definitions/strictContaining"
+    }
+  }
+}

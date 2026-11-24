@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "next": {
+          "$ref": "#/definitions/node"
+        }
+      }
+    }
+  },
+  "properties": {
+    "head": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

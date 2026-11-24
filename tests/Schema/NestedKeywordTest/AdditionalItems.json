@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "matrix": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "array",
+        "items": [
+          {
+            "type": "integer"
+          }
+        ],
+        "additionalItems": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

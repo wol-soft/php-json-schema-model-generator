@@ -51,7 +51,7 @@ An example for properties referring to a definition inside the same schema (Draf
         "properties": {
             "leader": {
                 "$ref": "#person"
-            }
+            },
             "members": {
                 "type": "array",
                 "items": {
@@ -92,6 +92,44 @@ Draft 2019-09 introduced ``$defs`` as the standard replacement for ``definitions
             }
         }
     }
+
+Several properties referencing a definition
+-------------------------------------------
+
+Any number of properties may reference the same definition. Each property is validated with the keywords of the
+definition and reports its own name in the validation errors:
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "tags": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "type": "object",
+        "properties": {
+            "tags": {
+                "$ref": "#/definitions/tags"
+            },
+            "keywords": {
+                "$ref": "#/definitions/tags"
+            }
+        }
+    }
+
+An invalid value for ``keywords`` results in an error which names the property ``keywords``:
+
+.. code-block:: none
+
+    Invalid items in array 'keywords':
+      - invalid item #0
+        * Invalid type for 'keywords': requires 'string', got 'integer'
+
+The class of an object definition is generated once and shared by all properties referencing the definition. The keywords of the definition which constrain the value as a whole instead of its properties (``const``, ``enum``, ``filter``, ``default``) are validated by each referencing property on its own: a ``const`` of the definition rejects an invalid value of every referencing property and names the property in the error.
 
 Boolean schema reference
 ------------------------
@@ -161,6 +199,47 @@ scope's own id (``"$ref": "#person"`` above), just without needing to name it.
 Using an empty (or ``"#"``) ``$ref`` at a schema's own base level (see `Base Reference`_ below)
 is rejected instead: it would ask the schema to be merged with itself, which has no fixed point
 to compute.
+
+A recursion has to descend into the value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A recursive reference validates a smaller value in each step: the items of an array (``items``,
+``additionalItems``, ``contains``, ...) or the properties of an object (``properties``,
+``additionalProperties``, ...). A schema which leads back to itself through references and compositions
+(``allOf``, ``anyOf``, ``oneOf``, ``not``, ``if`` / ``then`` / ``else``) alone asks the very same value to satisfy
+the schema again. The validation of such a schema could never finish, as every composition validates all of its
+branches. The generator rejects the schema with a ``SchemaException`` instead of generating a model which exhausts
+the memory:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "definitions": {
+            "node": {
+                "type": "array",
+                "allOf": [
+                    {
+                        "$ref": "#/definitions/node"
+                    }
+                ]
+            }
+        },
+        "properties": {
+            "example": {
+                "$ref": "#/definitions/node"
+            }
+        }
+    }
+
+The exception message names the schemas of the cycle (the schema which is composed and the targets of the
+references on the way back to it):
+
+.. code-block:: none
+
+    Composition of property 'example' in file /path/to/schema.json references itself without descending into the value: '#/definitions/node' -> '#/definitions/node'
+
+The same applies if the way back leads through several definitions, files or compositions (``'#/definitions/first' -> '#/definitions/second' -> '#/definitions/first'``). A reference inside of ``items``, ``properties`` or ``contains`` is no cycle. The exception is thrown as it is, also if the composition is reached through a reference to a definition.
 
 Base Reference
 --------------
@@ -235,7 +314,10 @@ depends on the active JSON Schema draft.
     ``properties`` and ``required`` are merged with the referenced object's own properties —
     constraints from both sides apply (type intersection, required union).  At the property
     level, sibling constraints (``type``, ``minLength``, ``enum``, etc.) narrow the referenced
-    type.
+    type. A referenced definition without a ``type`` has nothing to narrow: the siblings apply
+    as they would without the reference (typed by their own ``type``, self-gating per type
+    without one) and the keywords of the definition apply alongside. An ``unevaluatedItems``
+    next to the ``$ref`` sees the items the referenced definition evaluates.
 
 **Draft 7 (siblings silently ignored)**
     Sibling keywords are discarded.  Only the ``$ref`` is effective.  This matches the Draft 7
@@ -322,12 +404,13 @@ the ref's ``minLength: 1``).
 
 .. note::
 
-    The siblings are merged with a referenced definition which declares a ``type``. For a reference to a definition
-    without a ``type`` (an empty definition, a definition which only carries annotations, or a boolean schema) the
-    siblings which depend on a type (``type`` itself, ``minLength``, ...) and a sibling ``default`` are currently not
-    applied in Draft 2019-09+. Sibling ``properties`` and ``required`` are rejected with a **SchemaException** during
-    the generation, as the reference doesn't resolve to an object. Declare the constraints in the definition itself or
-    combine the reference with the constraints in an ``allOf``.
+    For a reference to a definition without a ``type`` (an empty definition, a definition which only carries
+    annotations, or a boolean schema) the property is what the siblings make of it (``type``, ``minLength``,
+    ``default``, ``properties``, ...) plus the validators of the definition. Sibling ``properties`` and ``required``
+    without a sibling ``type`` describe the object values of the property: an object is validated by the generated
+    class, every other value passes, and a warning is logged during the generation, as for the same keywords without
+    the reference. Next to a reference to a definition of another type (e.g. ``"type": "string"``) they are rejected
+    with a **SchemaException**.
 
 Property and item evaluation propagation
 ----------------------------------------

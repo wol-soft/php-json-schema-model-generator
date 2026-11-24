@@ -1,6 +1,12 @@
 {% if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
+{% if providedPropertyCheck %}
+    {{ providedPropertyCheck }} &&
+{% endif %}
+{% if typeGuard %}
+    {{ typeGuard }} &&
+{% endif %}
 (function (&$value) use (
     &$modelData,
     &$modifiedModelData,
@@ -22,16 +28,29 @@
     {% endif %}
 
     {% if compositionValidator.getSlotKey() %}
-        $slotKey = '{{ compositionValidator.getSlotKey() }}';
+        $slotKey = '{{ viewHelper.escapeSingleQuoted(compositionValidator.getSlotKey()) }}';
         $compositionEvaluatedIndices = [];
-    {% endif %}
-
-    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
-        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
     {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+
+    {% if compositionValidator.tracksEvaluatedItems() %}
+        {#
+            The branches which read or record evaluated indices are validated in an evaluation scope of their own:
+            each one starts without any evaluated index and leaves the indices of the enclosing arrays as it found
+            them. The indices recorded by a branch which succeeds are collected and handed to the enclosing array
+            (the serialization of a filtered unevaluatedItems reads them), also if the composition as a whole fails:
+            the spec drops the annotations of a schema object which fails, the branch which succeeded keeps them for
+            the keywords next to the composition. The schema object holding a failed composition fails itself: if it
+            is a branch of an enclosing composition, the scope of that branch discards the indices. Handing the
+            indices over only for a composition which succeeds was rejected: with collected errors the
+            unevaluatedItems next to a failed allOf reported the items its passing branch evaluated. A not never
+            hands indices over.
+        #}
+        $evaluatedItemIndicesBeforeComposition = $this->_evaluatedItemIndices;
+        $evaluatedItemIndicesOfSucceededBranches = [];
     {% endif %}
 
     {% foreach compositionProperties as compositionProperty %}
@@ -41,6 +60,10 @@
 
         {% if compositionValidator.hasEvaluationTrackingEnabled() %}
             $shouldTrack = true;
+        {% endif %}
+
+        {% if compositionProperty.tracksEvaluatedItems() %}
+            $this->_evaluatedItemIndices = [];
         {% endif %}
 
         try {
@@ -72,7 +95,7 @@
                             array_keys($modifiedModelData),
                             [
                                 {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                    '{{ affectedObjectProperty.getName() }}',
+                                    '{{ viewHelper.escapeSingleQuoted(affectedObjectProperty.getName()) }}',
                                 {% endforeach %}
                             ]
                         ){% if compositionProperty.dependsOnAddedKeys() %} &&
@@ -139,7 +162,8 @@
             {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
-                if ($shouldTrack) {
+                {# A value which is no array (the property may hold a string as well) has no items to credit #}
+                if ($shouldTrack && is_array($originalModelData)) {
                     {% if compositionProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
@@ -150,13 +174,6 @@
                             true,
                         );
                     {% endif %}
-                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.branchAdditionalItemsCoversTail() %}
-                        $compositionEvaluatedIndices += array_fill(
-                            {{ compositionProperty.getBranchTupleItemsCount() }},
-                            max(0, count($originalModelData) - {{ compositionProperty.getBranchTupleItemsCount() }}),
-                            true,
-                        );
-                    {% endif %}
                     {% if compositionProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
                     {% endif %}
@@ -164,8 +181,12 @@
                         // A composition nested directly inside this branch's own JSON (no
                         // intervening object type, so no nested Schema of its own) tracked its
                         // claimed indices under its own slot — union them into this branch's set.
-                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ nestedCompositionSlotKey }}'] ?? [];
+                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ viewHelper.escapeSingleQuoted(nestedCompositionSlotKey) }}'] ?? [];
                     {% endforeach %}
+                    {% if compositionProperty.getEvaluatedItemsKey() %}
+                        // The indices evaluated by the contains of this branch and by its own unevaluatedItems
+                        $compositionEvaluatedIndices += $this->_evaluatedItemIndices[{{ compositionProperty.getEvaluatedItemsKey() }}] ?? [];
+                    {% endif %}
                 }
             {% endif %}
             {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
@@ -184,6 +205,12 @@
                         );
                     {% endif %}
                 }
+            {% endif %}
+            {% if compositionProperty.tracksEvaluatedItems() and not compositionValidator.isNotComposition() %}
+                $evaluatedItemIndicesOfSucceededBranches = array_replace_recursive(
+                    $evaluatedItemIndicesOfSucceededBranches,
+                    $this->_evaluatedItemIndices,
+                );
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
@@ -216,7 +243,13 @@
             {% endif %}
 
             $succeededCompositionElements--;
+        {% if compositionProperty.tracksEvaluatedItems() %}
+        } finally {
+            $this->_evaluatedItemIndices = $evaluatedItemIndicesBeforeComposition;
         }
+        {% else %}
+        }
+        {% endif %}
 
         {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
             // Restore composition evaluations so any annotations written by the not-branch body
@@ -238,6 +271,13 @@
         value and, since array/object items are validated by reference, the original data itself.
     #}
     $compositionSatisfied = {{ composedValueValidation }};
+
+    {% if compositionValidator.tracksEvaluatedItems() and not compositionValidator.isNotComposition() %}
+        $this->_evaluatedItemIndices = array_replace_recursive(
+            $this->_evaluatedItemIndices,
+            $evaluatedItemIndicesOfSucceededBranches,
+        );
+    {% endif %}
 
     {% if publishesFilteredValues %}
         {#
@@ -319,16 +359,16 @@
     {#
         A rejected composition doesn't restore the validation state recorded above: the update operation (setter,
         populate, additional property accessors) restores the complete model state of a rejected update. The
-        evaluations of the branches are discarded nevertheless: a failed composition produces no annotations, also
-        if the model is created with collected errors and the unevaluated keys are validated afterwards.
+        evaluations of the branches which succeeded are kept also if the composition fails (the evaluations of a
+        failed branch are already discarded): like the evaluated items above, the unevaluated keys validated next to
+        a failed composition with collected errors see what its passing branches evaluated. A not never contributes:
+        its branch is restored after the evaluation.
     #}
-    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
-        {% if compositionValidator.getSlotKey() %}
-            $this->_compositionAnnotated[$slotKey] = $result ? [] : $compositionEvaluatedIndices;
+    {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() %}
+        {% if compositionValidator.isNotComposition() %}
+            $this->_compositionAnnotated[$slotKey] = [];
         {% else %}
-            if ($result) {
-                $this->_compositionEvaluations = $originalCompositionEvaluations;
-            }
+            $this->_compositionAnnotated[$slotKey] = $compositionEvaluatedIndices;
         {% endif %}
     {% endif %}
 

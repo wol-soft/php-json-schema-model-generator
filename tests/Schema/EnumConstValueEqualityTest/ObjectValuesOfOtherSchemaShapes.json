@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "properties": {
+    "untypedObjectEnum": {
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "x": "y"
+        },
+        "text"
+      ]
+    },
+    "untypedObjectConst": {
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "x": "y"
+      }
+    },
+    "multiTypeEnum": {
+      "type": ["object", "string"],
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "enum": [
+        {
+          "x": "y"
+        },
+        "text"
+      ]
+    },
+    "multiTypeConst": {
+      "type": ["object", "string"],
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "x": "y"
+      }
+    },
+    "itemsEnum": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        },
+        "enum": [
+          {
+            "x": "y"
+          },
+          {
+            "x": "z"
+          }
+        ]
+      }
+    },
+    "tupleConst": {
+      "type": "array",
+      "items": [
+        {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "string"
+            }
+          },
+          "const": {
+            "x": "y"
+          }
+        }
+      ]
+    }
+  }
+}

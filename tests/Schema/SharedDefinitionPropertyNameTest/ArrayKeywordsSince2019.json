@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "definitions": {
+    "counted": {
+      "type": "array",
+      "contains": {
+        "type": "integer"
+      },
+      "minContains": 2,
+      "maxContains": 3
+    },
+    "strictPair": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "countedA": {
+      "$ref": "#/definitions/counted"
+    },
+    "countedB": {
+      "$ref": "#/definitions/counted"
+    },
+    "strictPairA": {
+      "$ref": "#/definitions/strictPair"
+    },
+    "strictPairB": {
+      "$ref": "#/definitions/strictPair"
+    }
+  }
+}

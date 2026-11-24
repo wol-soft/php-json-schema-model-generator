@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Draft;
 
+use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
- * Exercises the default AutoDetectionDraft against schema documents that declare the
- * Draft 2019-09 `$schema` URI at the document root: the detected draft governs the whole
- * document, so keywords introduced in 2019-09 must be applied to every subschema — property
- * subschemas included — not only at the root level.
+ * Exercises the default AutoDetectionDraft against schema documents with and without a `$schema`
+ * URI at the document root: the detected draft governs the whole document, so keywords introduced
+ * in 2019-09 must be applied to every subschema — property subschemas included — not only at the
+ * root level, and a document without a `$schema` URI follows Draft 2020-12.
  *
  * This class deliberately carries no ApplicableDrafts attribute: without a registered draft
  * run, generateClassFromFile() keeps the GeneratorConfiguration's default draft
@@ -65,5 +67,39 @@ class AutoDetectedDraftSubschemaTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#0]");
 
         new $className(['tags' => ['surplus']]);
+    }
+
+    /**
+     * A document without a `$schema` URI follows Draft 2020-12, which has no tuple form of `items`: the tuple is
+     * rejected instead of being generated with the meaning of Draft 2019-09.
+     */
+    public function testTupleFormIsRejectedForADocumentWithoutSchemaUri(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^The tuple form of 'items' of property 'pair' in file .*\.json doesn't exist in Draft 2020-12: use "
+                . "'prefixItems' for the tuple or declare Draft 2019-09 or earlier in '\\\$schema' at line \d+, "
+                . 'column \d+$/',
+        );
+
+        $this->generateClassFromFile('TupleWithoutDialect.json');
+    }
+
+    /**
+     * Declaring Draft 2019-09 in `$schema` keeps the tuple form and `additionalItems`, the way the rejection in Draft
+     * 2020-12 points to.
+     */
+    public function testDeclaredDraft2019KeepsTheTupleForm(): void
+    {
+        $className = $this->generateClassFromFile('TupleWithDraft2019Dialect.json');
+
+        $this->assertSame(['a', 1], (new $className(['pair' => ['a', 1]]))->getPair());
+
+        $this->expectException(AdditionalTupleItemsException::class);
+        $this->expectExceptionMessage(
+            "Tuple array 'pair' contains not allowed additional items: expected 2 items, got 3",
+        );
+
+        new $className(['pair' => ['a', 1, 'b']]);
     }
 }

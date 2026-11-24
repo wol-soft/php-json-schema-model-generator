@@ -7,13 +7,13 @@ namespace PHPModelGenerator\Tests\Objects;
 use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
-use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 
 /**
@@ -678,26 +678,29 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // -------------------------------------------------------------------------
-    // Untyped $ref with scalar sibling — applyScalarSiblingMerge early return
+    // Untyped $ref with scalar sibling
     // -------------------------------------------------------------------------
 
     /**
-     * Draft 2019-09+: when a $ref definition carries no 'type' keyword and the property also
-     * has scalar sibling keywords (minLength), the effective type cannot be determined from the
-     * ref. The scalar merge path transfers the ref's own validators (none, since an untyped ref
-     * does not produce type-specific validators) and returns without applying the sibling's
-     * type-specific constraints. Generation must succeed without error.
+     * Draft 2019-09+: when a $ref definition carries no 'type' keyword, the sibling keywords apply like the keywords of
+     * a property without the reference (self-gating per type without a type) and the keywords of the definition apply
+     * alongside: the sibling minLength 3 and the definition's minLength 1 both constrain strings, other values pass.
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testUntypedRefWithScalarSiblingGeneratesSuccessfully(): void
+    public function testUntypedRefWithScalarSiblingAppliesTheSiblingKeywords(): void
     {
         $className = $this->generateClassFromFile(
             'UntypedRefWithScalarSibling.json',
             (new GeneratorConfiguration())->setCollectErrors(false),
         );
 
-        $object = new $className(['name' => 'hello']);
-        $this->assertSame('hello', $object->getName());
+        $this->assertSame('hello', (new $className(['name' => 'hello']))->getName());
+        $this->assertSame(5, (new $className(['name' => 5]))->getName());
+
+        $this->expectException(MinLengthException::class);
+        $this->expectExceptionMessage("Value for 'name' must not be shorter than 3");
+
+        new $className(['name' => 'ab']);
     }
 
     // -------------------------------------------------------------------------

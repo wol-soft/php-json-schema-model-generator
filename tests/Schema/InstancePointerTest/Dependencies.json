@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaDependency": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "dependencies": {
+        "a": {
+          "required": [
+            "b"
+          ]
+        }
+      }
+    },
+    "propertyDependency": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "dependencies": {
+        "a": [
+          "b"
+        ]
+      }
+    }
+  }
+}

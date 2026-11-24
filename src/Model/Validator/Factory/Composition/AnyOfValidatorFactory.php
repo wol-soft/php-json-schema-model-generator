@@ -28,6 +28,7 @@ class AnyOfValidatorFactory
         }
 
         $this->assertCompositionBranchesAreWellFormed($property, $propertySchema);
+        $this->assertNoCompositionCycle($schemaProcessor, $schema, $property, $propertySchema);
 
         $branches = $propertySchema->getJson()[$this->key];
         if (!empty($branches) && array_filter($branches, static fn($branch) => $branch !== false) === []) {

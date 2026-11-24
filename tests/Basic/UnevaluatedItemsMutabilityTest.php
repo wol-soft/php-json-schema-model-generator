@@ -35,6 +35,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
      *   - replacing the array with a shorter one whose indices are all covered succeeds
      *     and the new value is observable through the getter.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testWholeArraySetterRevalidatesUnevaluatedItemsAgainstNewArray(): void
     {
         $className = $this->generateClassFromFile(
@@ -69,6 +70,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
      *   - a shorter array (or the same length) whose indices are all covered succeeds and
      *     the new value is observable.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPopulateLengthChangeRevalidatesUnevaluatedItems(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -113,7 +115,11 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
      * The control assertion (rejecting the same array at construction time) is what makes the
      * setter assertion meaningful: it proves the array is genuinely invalid and that only the
      * carried-over state could make the setter accept it.
+     *
+     * Draft 2020-12 only: in Draft 2019-09 `contains` evaluates no item, there is no credit which
+     * could leak.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     public function testContainsCreditsFromAPriorPassDoNotLeakIntoASetterCall(): void
     {
         $className = $this->generateClassFromFile(

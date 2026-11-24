@@ -25,6 +25,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
+use PHPModelGenerator\PropertyProcessor\Composition\CompositionCycleDetector;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyArrayDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -45,6 +46,8 @@ class SchemaProcessor
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
 
     private BranchFilterScope $branchFilterScope;
+
+    private CompositionCycleDetector $compositionCycleDetector;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -86,6 +89,7 @@ class SchemaProcessor
     ) {
         $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
         $this->branchFilterScope = new BranchFilterScope($generatorConfiguration);
+        $this->compositionCycleDetector = new CompositionCycleDetector($this);
     }
 
     /**
@@ -217,14 +221,23 @@ class SchemaProcessor
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
-            $this->generatorConfiguration->getLogger()->notice(
-                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
-                [
-                    'signature' => $schemaSignature,
-                    'class' => $className,
-                    'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
-                ],
-            );
+            $processedJsonSchema = $this->processedSchema[$schemaSignature]->getJsonSchema();
+
+            // The very same location is processed again when a definition is created for several differently named
+            // references (see SchemaDefinition::resolveReference()). That is no duplicate worth a notice.
+            if (
+                $processedJsonSchema->getFile() !== $jsonSchema->getFile()
+                || $processedJsonSchema->getPointer() !== $jsonSchema->getPointer()
+            ) {
+                $this->generatorConfiguration->getLogger()->notice(
+                    'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+                    [
+                        'signature' => $schemaSignature,
+                        'class' => $className,
+                        'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
+                    ],
+                );
+            }
 
             return $this->processedSchema[$schemaSignature];
         }
@@ -420,8 +433,7 @@ class SchemaProcessor
         // Exclude keywords that belong to the outer property (not the merged class body).
         // Mirrors the exclusions that createObjectProperty() applies before passing the schema
         // to processSchema().
-        $mergedBaseJson = $siblingJson;
-        unset($mergedBaseJson['filter'], $mergedBaseJson['enum'], $mergedBaseJson['default']);
+        $mergedBaseJson = array_diff_key($siblingJson, array_flip(PropertyFactory::OUTER_PROPERTY_KEYWORDS));
         $mergedBaseJson['type'] = 'base';
 
         $mergedSchemaJson = $propertySchema->withJson($mergedBaseJson);
@@ -651,6 +663,15 @@ class SchemaProcessor
         return $this->generatorConfiguration;
     }
 
+    /**
+     * The detector of compositions which require their own schema, shared by the generation run so the locations
+     * found free of cycles are walked once
+     */
+    public function getCompositionCycleDetector(): CompositionCycleDetector
+    {
+        return $this->compositionCycleDetector;
+    }
+
     public function getSchemaProvider(): SchemaProviderInterface
     {
         return $this->schemaProvider;
@@ -725,9 +746,10 @@ class SchemaProcessor
      * Transfer properties of composed properties to the given schema to offer a complete model
      * including all composed properties.
      *
-     * This is an internal pipeline mechanic (Q5.1): not a JSON Schema keyword and therefore not
+     * This is an internal pipeline mechanic: not a JSON Schema keyword and therefore not
      * a Draft modifier. It is called as an explicit post-step from generateModel after all Draft
-     * modifiers have run on the root-level BaseProperty.
+     * modifiers have run on the root-level BaseProperty, and for a root which references a
+     * definition consisting of a composition (RefResolver).
      *
      * @throws SchemaException
      */
@@ -736,6 +758,9 @@ class SchemaProcessor
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
+            // Only the compositions are transferred. The property of a referenced definition also
+            // carries the validators of its value keywords: its enum and const are built for the
+            // object of the class by RefResolver, the keywords of other types never apply to it.
             if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
                 continue;
             }

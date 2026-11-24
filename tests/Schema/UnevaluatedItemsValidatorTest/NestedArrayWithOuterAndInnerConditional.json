@@ -1,0 +1,64 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "if": {
+            "items": [
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "then": {
+            "items": [
+              true,
+              {
+                "const": "x"
+              }
+            ],
+            "minItems": 2
+          },
+          "else": {
+            "items": [
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "unevaluatedItems": false
+        }
+      ],
+      "if": {
+        "items": [
+          true,
+          {
+            "const": 5
+          }
+        ]
+      },
+      "then": {
+        "items": [
+          true,
+          true,
+          {
+            "const": 6
+          }
+        ],
+        "minItems": 3
+      },
+      "else": {
+        "items": [
+          true,
+          {
+            "const": 7
+          }
+        ]
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

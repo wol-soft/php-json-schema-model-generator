@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "outer": {
+      "type": "array",
+      "contains": {
+        "type": "array",
+        "contains": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

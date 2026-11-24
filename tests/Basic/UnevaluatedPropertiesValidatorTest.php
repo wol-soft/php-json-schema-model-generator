@@ -514,18 +514,19 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
-     * A conditional whose `then` branch fails as a whole contributes no annotations — including
-     * the claims of its passing `if` condition — exactly like a failed `allOf`. With a stale `if`
-     * claim, `marker` would be credited to the outer accumulator and silently vanish from the
-     * orphan report that error collection prints next to the conditional failure.
+     * A conditional whose `then` branch fails keeps the claims of its passing `if` condition, like a failed `allOf`
+     * keeps the claims of its passing branches: the spec drops the annotations of a schema object which fails, the
+     * condition succeeded. The unevaluatedProperties next to the conditional (validated with collected errors after
+     * the conditional failed) sees `marker` as evaluated. Dropping the claims of the whole conditional was rejected:
+     * it reported `marker` as unevaluated next to the failure which already explains the rejection.
      *
      * Three inputs on the same generated class (collect-errors mode):
-     *   - `{marker: true, other: 1}`: `if` passes, `then` fails on the missing `x`; both `marker`
-     *     (claimed only by the failed conditional) and `other` are orphans;
+     *   - `{marker: true, other: 1}`: `if` passes and claims `marker`, `then` fails on the missing `x`; only `other`
+     *     is an orphan;
      *   - `{other: 1}`: `if` fails and `else` fails on the missing `y`; only `other` is an orphan;
      *   - `{marker: true, x: 1}`: the conditional succeeds and credits `marker` and `x`.
      */
-    public function testFailedConditionalDropsTheClaimsOfItsPassingIfCondition(): void
+    public function testFailedConditionalKeepsTheClaimsOfItsPassingIfCondition(): void
     {
         $className = $this->generateClassFromFile(
             'ConditionalFailureDropsIfClaims.json',
@@ -546,7 +547,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                   - Conditional branch failed:
                     * Missing required value for 'x'
                     * Invalid type for 'x': requires 'int', got 'NULL'
-                Provided JSON for '{$className}' contains not allowed unevaluated properties ['marker', 'other']
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']
                 MSG,
                 $registry->getMessage(),
             );
@@ -570,6 +571,37 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 $registry->getMessage(),
             );
         }
+    }
+
+    /**
+     * An allOf which fails on its second branch keeps the claims of its first, passing branch: with collected errors
+     * the unevaluatedProperties next to the allOf sees `a` as evaluated and reports only the key nothing evaluated.
+     * Validity doesn't depend on it, the failed allOf rejects the value anyway. The second branch declares `b` under
+     * `properties`: a `required` alone produces no annotation and evaluates nothing.
+     */
+    public function testFailedAllOfKeepsTheClaimsOfItsPassingBranches(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FailedAllOfKeepsTheClaimsOfItsPassingBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->assertSame(['a' => 'x', 'b' => 1], (new $className(['a' => 'x', 'b' => 1]))->meta()->rawInput());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['a' => 'x', 'c' => 1],
+            ErrorRegistryException::class,
+            <<<MSG
+            Invalid value for '{$className}' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Missing required value for 'b'
+                * Invalid type for 'b': requires 'int', got 'NULL'
+            Provided JSON for '{$className}' contains not allowed unevaluated properties ['c']
+            MSG,
+        );
     }
 
     /**

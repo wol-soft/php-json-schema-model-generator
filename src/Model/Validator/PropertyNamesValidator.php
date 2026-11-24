@@ -17,8 +17,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 class PropertyNamesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
     /**
-     * PropertyNamesValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -58,8 +56,12 @@ class PropertyNamesValidator extends PropertyTemplateValidator implements Object
             ? $propertiesNames
             : $propertiesNames->withJson(['type' => 'string'] + $propertiesNames->getJson());
 
+        // The name is always present: a required property, like the other properties which validate a value of the
+        // object (additional properties, pattern properties, ...). Some validators of an optional property (eg. a
+        // not or a const without implicit null) only validate a value which is a provided key of the object, which a
+        // name never is.
         $nameValidationProperty = (new PropertyFactory())
-            ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString)
+            ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString, true)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(static fn(Validator $validator): bool =>
                 !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&

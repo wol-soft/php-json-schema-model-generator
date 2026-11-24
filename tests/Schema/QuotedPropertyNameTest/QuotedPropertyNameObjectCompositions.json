@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "owner's": {
+      "type": "string"
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "alt's": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "alt's"
+      ]
+    },
+    {
+      "required": [
+        "owner's"
+      ]
+    }
+  ],
+  "allOf": [
+    {
+      "properties": {
+        "date's": {
+          "type": "string",
+          "filter": "dateTime"
+        }
+      }
+    }
+  ]
+}

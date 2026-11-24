@@ -1,0 +1,134 @@
+{
+  "type": "object",
+  "properties": {
+    "additionalItems": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    },
+    "additionalItemsFalse": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": false
+    },
+    "unevaluatedItemsSchema": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "integer"
+      }
+    },
+    "unevaluatedItemsFalse": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "unevaluatedItems": false
+    },
+    "contains": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      }
+    },
+    "containsMinMax": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "minContains": 1,
+      "maxContains": 2
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tuple": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "objectAdditionalProperties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "objectPatternProperties": {
+      "type": "object",
+      "patternProperties": {
+        "^a": {
+          "type": "integer"
+        }
+      }
+    },
+    "objectPropertyNames": {
+      "type": "object",
+      "propertyNames": {
+        "maxLength": 3
+      }
+    },
+    "objectUnevaluatedProperties": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": {
+        "type": "integer"
+      }
+    },
+    "untypedAdditionalProperties": {
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "untypedPropertyNames": {
+      "propertyNames": {
+        "maxLength": 3
+      }
+    },
+    "untypedContains": {
+      "contains": {
+        "type": "string"
+      }
+    },
+    "untypedAdditionalItems": {
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "integer"
+      }
+    },
+    "untypedUnevaluatedItems": {
+      "unevaluatedItems": {
+        "type": "integer"
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\CodeQuality;
 
 use DateTime;
+use PHPModelGenerator\Draft\Draft_2019_09;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -16,6 +17,9 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 
 /**
@@ -116,6 +120,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * its "*" prefix, a run of several blank "*" lines in a row, or missing blank lines between properties, so
      * a phpcs-only assertion would not catch any of these regressing - only an exact string comparison does.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testComprehensivePropertyTypesGenerateCodeMatchingTheCodingStandard(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -200,6 +205,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * PopulateBody.phptpl), rendered once each and indented to the correct depth for each branch, instead of
      * relying on one literal indentation to be correct for both.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSchemaDependencyAndPopulateWithoutCollectErrorsGenerateCodeMatchingTheCodingStandard(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -275,6 +281,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * arguments by one level. This only surfaces with setImmutable(false), since the whole branch is empty
      * otherwise.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testAdditionalPropertiesAccessorGeneratesCodeMatchingTheCodingStandard(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -287,6 +294,27 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
                 ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
                 ->setImmutable(false)
                 ->setCollectErrors(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The validators of the items of an array and of the values of an object are rendered into methods of their own
+     * (additional items, unevaluated items, contained items, additional, pattern and unevaluated properties). Both
+     * error handling variants render the call inside a different amount of nesting levels.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testElementValidationMethodsGenerateCodeMatchingTheCodingStandard(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $this->generateClassFromFile(
+            'ElementValidationMethods.json',
+            $configuration
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setDraft(new Draft_2019_09()),
         );
 
         $report = $this->runPhpcs($this->getGeneratedFiles());
@@ -323,6 +351,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * pushing the real hook's code onto its own line at column 0 regardless of the embedding template's ambient
      * indentation - a single-hook schema never exercised this, since join() of one element is a no-op.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testMultipleSetterHooksWithAnEmptyHookGenerateCodeMatchingTheCodingStandard(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -359,6 +388,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * nested schema-form and tuple-form items, a recursive array (a level which calls itself, combined with a guarded
      * filter in the same slot) and the arrays held by pattern and additional properties.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
     public function testNestedFilteredArrayItemSerializersGenerateCodeMatchingTheCodingStandard(): void
     {
         $this->generateClassFromFile(
@@ -373,6 +403,58 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $report = $this->runPhpcs($this->getGeneratedFiles());
 
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The validation of an element of a container (the items, a tuple index, the additional items, the contained
+     * item and the unevaluated item of an array, the values of pattern and unevaluated properties) is rendered in an
+     * evaluation scope with a try/finally block when the element is an array with unevaluatedItems. Covers every
+     * container template, with and without collected errors.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testEvaluationScopeOfNestedArraysGeneratesCodeMatchingTheCodingStandard(bool $collectErrors): void
+    {
+        $this->generateClassFromFile(
+            'NestedUnevaluatedItems.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The validators of a composition branch which carries an unevaluatedItems keyword are rendered in an evaluation
+     * scope with a try/finally block. Covers the branches of allOf, anyOf, oneOf, not and the condition, then and else
+     * branches of a conditional, and a composition nested in such a branch, with and without collected errors.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testEvaluationScopeOfCompositionBranchesGeneratesCodeMatchingTheCodingStandard(
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            'BranchEvaluationScopes.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    public static function collectErrorsDataProvider(): array
+    {
+        return [
+            'direct exception' => [false],
+            'collect errors' => [true],
+        ];
     }
 
     public function testBuilderClassGeneratesCodeMatchingTheCodingStandard(): void
@@ -396,6 +478,62 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $report = $this->runPhpcs([...$this->getGeneratedFiles(), ...$builderFiles]);
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The comparison of an enum and a const with object and array values is embedded into the validation of the
+     * property (the property of an object, the value of the schema root) in both modes of the error handling.
+     */
+    #[DataProvider('enumAndConstOfObjectValuesDataProvider')]
+    public function testEnumAndConstOfObjectValuesGenerateCodeMatchingTheCodingStandard(
+        string $file,
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            $file,
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    public static function enumAndConstOfObjectValuesDataProvider(): array
+    {
+        return self::combineDataProvider(
+            [
+                'properties' => ['EnumAndConstOfObjectValues.json'],
+                'schema root' => ['RootLevelConstOfObject.json'],
+            ],
+            [
+                'direct exception' => [false],
+                'collect errors' => [true],
+            ],
+        );
+    }
+
+    /**
+     * The check of a not composition of an optional property starts with the check whether the property is provided.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testNotCompositionOfOptionalPropertiesGeneratesCodeMatchingTheCodingStandard(
+        bool $collectErrors,
+    ): void {
+        $this->generateClassFromFile(
+            'NotOfOptionalProperties.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
 
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
     }

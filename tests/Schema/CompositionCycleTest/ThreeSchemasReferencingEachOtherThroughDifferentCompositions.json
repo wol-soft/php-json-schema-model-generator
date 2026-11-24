@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "definitions": {
+    "first": {
+      "type": "array",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/second"
+        }
+      ]
+    },
+    "second": {
+      "type": "array",
+      "not": {
+        "$ref": "#/definitions/third"
+      }
+    },
+    "third": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#/definitions/first"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/first"
+    }
+  }
+}

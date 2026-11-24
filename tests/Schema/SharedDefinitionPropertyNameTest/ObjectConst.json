@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "definitions": {
+    "fixed": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "const": {
+        "value": "x"
+      }
+    }
+  },
+  "properties": {
+    "fixedA": {
+      "$ref": "#/definitions/fixed"
+    },
+    "fixedB": {
+      "$ref": "#/definitions/fixed"
+    }
+  }
+}
