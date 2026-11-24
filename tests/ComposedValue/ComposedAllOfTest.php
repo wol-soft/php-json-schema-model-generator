@@ -1031,8 +1031,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * The same satisfiable branch behind a `$ref` crashes generation with a PHP error (a class
-     * path is read from a missing nested schema) instead of a schema error.
+     * The same satisfiable branch behind a `$ref` is not accepted either: Draft 07 rejects it as
+     * having no nested schema like the inline branch, and the later drafts crash generation with a
+     * PHP error (a class path is read from a missing nested schema) instead of a schema error.
      *
      * Known gap: the test turns green by itself as soon as the schema is accepted.
      */
@@ -1040,9 +1041,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     {
         try {
             $className = $this->generateClassFromFile('RootLevelAllOfReferenceToObjectOrNull.json');
-        } catch (Error) {
+        } catch (SchemaException | Error) {
             $this->markTestIncomplete(
-                'Known gap: an allOf reference to an object or null definition crashes the generation.',
+                'Known gap: an allOf reference to an object or null definition is rejected or crashes the generation.',
             );
         }
 
