@@ -1274,26 +1274,63 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $keepFloat = in_array('float', $typeNames, true);
 
         foreach ($keepFloat ? [$property] : [$property, ...$compositionProperties] as $candidate) {
+            $numberVariantTransfers = array_filter(
+                $candidate->getDecorators(),
+                static fn(PropertyDecoratorInterface $decorator): bool =>
+                    $decorator instanceof PropertyTransferDecorator
+                    && self::carriesIntToFloatCast($decorator->getProperty()),
+            );
+
+            if (!self::carriesIntToFloatCast($candidate) && $numberVariantTransfers === []) {
+                continue;
+            }
+
+            // A branch is retyped on its own copy: a `$ref` branch is the shared property of the
+            // referenced definition, retyping it in place would retype every other reference to it.
+            if ($candidate instanceof CompositionPropertyDecorator) {
+                $candidate->detachWrappedProperty();
+            }
+
             if (self::carriesIntToFloatCast($candidate)) {
                 self::retypeNumberProperty($schemaProcessor, $schema, $candidate, $keepFloat);
                 continue;
             }
 
-            foreach ($candidate->getDecorators() as $decorator) {
-                if (
-                    $decorator instanceof PropertyTransferDecorator
-                    && self::carriesIntToFloatCast($decorator->getProperty())
-                ) {
-                    self::retypeMultiTypeNumberVariant(
-                        $schemaProcessor,
-                        $schema,
-                        $candidate,
-                        $decorator->getProperty(),
-                        $keepFloat,
-                    );
-                }
+            foreach (self::detachNumberVariants($candidate) as $numberVariant) {
+                self::retypeMultiTypeNumberVariant($schemaProcessor, $schema, $candidate, $numberVariant, $keepFloat);
             }
         }
+    }
+
+    /**
+     * Replaces the transfer of every number variant of the multi-type $property by a transfer of a
+     * copy of the variant, keeping the order of the decorators. The variant is shared with every
+     * copy of the multi-type property (e.g. the definition a detached `$ref` branch was copied from),
+     * so removing its cast in place would remove it there as well.
+     *
+     * @return PropertyInterface[] the copied number variants
+     */
+    private static function detachNumberVariants(PropertyInterface $property): array
+    {
+        $decorators = $property->getDecorators();
+        $numberVariants = [];
+
+        $property->filterDecorators(static fn(): bool => false);
+
+        foreach ($decorators as $decorator) {
+            if (
+                $decorator instanceof PropertyTransferDecorator
+                && self::carriesIntToFloatCast($decorator->getProperty())
+            ) {
+                $numberVariant = clone $decorator->getProperty();
+                $numberVariants[] = $numberVariant;
+                $decorator = new PropertyTransferDecorator($numberVariant);
+            }
+
+            $property->addDecorator($decorator);
+        }
+
+        return $numberVariants;
     }
 
     private static function carriesIntToFloatCast(PropertyInterface $property): bool

@@ -1120,6 +1120,57 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A `$ref` branch narrowed to int is retyped on a copy of the referenced definition: in the
+     * drafts which ignore the siblings of a `$ref`, the branch is the property of the definition
+     * itself, which every other reference to the definition shares. Retyping it in place turned
+     * the plain references (plain, plainMultiType) and the branches of other compositions
+     * (otherComposition) into int properties which rejected 4.5. A reference to a reference
+     * (narrowedAlias, plainAlias) is copied down to the definition at the end of the chain.
+     */
+    public function testPropertyLevelAllOfReferenceBranchIsNarrowedWithoutChangingTheDefinition(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfReferencedNumberNarrowedToInteger.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className([
+            'narrowed' => 3,
+            'narrowedMultiType' => 3,
+            'plain' => 4.5,
+            'plainMultiType' => 4.5,
+            'otherComposition' => 4.5,
+            'narrowedAlias' => 3,
+            'plainAlias' => 4.5,
+        ]);
+        $this->assertSame(3, $object->getNarrowedMultiType());
+        $this->assertSame(3, $object->getNarrowed());
+        $this->assertSame(4.5, $object->getPlain());
+        $this->assertSame(4.5, $object->getPlainMultiType());
+        $this->assertSame(4.5, $object->getOtherComposition());
+        $this->assertSame(3, $object->getNarrowedAlias());
+        $this->assertSame(4.5, $object->getPlainAlias());
+
+        // The narrowed branches keep the range keywords of the definition.
+        foreach (['narrowed', 'narrowedMultiType', 'narrowedAlias'] as $propertyName) {
+            try {
+                new $className([$propertyName => 0]);
+                $this->fail("Expected a ValidationException for $propertyName");
+            } catch (ValidationException $exception) {
+                $this->assertSame(
+                    <<<ERROR
+                    Invalid value for '$propertyName' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Value for '$propertyName' must not be smaller than 1
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
+    }
+
+    /**
      * An allOf branch of `{"type": ["object", "null"]}` is satisfied by every object, so the
      * schema is satisfiable and the generated class has to accept an object. The branch carries
      * no nested schema (the object sub-property of a multi-type declaration holds it), and the
