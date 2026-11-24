@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "$defs": {
+    "": {
+      "$defs": {
+        "": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "properties": {
+    "item": {
+      "$ref": "%s"
+    }
+  }
+}

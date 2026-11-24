@@ -327,20 +327,33 @@ class JsonSchema
      * other value below this schema; a caller which navigates to a branch of a composition of an object passes the
      * assertion on explicitly.
      *
+     * A string pointer is trimmed of its surrounding slashes, so the empty string and a lone slash both stay at this
+     * schema. A list of reference tokens is walked as it is instead: an empty token selects the member with the empty
+     * key (RFC 6901), so `['$defs', '']` leads to the schema below the empty key of `$defs`. A caller which holds the
+     * tokens of a pointer (a `$ref` split at its slashes, the key of a member) must pass the list: joining the tokens
+     * into a string would lose every empty token at the start or the end of the pointer.
+     *
+     * @param string | int | string[] $pointer a string pointer or a list of encoded reference tokens
+     *
      * @throws SchemaException
      */
-    public function navigate(string | int $pointer): JsonSchema
+    public function navigate(string | int | array $pointer): JsonSchema
     {
-        $trimmed = trim((string) $pointer, '/');
+        if (is_array($pointer)) {
+            $pathSegments = $pointer;
+        } else {
+            $trimmed = trim((string) $pointer, '/');
+            $pathSegments = $trimmed === '' ? [] : explode('/', $trimmed);
+        }
 
-        if ($trimmed === '') {
+        if ($pathSegments === []) {
             return $this;
         }
 
         $jsonSchema = clone $this;
         $jsonSchema->objectAssertedByContext = false;
 
-        foreach (explode('/', $trimmed) as $pathSegment) {
+        foreach ($pathSegments as $pathSegment) {
             $jsonSchema->pointer .= "/$pathSegment";
             $decodedPathSegment = JsonSchemaUtil::decodePointer($pathSegment);
 

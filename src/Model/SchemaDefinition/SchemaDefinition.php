@@ -52,12 +52,15 @@ class SchemaDefinition
      * itself is marked as a referenced schema failure: the reference resolved, so the caller must not restate the
      * fault as an unresolved reference.
      *
+     * @param string[] $path The reference tokens below the definition. A list rather than a joined string, as a string
+     *                       can't tell the member with the empty key from "no further path".
+     *
      * @throws PHPModelGeneratorException
      * @throws SchemaException
      */
     public function resolveReference(
         string $propertyName,
-        string $path,
+        array $path,
         bool $required,
         ?array $dependencies = null,
         bool $isArrayItem = false,
@@ -82,7 +85,7 @@ class SchemaDefinition
         // is judged by the site which references it (see JsonSchema::isObjectAssertedByContext()), so a site which
         // asserts an object and one which doesn't can't share the property.
         $key = implode('-', [
-            $path,
+            json_encode($path),
             $required ? '1' : '0',
             $isArrayItem ? '1' : '0',
             md5(json_encode($dependencies)),
