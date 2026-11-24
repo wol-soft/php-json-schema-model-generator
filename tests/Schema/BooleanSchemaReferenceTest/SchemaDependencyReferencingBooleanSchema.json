@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "definitions": {
+    "yes": true
+  },
+  "properties": {
+    "credit_card": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "credit_card": {
+      "$ref": "#/definitions/yes"
+    }
+  }
+}

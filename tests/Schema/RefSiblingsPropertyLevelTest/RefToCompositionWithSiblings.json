@@ -1,0 +1,31 @@
+{
+  "$defs": {
+    "inner": {
+      "type": "object",
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "x"
+          ]
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "nested": {
+      "$ref": "#/$defs/inner",
+      "properties": {
+        "y": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

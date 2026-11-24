@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "trigger": {
+      "type": "integer"
+    }
+  },
+  "dependencies": {
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "extra": {
+          "type": "integer"
+        }
+      },
+      "patternProperties": {
+        "^p_": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

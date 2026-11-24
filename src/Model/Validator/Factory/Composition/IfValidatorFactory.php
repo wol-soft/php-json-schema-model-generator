@@ -43,21 +43,24 @@ class IfValidatorFactory
 
         $json = $propertySchema->getJson();
 
-        if (!isset($json['then']) && !isset($json['else'])) {
-            throw new SchemaException(
-                sprintf(
-                    'Incomplete conditional composition for property %s in file %s',
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                ),
-                $property->getJsonSchema(),
-            );
-        }
-
         $json = $this->resolveBooleanBranches($json, $property, $schemaProcessor);
 
         if ($json === null) {
             return;
+        }
+
+        // An `if` without an effective then/else can't change the validation result, but the items and properties it
+        // evaluates still count for an enclosing unevaluatedItems/unevaluatedProperties when the condition matches.
+        // Rejecting the schema with a SchemaException was rejected: the schema is valid. Dropping the conditional
+        // was rejected as well: the evaluated items and properties would be lost, a valid instance would be
+        // rejected as having unevaluated items.
+        if (!isset($json['then']) && !isset($json['else'])) {
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "'if' for property '{property}' has no effective 'then' or 'else' branch: it doesn't change the"
+                    . ' validation result and only credits the items or properties it evaluates to an enclosing'
+                    . ' unevaluatedItems or unevaluatedProperties',
+                ['property' => $property->getName()],
+            );
         }
 
         // Inherit the parent type into if/then/else sub-schemas before the filter check so
@@ -115,7 +118,10 @@ class IfValidatorFactory
                 continue;
             }
 
-            $compositionSchema = $propertySchema->navigate($keyword);
+            // The sub-schemas validate the very value of their owner, so they assert an object if the owner does.
+            $compositionSchema = $propertySchema
+                ->navigate($keyword)
+                ->withObjectAssertedByContext($propertySchema->assertsObject());
 
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),
@@ -127,6 +133,7 @@ class IfValidatorFactory
                     $compositionSchema,
                     $property->isRequired(),
                 ),
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($compositionSchema),
             );
 
             // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
@@ -197,6 +204,7 @@ class IfValidatorFactory
                 $branchSchema,
                 $property->isRequired(),
             ),
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($branchSchema),
         );
 
         // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
@@ -315,10 +323,6 @@ class IfValidatorFactory
             if (($json[$keyword] ?? null) === true) {
                 unset($json[$keyword]);
             }
-        }
-
-        if (!isset($json['then']) && !isset($json['else'])) {
-            return null;
         }
 
         return $json;

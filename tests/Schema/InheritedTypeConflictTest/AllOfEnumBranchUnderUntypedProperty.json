@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "allOf": [
+        {
+          "enum": [
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  }
+}

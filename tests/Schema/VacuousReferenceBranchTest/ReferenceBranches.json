@@ -1,0 +1,136 @@
+{
+  "type": "object",
+  "definitions": {
+    "text": {
+      "type": "string",
+      "minLength": 2
+    },
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "anything": {},
+    "chainToText": {
+      "$ref": "#/definitions/text"
+    },
+    "chainToAnything": {
+      "$ref": "#/definitions/anything"
+    }
+  },
+  "properties": {
+    "scalarReferenceUnderUntypedParent": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/text"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "scalarReferenceUnderTypedParent": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/text"
+        },
+        {
+          "maxLength": 5
+        }
+      ]
+    },
+    "objectReference": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/person"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "negatedReferenceUnderTypedParent": {
+      "type": "string",
+      "not": {
+        "$ref": "#/definitions/text"
+      }
+    },
+    "referenceChainToConstrainedDefinition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/chainToText"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "vacuousReferenceUnderUntypedParent": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/anything"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "vacuousReferenceUnderTypedParent": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "#/definitions/anything"
+        },
+        {
+          "maxLength": 5
+        }
+      ]
+    },
+    "referenceChainToVacuousDefinition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/chainToAnything"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "vacuousReferenceWithConstrainingSibling": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/anything",
+          "minLength": 3
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "externalConstrainedReferenceUnderTypedParent": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/definitions.json#/definitions/text"
+        },
+        {
+          "maxLength": 5
+        }
+      ]
+    },
+    "externalVacuousReference": {
+      "anyOf": [
+        {
+          "$ref": "../VacuousReferenceBranchTest_external/definitions.json#/definitions/anything"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

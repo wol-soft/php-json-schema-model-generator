@@ -338,12 +338,63 @@ any element satisfies the constraint).
 ``contains: false`` — no element could ever satisfy the constraint; any array value raises a
 ``ContainsException`` at runtime. The generator also emits a warning at generation time.
 
+Limiting the number of matches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since Draft 2019-09 the number of items which must match the ``contains`` schema can be limited with
+``minContains`` and ``maxContains``. Both must be non-negative integers. If ``minContains`` is omitted it defaults
+to ``1``, if ``maxContains`` is omitted the number of matches is not limited. Draft 7 ignores both keywords.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "contains": {
+                    "type": "string"
+                },
+                "minContains": 0,
+                "maxContains": 0
+            }
+        }
+    }
+
+``minContains: 0`` makes the ``contains`` constraint optional. Combined with ``maxContains: 0`` only arrays in which
+no item matches the ``contains`` schema are valid. Contradicting limits are rejected with a *SchemaException* while the
+classes are generated: ``minContains`` larger than ``maxContains`` as well as ``maxContains: 0`` without
+``minContains: 0``, as the omitted ``minContains`` defaults to ``1``.
+
+Possible exceptions:
+
+* Array 'example' must not contain less than 2 items matching the contains constraint, 1 matching items provided
+* Array 'example' must not contain more than 0 items matching the contains constraint, 1 matching items provided
+
+The thrown exceptions will be a *PHPModelGenerator\\Exception\\Arrays\\MinContainsException* or a *PHPModelGenerator\\Exception\\Arrays\\MaxContainsException*. They provide the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+    // get the number of items which match the contains schema
+    public function getMatches(): int
+    // get the configured minContains (MinContainsException) or maxContains (MaxContainsException)
+    public function getMinContains(): int
+    public function getMaxContains(): int
+
 Unevaluated Items
 -----------------
 
 The ``unevaluatedItems`` keyword (Draft 2019-09 and later) constrains every index that was not
 evaluated by any positive sibling applicator at the same schema level. Indices claimed by
-``items`` (single-schema or tuple form), by ``additionalItems`` when present, by a passing
+``items`` (single-schema or tuple form), by ``prefixItems`` (the Draft 2020-12 spelling of the
+tuple form), by the keyword covering the entries behind the tuple when present, by a passing
 ``contains`` match, or by a **successful** composition branch (``allOf``, ``anyOf``, ``oneOf``,
 ``if``/``then``/``else``, ``$ref``) count as evaluated. ``not`` is a negative applicator and
 contributes nothing.
@@ -356,6 +407,53 @@ the same way, to any depth.
 A property subschema that declares array applicators but omits ``type: array`` is treated as an
 array property: the keywords apply whenever the provided value is an array, and a value of any
 other type passes through unchanged.
+
+.. note::
+
+    ``additionalItems`` only claims indices when a tuple sits in front of it. Declared on its own,
+    without a tuple-form ``items``/``prefixItems`` alongside it, the keyword has no effect and
+    claims nothing — so every index stays unevaluated. This holds identically whether the keyword
+    is declared directly on the array property or inside one of its composition branches.
+
+Tuple items in Draft 2020-12
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Draft 2020-12 renamed the tuple form of ``items`` to ``prefixItems`` and reused ``items`` itself
+for the entries behind the tuple — the role ``additionalItems`` fills in earlier drafts. Both
+spellings validate positionally and contribute the same evaluated indices:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "prefixItems": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "unevaluatedItems": false
+            }
+        }
+    }
+
+Index 0 is validated against the ``prefixItems`` entry and counted as evaluated; every further
+element raises an ``UnevaluatedItemsException``. Adding ``"items": {"type": "integer"}`` alongside
+``prefixItems`` instead validates every element from index 1 on, leaving nothing unevaluated.
+
+``prefixItems`` must be a list of schemas. Any other value (a single schema, a boolean, a scalar) is
+invalid and rejected with a ``SchemaException`` when the model is generated; a scalar ``items`` is
+rejected the same way. An empty ``prefixItems`` is read as a tuple without entries, so ``items``
+validates every element.
+
+On Draft 7 and Draft 2019-09 ``prefixItems`` is not a known keyword and is ignored, so ``items``
+keeps its own meaning there and still validates every element. Being ignored also means it
+evaluates no index: the schema above rejects ``["a"]`` on Draft 2019-09, where nothing evaluates
+index 0, whether the keyword is declared on the array property or inside one of its composition
+branches.
 
 Using ``false``
 ^^^^^^^^^^^^^^^
@@ -478,6 +576,11 @@ warning, and skips ``unevaluatedItems`` entirely:
   and evaluates every index past the tuple length (a schema additionally validates it) — every
   index is again claimed. A tail value is accepted or rejected by ``additionalItems`` alone; a
   skipped ``unevaluatedItems`` schema never takes part in the decision.
+- ``items`` behind a ``prefixItems`` tuple (Draft 2020-12) is the same pair under the new spelling:
+  ``items: false`` rejects every index past the tuple, ``items: true`` or ``items: {schema}``
+  accepts and evaluates it. Behind a tuple ``items`` only governs the tail, so the warning names
+  the pair (``sibling prefixItems tuple plus items: ...``) instead of describing ``items`` as if it
+  covered every index.
 
 Unlike ``additionalProperties`` on objects, the
 `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no
@@ -546,6 +649,8 @@ Uniqueness
 ----------
 
 The items of an array can be forced to be unique with the `uniqueItems` keyword.
+
+Items are compared as JSON values: objects are equal if they contain the same keys with equal values, independent of the order of the keys, and numbers are equal if they have the same value, independent of their type (``1`` and ``1.0`` are the same item). The order of the items of a nested list matters. Values of different types are never equal, so ``0``, ``false``, ``null``, ``""`` and ``"0"`` are five different items. Items which are transformed into model instances are compared by the data they were created from.
 
 .. code-block:: json
 

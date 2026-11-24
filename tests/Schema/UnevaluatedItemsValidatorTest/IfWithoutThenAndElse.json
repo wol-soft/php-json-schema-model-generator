@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "list": {
+      "type": "array",
+      "if": {
+        "items": [
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

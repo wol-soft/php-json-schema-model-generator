@@ -180,7 +180,49 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 "/^Composition keyword 'then' for property 'property' in file .*\\.json must be a schema or a"
                     . ' boolean, got string at line \\d+, column \\d+$/',
             ],
+            // A JSON array instead of a schema object: both decode to a PHP array, but a list is
+            // indexed with integer keys which the keyword processing of a branch can't handle -
+            // it used to fail with a TypeError naming a draft method.
+            'oneOf branch is a list' => [
+                'CompositionBranchIsAList.json',
+                "/^Branch #2 of composition keyword 'oneOf' for property 'property' in file .*\\.json must be"
+                    . ' a schema or a boolean, got array at line \\d+, column \\d+$/',
+            ],
+            'not is a list' => [
+                'SingleBranchKeywordIsAList.json',
+                "/^Composition keyword 'not' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got array at line \\d+, column \\d+$/',
+            ],
+            'conditional else is a list' => [
+                'ConditionalBranchIsAList.json',
+                "/^Composition keyword 'else' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got array at line \\d+, column \\d+$/',
+            ],
         ];
+    }
+
+    /**
+     * json_decode() maps an empty JSON array and an empty JSON object to the same empty PHP array, so an empty array
+     * as a branch can't be told apart from the empty schema and is treated as one - which matches any value and is
+     * reported like every other branch of that kind.
+     */
+    public function testEmptyArrayBranchIsAcceptedAsTheEmptySchema(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'CompositionBranchIsAnEmptyArray.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and matches any value",
+                ['index' => 2, 'property' => 'property'],
+            ),
+        );
     }
 
     #[DataProvider('implicitNullDataProvider')]
@@ -767,14 +809,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
      * check, so the schema is rejected at generation time instead of producing a class that
      * rejects every value.
      */
-    public function testPropertyLevelAllOfBranchTypeDisjointFromPropertyTypeThrowsSchemaException(): void
+    public function testPropertyTypeContradictedByTheTypeOfAnAllOfBranchIsRejected(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             self::declaredTypeConflictMessagePattern("'property'", 'string', 'int', 1),
         );
 
-        $this->generateClassFromFile('PropertyLevelAllOfBranchTypeConflictsWithPropertyType.json');
+        $this->generateClassFromFile('PropertyLevelAllOfBranchContradictsPropertyType.json');
     }
 
     /**
@@ -1113,10 +1155,12 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             $object->setOther('second');
             $this->fail('Expected the branch maxProperties claim to reject the second key');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided object for '%class%' must not contain more than 1 properties
                 MSG,
                 $exception->getMessage(),
             );
@@ -1129,51 +1173,5 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         // The constructor refuses the same two-key state, proving the setter now agrees with it.
         $this->expectException(AllOfException::class);
         new $className(['kind' => 'a', 'other' => 'second']);
-    }
-
-    /**
-     * A schema root always has `type: object` forced onto it before its composition is processed,
-     * and that type is then inherited by every branch declaring none of its own. A branch whose
-     * `enum` lists only non-object values becomes unsatisfiable the moment it is also required to
-     * be an object, so the composition can never be satisfied by any input at all - the generated
-     * class is silently uninstantiable.
-     *
-     * Removing the inheritance is the real fix and is tracked separately; until then the generator
-     * must at least say so rather than emit a class that rejects everything without explanation.
-     * The warning is deliberately narrow, so the satisfiable counterpart must stay silent: an
-     * `enum` listing an object value is still satisfiable once the branch is forced to be one.
-     */
-    public function testInheritedObjectTypeConflictingWithAnEnumBranchIsWarnedAbout(): void
-    {
-        $unsatisfiableLogger = new RecordingLogger();
-
-        $this->generateClassFromFile(
-            'RootLevelAllOfObjectTypeInjectionUnsatisfiableEnum.json',
-            (new GeneratorConfiguration())->setLogger($unsatisfiableLogger),
-        );
-
-        $expectedMessage = "Composition branch {branch} for '{property}' is forced to type 'object'"
-            . " by the inherited parent type, but its 'enum'/'const' contains no object value -"
-            . ' the branch can never be satisfied';
-
-        $this->assertTrue(
-            $this->hasLogEntry($unsatisfiableLogger->getEntries(), 'warning', $expectedMessage, ['branch' => '#2']),
-            'Expected a warning naming the enum branch forced to an unsatisfiable object type.',
-        );
-
-        // An enum containing an object value stays satisfiable under the injected type, so the
-        // same schema shape must not warn - this is what keeps the check from firing on every
-        // untyped enum branch at a root.
-        $satisfiableLogger = new RecordingLogger();
-
-        $this->generateClassFromFile(
-            'RootLevelAllOfObjectTypeInjectionSatisfiableEnum.json',
-            (new GeneratorConfiguration())->setLogger($satisfiableLogger),
-        );
-
-        $this->assertFalse(
-            $this->hasLogEntry($satisfiableLogger->getEntries(), 'warning', $expectedMessage),
-            'An enum listing an object value is satisfiable under the injected type and must not warn.',
-        );
     }
 }

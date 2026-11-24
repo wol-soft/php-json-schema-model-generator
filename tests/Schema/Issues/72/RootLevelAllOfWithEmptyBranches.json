@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    {},
+    {
+      "example": "annotation only"
+    }
+  ]
+}

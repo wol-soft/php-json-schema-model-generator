@@ -199,10 +199,14 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $object->unevaluatedProperties()->set('extra', 'not-an-integer');
             $this->fail('Expected the branch additionalProperties claim to reject the value');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains invalid additional properties
+                      - invalid additional property 'extra'
+                        * Invalid type for 'additional property': requires 'int', got 'string'
                 MSG,
                 $exception->getMessage(),
             );
@@ -248,10 +252,14 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $object->unevaluatedProperties()->set('violating', 'not-an-integer');
             $this->fail('Expected the branch additionalProperties claim to reject the value');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided JSON for '%class%' contains invalid additional properties
+                      - invalid additional property 'violating'
+                        * Invalid type for 'additional property': requires 'int', got 'string'
                 MSG,
                 $exception->getMessage(),
             );
@@ -1143,10 +1151,12 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $accessor->remove('first');
             $this->fail('Expected the branch minProperties claim to reject the removal');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided object for '%class%' must not contain less than 3 properties
                 MSG,
                 $exception->getMessage(),
             );

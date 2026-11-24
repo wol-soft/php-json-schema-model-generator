@@ -271,18 +271,23 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A composition that defines its own generated class (a schema file's root, or a ``$ref`` target
-parsed as a top-level schema in its own right) must resolve to a definite object — every value it
-accepts has to be representable by the single generated class. By default a composition that only
-*describes* object shape (bare ``properties``/``required``/... without ever declaring
-``"type": "object"``) is rejected with a **SchemaException** at generation time, since such a
-composition is per strict JSON Schema semantics vacuously satisfied by non-object values too —
-see
+A schema that defines its own generated class (a schema file's root, or a ``$ref`` target parsed
+as a top-level schema in its own right) must be an object — every value it accepts has to be
+representable by the single generated class. A schema that only *describes* object shape (bare
+``properties``/``required``/... without ever declaring ``"type": "object"``) is per strict JSON
+Schema semantics vacuously satisfied by non-object values too. By default the generator therefore
+doesn't build a class for it:
+
+* a **composition** of such schemas is rejected with a **SchemaException** at generation time
+* a schema file whose root carries such keywords directly is skipped with a warning which names
+  the class and the file
+
+See
 `Composition-implied objects <combinedSchemas/impliedObjects.html#class-defining-compositions-must-resolve-to-a-definite-object>`__
 for the full explanation and examples.
 
-Setting the **implicitObjectComposition** option treats such a composition exactly as if it had
-declared ``"type": "object"`` itself, instead of rejecting it.
+Setting the **implicitObjectComposition** option treats such a schema exactly as if it had
+declared ``"type": "object"`` itself: the class is generated.
 
 .. code-block:: php
 
@@ -292,6 +297,10 @@ declared ``"type": "object"`` itself, instead of rejecting it.
 
     (new GeneratorConfiguration())
         ->setImplicitObjectComposition(true);
+
+The option only concerns the schemas that define a class. Everywhere else (a property, an array item, a branch of a
+composition, ...) a schema that describes an object without declaring it is accepted whether the option is set or not:
+an object value is validated, any other value passes through unchanged and the generator warns about the missing type.
 
 Collect errors vs. early return
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

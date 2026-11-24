@@ -203,6 +203,14 @@ While the branch is active the declared type is still enforced. A property which
 
 .. note::
 
+    An ``if``, ``then`` or ``else`` schema which declares no ``type`` inherits the ``type`` of its schema (a schema
+    root always has ``"type": "object"`` applied to it). An ``enum`` or ``const`` of such a schema which lists no
+    value of the inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema) can never be satisfied: an
+    ``if`` which can't match always selects the ``else`` schema, a ``then`` or ``else`` which can't be satisfied
+    rejects every value it is applied to. The generator emits a warning at generation time.
+
+.. note::
+
     For object-level ``if``/``then``/``else`` compositions, when a property appears in the
     ``required`` array of **both** ``then`` and ``else``, the generator promotes that property to
     non-nullable. Exactly one of the two branches applies at runtime, and both guarantee the
@@ -262,6 +270,11 @@ and refreshed whenever the model is mutated. A conditional that fails as a whole
 passing ``if`` followed by a failing ``then``) contributes nothing, not even the annotations of
 the passing ``if`` — as with a failed ``allOf``, keys it would have claimed show up as
 unevaluated in the error report when errors are collected.
+
+An ``if`` which has neither a ``then`` nor an ``else`` branch is a valid schema which can never change the validation
+result. The generator emits a warning at generation time but doesn't reject the schema: when the instance matches the
+condition, the properties and items the ``if`` evaluates still count as evaluated for an enclosing
+``unevaluatedProperties`` or ``unevaluatedItems``. Without one of these keywords the ``if`` has no effect at all.
 
 A composition nested inside a branch (an ``anyOf`` inside an ``allOf`` branch, a conditional
 inside a ``oneOf`` branch, ...) contributes the claims of its own successful branches to the

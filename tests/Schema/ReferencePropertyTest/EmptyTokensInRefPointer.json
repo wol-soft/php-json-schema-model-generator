@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "": {
+    "type": "string"
+  },
+  "$defs": {
+    "": {
+      "$defs": {
+        "": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "properties": {
+    "item": {
+      "$ref": "#/$defs//$defs/"
+    },
+    "rootEmptyKey": {
+      "$ref": "#/"
+    }
+  }
+}

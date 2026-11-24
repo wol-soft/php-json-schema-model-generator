@@ -251,7 +251,7 @@ class Issue189Test extends AbstractIssueTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for '[A-Za-z0-9_]+' in file '.*\\.json' does not resolve to a definite object and "
+            "/^Composition for '[A-Za-z0-9_]+' in file .*\\.json does not resolve to a definite object and "
             . "cannot be represented as a generated class: if every value it accepts is meant to be an object, "
             . "declare '\"type\": \"object\"' on the schema itself at line 1, column 1$/",
         );
@@ -267,7 +267,7 @@ class Issue189Test extends AbstractIssueTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Empty 'type' array in file '(.*)\\.json' at line \\d+, column \\d+$/",
+            "/^Empty 'type' array in file (.*)\\.json at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFile('EmptyTypeArray.json');

@@ -176,16 +176,17 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
 
         $exception = $this->catchException(static fn() => $object->setKind('bb'));
         $this->assertInstanceOf($expectedException, $exception, 'Expected the oneOf violation of kind');
+
+        $shortClassName = (new ReflectionClass($className))->getShortName();
+
+        // the failing element of the composition is listed with and without collected errors
         $this->assertSame(
-            sprintf(
-                "Invalid value for '%s' declined by composition constraint\n"
-                    . '  Requires to match one composition element but matched 0 elements%s',
-                (new ReflectionClass($className))->getShortName(),
-                // with collected errors, the failing element of the composition is listed
-                $collectErrors
-                    ? "\n  - Composition element #1: Failed\n    * Value for 'kind' must not be longer than 1"
-                    : '',
-            ),
+            <<<MESSAGE
+            Invalid value for '$shortClassName' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
+              - Composition element #1: Failed
+                * Value for 'kind' must not be longer than 1
+            MESSAGE,
             $exception->getMessage(),
         );
 

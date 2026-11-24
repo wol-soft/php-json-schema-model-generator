@@ -1,0 +1,122 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "alias": {
+      "$ref": "#/definitions/person"
+    },
+    "choice": {
+      "oneOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "trigger": {
+      "type": "string"
+    },
+    "inlineBranches": {
+      "type": "object",
+      "anyOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "anyOfProperty": {
+      "type": "object",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/person"
+        },
+        {
+          "$ref": "#/definitions/alias"
+        },
+        {
+          "$ref": "#/definitions/choice"
+        }
+      ]
+    },
+    "allOfProperty": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/alias"
+        }
+      ]
+    },
+    "notProperty": {
+      "type": "object",
+      "not": {
+        "$ref": "#/definitions/choice"
+      }
+    },
+    "conditionalProperty": {
+      "type": "object",
+      "if": {
+        "$ref": "#/definitions/person"
+      },
+      "then": {
+        "$ref": "#/definitions/alias"
+      },
+      "else": {
+        "$ref": "#/definitions/choice"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/person"
+    }
+  ],
+  "dependencies": {
+    "trigger": {
+      "$ref": "#/definitions/person"
+    }
+  }
+}

@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\NoUnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemsCoverage;
 
 class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
 {
@@ -54,7 +55,12 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
             );
         }
 
-        if ($this->isDeadCode($schemaProcessor, $schema, $property, $json)) {
+        $siblingCoverage = ArrayItemsCoverage::fromJson(
+            $json,
+            $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+        );
+
+        if ($this->isDeadCode($schemaProcessor, $schema, $property, $json, $siblingCoverage)) {
             return;
         }
 
@@ -62,7 +68,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
 
         if ($unevaluatedItems === false) {
             $property->addValidator(
-                (new NoUnevaluatedItemsValidator($property))->withJsonPointer($unevaluatedPointer),
+                (new NoUnevaluatedItemsValidator($property, $siblingCoverage))->withJsonPointer($unevaluatedPointer),
                 self::VALIDATOR_PRIORITY,
             );
 
@@ -70,7 +76,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema))
+            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema, $siblingCoverage))
                 ->withJsonPointer($unevaluatedPointer),
             self::VALIDATOR_PRIORITY,
         );
@@ -79,17 +85,52 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
     /**
      * Several sibling-shape combinations make the unevaluatedItems keyword unreachable: the
      * array is forced empty by `items: false`, every index is already claimed by an
-     * `items: true` / `items: {schema}`, or tuple `items` is followed by an `additionalItems`
-     * of any value (`false` rejects the tail, `true` / `{schema}` claim it).
+     * `items: true` / `items: {schema}`, or a tuple (`prefixItems` from Draft 2020-12 on, tuple `items` before)
+     * is followed by its trailing keyword (`items` / `additionalItems`) with any value: `false`
+     * rejects the tail, `true` / `{schema}` claim it.
      * Each one is spec-legal and emits a generation-time warning instead of a SchemaException
      * — the developer's intent is intact but the keyword cannot contribute.
+     *
+     * The tuple is read through the same ArrayItemsCoverage as the sibling coverage and the
+     * composition branches, and checked first: with a tuple present `items` is only the tail, so
+     * describing it as covering every index would misstate what it does to index 0.
      */
     private function isDeadCode(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $property,
         array $json,
+        ArrayItemsCoverage $coverage,
     ): bool {
+        if ($coverage->getTupleLength() > 0) {
+            $tailKeyword = $coverage->getTailKeyword();
+
+            if (!array_key_exists($tailKeyword, $json)) {
+                return false;
+            }
+
+            // The tuple evaluates the head; the tail keyword then covers every index past it. With
+            // `false` the tail is rejected outright, with `true` or a schema it is accepted and
+            // evaluated (and, for a schema, validated). Either way no index is left over.
+            $tail = $json[$tailKeyword];
+
+            $reason = match (true) {
+                $tail === false => 'rejects every tail index past the tuple',
+                $tail === true => 'already claims every tail index past the tuple',
+                default => 'already validates every tail index past the tuple',
+            };
+            $keywordValue = is_bool($tail) ? var_export($tail, true) : '{schema}';
+            // From Draft 2020-12 on the tail keyword is `items`, which is only a tail because a `prefixItems`
+            // tuple is present: naming the pair keeps the reason from reading as if `items` covered every index.
+            $subject = $coverage->getTupleKeyword() === 'prefixItems'
+                ? "prefixItems tuple plus $tailKeyword"
+                : $tailKeyword;
+
+            $this->warn($schemaProcessor, $schema, $property, "sibling $subject: $keywordValue $reason");
+
+            return true;
+        }
+
         if (!array_key_exists('items', $json)) {
             return false;
         }
@@ -118,32 +159,9 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
             return true;
         }
 
-        $isTupleItems = is_array($items) && $items !== [] && array_is_list($items);
-
-        if ($isTupleItems) {
-            if (!array_key_exists('additionalItems', $json)) {
-                return false;
-            }
-
-            // The tuple evaluates the head; additionalItems then covers every index past it. With
-            // `false` the tail is rejected outright, with `true` or a schema it is accepted and
-            // evaluated (and, for a schema, validated). Either way no index is left over.
-            $additionalItems = $json['additionalItems'];
-
-            $reason = match (true) {
-                $additionalItems === false => 'rejects every tail index past the tuple',
-                $additionalItems === true => 'already claims every tail index past the tuple',
-                default => 'already validates every tail index past the tuple',
-            };
-            $keywordValue = is_bool($additionalItems) ? var_export($additionalItems, true) : '{schema}';
-
-            $this->warn($schemaProcessor, $schema, $property, "sibling additionalItems: $keywordValue $reason");
-
-            return true;
-        }
-
         // Schema-form items claims every index per the spec; nothing is left over for the
-        // unevaluatedItems keyword to validate.
+        // unevaluatedItems keyword to validate. An empty value counts as the empty schema, see
+        // ArrayItemsCoverage::getTupleLength().
         if (is_array($items)) {
             $this->warn(
                 $schemaProcessor,

@@ -265,7 +265,7 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             "/^Mutually exclusive keywords '\\\$ref', '\\\$secondRef' cannot be combined on property " .
-            "'value' in file '.+'$/",
+            "'value' in file .+$/",
         );
 
         $this->generateClassFromFile('MutuallyExclusiveProducers.json', $config);
