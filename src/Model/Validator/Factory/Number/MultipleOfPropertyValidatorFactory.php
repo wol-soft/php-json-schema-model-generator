@@ -25,7 +25,11 @@ class MultipleOfPropertyValidatorFactory extends SimplePropertyValidatorFactory
         // type-unsafe comparison to be compatible with int and float multipleOf values
         if ($value == 0) {
             $check = "{$this->typeCheck}(\$value) && \$value != 0";
-        } elseif ($this->isInteger) {
+        } elseif ($this->isInteger && is_int($value)) {
+            // The modulo operator truncates its operands to int, so it only works for an integer
+            // divisor: a fractional one (`{"type": "integer", "multipleOf": 0.5}`, valid JSON Schema)
+            // would be truncated to 0 and throw a DivisionByZeroError at runtime. Such a divisor
+            // takes the fmod() check below, like a number.
             $check = "{$this->typeCheck}(\$value) && \$value % $value != 0";
         } else {
             $check = "{$this->typeCheck}(\$value) && fmod(\$value, $value) != 0";

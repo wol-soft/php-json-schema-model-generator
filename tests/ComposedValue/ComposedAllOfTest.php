@@ -996,11 +996,15 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'narrowedBranch' => 15,
             'nullableNumber' => 42,
             'numberOrString' => 42,
+            'fractionalMultipleOfProperty' => 3,
+            'fractionalMultipleOfBranch' => -6,
         ]);
         $this->assertSame(12, $object->getNarrowedProperty());
         $this->assertSame(15, $object->getNarrowedBranch());
         $this->assertSame(42, $object->getNullableNumber());
         $this->assertSame(42, $object->getNumberOrString());
+        $this->assertSame(3, $object->getFractionalMultipleOfProperty());
+        $this->assertSame(-6, $object->getFractionalMultipleOfBranch());
         $this->assertNull((new $className(['nullableNumber' => null]))->getNullableNumber());
 
         $invalidInputs = [
@@ -1026,6 +1030,19 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
             [['nullableNumber' => 5], "Value for 'nullableNumber' must not be smaller than 10"],
+            [
+                ['fractionalMultipleOfProperty' => 4],
+                "Value for 'fractionalMultipleOfProperty' must be a multiple of 1.5",
+            ],
+            [
+                ['fractionalMultipleOfBranch' => 4],
+                <<<ERROR
+                Invalid value for 'fractionalMultipleOfBranch' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'fractionalMultipleOfBranch' must be a multiple of 1.5
+                ERROR,
+            ],
             [
                 ['nullableNumber' => 4.5],
                 "Invalid type for 'nullableNumber': requires ['int', 'null'], got 'double'",

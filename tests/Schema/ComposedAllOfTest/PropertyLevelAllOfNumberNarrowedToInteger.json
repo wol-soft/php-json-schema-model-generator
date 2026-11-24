@@ -47,6 +47,24 @@
           "type": "integer"
         }
       ]
+    },
+    "fractionalMultipleOfProperty": {
+      "type": "number",
+      "multipleOf": 1.5,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "fractionalMultipleOfBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": "number",
+          "multipleOf": 1.5
+        }
+      ]
     }
   }
 }
