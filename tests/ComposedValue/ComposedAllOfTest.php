@@ -936,6 +936,58 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Narrowing a `number` to `int` retypes it to `integer`, so the range keywords of the number
+     * keep applying to the int value: the number type registers them behind an `is_float` guard,
+     * which never holds once the int-to-float cast is gone, and they are rebuilt for the integer
+     * type. This holds for the property itself (narrowedProperty) and for a number branch of an
+     * integer property (narrowedBranch).
+     */
+    public function testPropertyLevelAllOfNumberNarrowedToIntegerKeepsRangeConstraints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfIntegerNarrowingKeepsRangeConstraints.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $invalidInputs = [
+            [['narrowedProperty' => 4], "Value for 'narrowedProperty' must not be smaller than 10"],
+            [['narrowedProperty' => 22], "Value for 'narrowedProperty' must not be larger than 20"],
+            [['narrowedProperty' => 11], "Value for 'narrowedProperty' must be a multiple of 2"],
+            [
+                ['narrowedBranch' => 5],
+                <<<ERROR
+                Invalid value for 'narrowedBranch' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'narrowedBranch' must not be smaller than 10
+                ERROR,
+            ],
+            [
+                ['narrowedBranch' => 20],
+                <<<ERROR
+                Invalid value for 'narrowedBranch' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'narrowedBranch' must be smaller than 20
+                ERROR,
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+
+        $object = new $className(['narrowedProperty' => 12, 'narrowedBranch' => 15]);
+        $this->assertSame(12, $object->getNarrowedProperty());
+        $this->assertSame(15, $object->getNarrowedBranch());
+    }
+
+    /**
      * Without implicit null, `null` is a type like any other: a declared `string` and a `null`
      * branch are disjoint.
      */

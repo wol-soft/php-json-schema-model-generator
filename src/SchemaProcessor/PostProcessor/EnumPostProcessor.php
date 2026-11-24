@@ -119,7 +119,6 @@ class EnumPostProcessor extends PostProcessor
                     $property,
                     $validator->getComposedProperties(),
                     $validator->getCompositionProcessor() === AllOfValidatorFactory::class,
-                    $generatorConfiguration,
                 );
 
                 continue;

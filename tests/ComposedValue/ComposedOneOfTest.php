@@ -742,4 +742,36 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEqualsCanonicalizing(['float', 'null'], $this->getReturnTypeNames($className, 'getProperty'));
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
     }
+
+    /**
+     * A number branch of an integer property is narrowed to int together with the property, and
+     * its range keywords are rebuilt for the integer type: the number type registers them behind
+     * an `is_float` guard, which never holds once the int-to-float cast of the branch is gone.
+     */
+    public function testOneOfNumberBranchNarrowedToIntegerKeepsRangeConstraints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelOneOfIntegerNarrowingKeepsRangeConstraints.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        try {
+            new $className(['property' => 5]);
+            $this->fail('Expected a ValidationException for the value 5');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Value for 'property' must not be smaller than 10
+                  - Composition element #2: Failed
+                    * Invalid type for 'property': requires 'string', got 'integer'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame(15, (new $className(['property' => 15]))->getProperty());
+    }
 }

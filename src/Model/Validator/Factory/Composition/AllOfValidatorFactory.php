@@ -80,11 +80,12 @@ class AllOfValidatorFactory
                             $compositionProperties,
                             $this->key,
                         );
-                        self::transferPropertyType(
+                        self::transferPropertyType($property, $compositionProperties, true);
+                        self::retypeNumberPropertiesNarrowedToInt(
+                            $schemaProcessor,
+                            $schema,
                             $property,
                             $compositionProperties,
-                            true,
-                            $schemaProcessor->getGeneratorConfiguration(),
                         );
 
                         $mergedProperty = !($property instanceof BaseProperty)

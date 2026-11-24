@@ -68,7 +68,13 @@ class OneOfValidatorFactory
         $resolvedCompositions = 0;
         foreach ($compositionProperties as $compositionProperty) {
             $compositionProperty->onResolve(
-                function () use (&$resolvedCompositions, $property, $compositionProperties, $schemaProcessor): void {
+                function () use (
+                    &$resolvedCompositions,
+                    $property,
+                    $compositionProperties,
+                    $schemaProcessor,
+                    $schema,
+                ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
                         self::assertBranchTypesOverlapDeclaredType(
                             $schemaProcessor,
@@ -76,11 +82,12 @@ class OneOfValidatorFactory
                             $compositionProperties,
                             $this->key,
                         );
-                        self::transferPropertyType(
+                        self::transferPropertyType($property, $compositionProperties, false);
+                        self::retypeNumberPropertiesNarrowedToInt(
+                            $schemaProcessor,
+                            $schema,
                             $property,
                             $compositionProperties,
-                            false,
-                            $schemaProcessor->getGeneratorConfiguration(),
                         );
                     }
                 },

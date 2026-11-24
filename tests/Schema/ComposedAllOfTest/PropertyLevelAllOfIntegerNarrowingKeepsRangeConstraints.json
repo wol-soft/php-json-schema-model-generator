@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "narrowedProperty": {
+      "type": "number",
+      "minimum": 10,
+      "maximum": 20,
+      "multipleOf": 2,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "narrowedBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": "number",
+          "minimum": 10,
+          "exclusiveMaximum": 20
+        }
+      ]
+    }
+  }
+}

@@ -1452,6 +1452,23 @@ class PropertyFactory
     }
 
     /**
+     * Run only the type-specific Draft modifiers of the type $propertySchema declares (not the
+     * 'any' entry), tagging the validators they add with their keyword like every other modifier
+     * run. Used to rebuild the type-dependent validators of a property whose type was narrowed
+     * after it had been processed.
+     *
+     * @throws SchemaException
+     */
+    public function applyTypeModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, typeOnly: true);
+    }
+
+    /**
      * Run Draft modifiers for the given property.
      *
      * By default all covered types (type-specific + 'any') run. Pass $anyOnly=true to run
