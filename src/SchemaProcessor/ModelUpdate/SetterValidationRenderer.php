@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
+use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -141,8 +142,7 @@ class SetterValidationRenderer
     {
         $key = $property->getName();
 
-        $objectCode = ObjectUpdateDependency::ofValidators($this->schema->getObjectValidators(), $key)
-            ->requiresValidation($keyAdded)
+        $objectCode = $this->requiresObjectValidation($key, $keyAdded)
             // a copy: the validators must not change the value of the setter
             ? "\$objectModelData = \$modelData;\n\$this->_executeObjectValidators(\$objectModelData);"
             : '';
@@ -192,6 +192,27 @@ class SetterValidationRenderer
             $dependencyCode,
             $this->getPostCompositionValidation($property),
         ];
+    }
+
+    /**
+     * The object-level validators run if one may reject the update, or if one stores the value of the key (an
+     * additional property which is also represented by a typed property) which has to follow the update of every
+     * value, also of a present key.
+     */
+    private function requiresObjectValidation(string $key, bool $keyAdded): bool
+    {
+        $dependency = ObjectUpdateDependency::ofValidators($this->schema->getObjectValidators(), $key);
+        if ($dependency->requiresValidation($keyAdded)) {
+            return true;
+        }
+
+        foreach ($this->schema->getObjectValidators() as $validator) {
+            if ($validator instanceof UpdateAdditionalPropertiesValidator && $validator->storesKey($key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

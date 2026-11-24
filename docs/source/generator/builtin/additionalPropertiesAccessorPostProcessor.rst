@@ -72,9 +72,21 @@ fluent ``static`` return:
 
 **get**: Returns the current value of a single additional property. Returns null if the requested property does not exist. Like ``getAll``, returns the processed value.
 
-**set**: Adds or updates an additional property. Performs all necessary validations including property name constraints, min/max properties limits and the compositions of the schema. If the additional properties are processed via a transforming filter an already transformed value will be accepted. Throws *RegularPropertyAsAdditionalPropertyException* if the key conflicts with a regularly-defined schema property. If the update is rejected, the model stays unchanged.
+**set**: Adds or updates an additional property. Performs all necessary validations including property name constraints, min/max properties limits and the compositions of the schema. If the additional properties are processed via a transforming filter an already transformed value will be accepted. Throws *RegularPropertyAsAdditionalPropertyException* if the key conflicts with a property declared by the *properties* keyword of the schema or with a *readOnly* property. If the update is rejected, the model stays unchanged.
 
-**remove**: Removes an existing additional property from the model. Returns true if the property was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would produce an invalid model state. The compositions of the schema (a branch may require the removed property or depend on it via e.g. **minProperties**) and the **dependencies** of the declared properties are validated against the remaining data and may reject the removal as well. If the removal is rejected, the model stays unchanged.
+**remove**: Removes an existing additional property from the model. Returns true if the property was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would produce an invalid model state. The compositions of the schema (a branch may require the removed property or depend on it via e.g. **minProperties**) and the **dependencies** of the declared properties are validated against the remaining data and may reject the removal as well. If the removal is rejected, the model stays unchanged. Throws *RegularPropertyAsAdditionalPropertyException* for a *readOnly* property.
+
+Properties outside the properties keyword
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A property which isn't declared by the *properties* keyword of the schema (declared by a branch of a composition, a schema dependency or a base level reference, or only listed in *required*) is an `additional property <../../complexTypes/object.html#properties-outside-the-properties-keyword>`__ although the model provides a getter and a setter for it. The accessor keeps the typed property and the additional property in sync:
+
+* **getAll**/**get** list the property like any other additional property.
+* **set** processes the value like the constructor and the setter of the property do: the value is converted and validated by the property (including the validators of all declarations of the property and the dependencies of the property), and the setter hooks of the property are executed. The typed property holds the new value afterwards.
+* **remove** resets the typed property to the state of a property which isn't provided: its default value or null. A required property can't be removed (*Missing required value for 'name'*), exactly like the constructor rejects the remaining data.
+* The typed setter of the property updates the additional property as well.
+
+The properties declared by the *properties* keyword of the schema are not additional properties: the accessor refuses to set them (*RegularPropertyAsAdditionalPropertyException*), use the setter of the property.
 
 Serialization
 ~~~~~~~~~~~~~

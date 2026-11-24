@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
@@ -118,18 +119,23 @@ class SetterUpdateRevalidationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['a' => 'x', 'c' => 'z'], $object->meta()->rawInput());
     }
 
+    /**
+     * A declared property whose name is rejected by propertyNames can never be provided: no update could add it, and
+     * its setter would reject every value like the constructor does. The schema is rejected at generation time.
+     */
     #[DataProvider('collectErrorsProvider')]
-    public function testUpdateAddingAPropertyViolatingPropertyNamesIsRejectedLikeTheConstructor(
-        bool $collectErrors,
-    ): void {
-        $className = $this->generateMutableClass('PropertyNamesViolatedByDeclaredProperty.json', $collectErrors);
+    public function testDeclaredPropertyViolatingPropertyNamesIsRejectedAtGenerationTime(bool $collectErrors): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote(
+                "Property 'zzz' declared at '#/properties/zzz' can never be provided: its name is rejected by the"
+                    . " propertyNames of the schema at '#' in file ",
+                '/',
+            ) . '.+\.json at line 1, column 60$/',
+        );
 
-        $this->assertUpdatesAreRejectedLikeTheConstructor($className, ['a' => 'x'], 'zzz', 'x');
-
-        // a property with a valid name is accepted
-        $object = new $className(['a' => 'x']);
-        $object->setA('y');
-        $this->assertSame(['a' => 'y'], $object->meta()->rawInput());
+        $this->generateMutableClass('PropertyNamesViolatedByDeclaredProperty.json', $collectErrors);
     }
 
     /**

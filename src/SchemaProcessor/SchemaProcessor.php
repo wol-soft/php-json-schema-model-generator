@@ -31,6 +31,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
+use PHPModelGenerator\SchemaProcessor\PropertyConstraint\ContradictoryPropertyConstraintsChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\BranchFilterScope;
@@ -281,6 +282,13 @@ class SchemaProcessor
         $this->registerProcessedFileSchema($jsonSchema->getFile(), $schema);
 
         $this->checkObjectRepresentability($jsonSchema, $className, $dictionary);
+
+        ContradictoryPropertyConstraintsChecker::forDictionary(
+            $this,
+            $dictionary,
+            $this->generatorConfiguration->getBuiltDraft($jsonSchema),
+            $this->generatorConfiguration,
+        )->check($jsonSchema);
 
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "%s": {
+      "type": "string"
+    },
+    "list": {
+      "type": "array",
+      "anyOf": [
+        {
+          "items": {
+            "type": "integer"
+          }
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}

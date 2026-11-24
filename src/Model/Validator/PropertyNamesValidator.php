@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
@@ -25,6 +26,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator implements Object
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         JsonSchema $propertiesNames,
+        bool $denyAllNames = false,
     ) {
         $this->isResolved = true;
 
@@ -52,18 +54,26 @@ class PropertyNamesValidator extends PropertyTemplateValidator implements Object
             );
         }
 
-        // Property names are always strings; ensure the schema declares the type so that
-        // string-specific validators (minLength, maxLength, pattern) are applied.
-        $propertiesNamesAsString = array_key_exists('type', $propertiesNames->getJson())
-            ? $propertiesNames
-            : $propertiesNames->withJson(['type' => 'string'] + $propertiesNames->getJson());
+        if ($denyAllNames) {
+            // the schema false: every name is rejected
+            $nameValidationProperty = new Property('property name', null, $propertiesNames);
+            $nameValidationProperty->addValidator(
+                new PropertyValidator($nameValidationProperty, 'true', DeniedPropertyException::class),
+            );
+        } else {
+            // Property names are always strings; ensure the schema declares the type so that
+            // string-specific validators (minLength, maxLength, pattern) are applied.
+            $propertiesNamesAsString = array_key_exists('type', $propertiesNames->getJson())
+                ? $propertiesNames
+                : $propertiesNames->withJson(['type' => 'string'] + $propertiesNames->getJson());
 
-        $nameValidationProperty = (new PropertyFactory())
-            ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString)
-            // the property name validator doesn't need type checks or required checks so simply filter them out
-            ->filterValidators(static fn(Validator $validator): bool =>
-                !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                !is_a($validator->getValidator(), TypeCheckValidator::class));
+            $nameValidationProperty = (new PropertyFactory())
+                ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString)
+                // the property name validator doesn't need type checks or required checks so simply filter them out
+                ->filterValidators(static fn(Validator $validator): bool =>
+                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                    !is_a($validator->getValidator(), TypeCheckValidator::class));
+        }
 
         parent::__construct(
             new Property($schema->getClassName(), null, $propertiesNames),

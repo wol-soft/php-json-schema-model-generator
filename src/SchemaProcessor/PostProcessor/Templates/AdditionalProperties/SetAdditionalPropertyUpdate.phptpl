@@ -1,16 +1,37 @@
 {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
 
+{% foreach typedProperties as typedProperty %}
+    {% if schemaHookResolver.resolveSetterBeforeValidationHook(typedProperty) %}
+        if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+            {{ viewHelper.indent(schemaHookResolver.resolveSetterBeforeValidationHook(typedProperty), 2) }}
+        }
+    {% endif %}
+{% endforeach %}
+
+{% if schema.hasMethod('_prepareBranchFilteredValues') %}
+    {#
+        The attributes processed by the update: the compositions don't validate them again for a switched active
+        branch (the typed property is processed below).
+    #}
+    $processedAttributes = [];
+    {% foreach typedProperties as typedProperty %}
+        if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+            $processedAttributes[] = {{ viewHelper.varExportArray(typedProperty.getAttribute(true)) }};
+        }
+    {% endforeach %}
+{% endif %}
+
 {% if schema.getBaseValidators() %}
     $addedProperty = [$key => $value];
     $this->_executeBaseValidators($addedProperty);
 
     {#
         The added key may switch the active branch of a composition: the properties depending on the active branch
-        are validated again before anything is assigned (no property of the model is processed by the update).
+        are validated again before anything is assigned.
     #}
     {% if schema.hasMethod('_prepareBranchFilteredValues') %}
         $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
-            [],
+            $processedAttributes,
             array_merge($this->_rawModelDataInput, [$key => $value]),
         );
     {% endif %}
@@ -26,8 +47,22 @@
     $this->_executePostCompositionValidators($candidateRawModelDataInput);
 {% endif %}
 
+{% if typedProperties %}
+    {#
+        A typed property which isn't declared by the root properties keyword is an additional property as well. The
+        typed attribute is processed like the constructor and populate() process it (type conversion, validators and
+        dependencies of the property), a rejection restores the model state.
+    #}
+    $typedModelData = [$key => $value];
+    {% foreach typedProperties as typedProperty %}
+        if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+            $this->_process{{ viewHelper.ucfirst(typedProperty.getAttribute()) }}($typedModelData);
+        }
+    {% endforeach %}
+{% endif %}
+
 {% if generatorConfiguration.collectErrors() %}
-    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() or typedProperties %}
         if (count($this->_errorRegistry->getErrors())) {
             throw $this->_errorRegistry;
         }

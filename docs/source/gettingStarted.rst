@@ -268,6 +268,10 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
 
     The option also applies to the branches of a composition (e.g. **oneOf**) of an object. Such a branch rejects all properties it doesn't define, so it depends on the keys of the model: if `immutability <#immutable-classes>`__ is disabled, the composition is validated again by every setter which adds a property to the model, not only by the setters of the properties defined in its branches. To avoid this, set *additionalProperties* to *true* explicitly for the branches.
 
+.. note::
+
+    A property which is required or declared by another schema of the object but denied by the option (e.g. a property required by a branch which doesn't define it) can never be provided. Such a schema is rejected at generation time, see `contradictory property constraints <complexTypes/object.html#contradictory-property-constraints>`__.
+
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

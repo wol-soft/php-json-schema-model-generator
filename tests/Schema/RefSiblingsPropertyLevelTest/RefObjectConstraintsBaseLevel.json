@@ -24,8 +24,6 @@
   "type": "object",
   "$ref": "#/$defs/inner",
   "properties": {
-    "c": {
-      "type": "string"
-    }
+    "c": true
   }
 }

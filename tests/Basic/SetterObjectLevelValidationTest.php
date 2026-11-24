@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
@@ -21,9 +22,10 @@ class SetterObjectLevelValidationTest extends AbstractPHPModelGeneratorTestCase
 {
     public static function objectLevelKeywordProvider(): array
     {
+        // A propertyNames schema rejecting the declared property 'note' is not part of the list: the property could
+        // never be provided, the schema is rejected at generation time (see ContradictoryPropertyConstraintsTest).
         $keywords = [
             'maxProperties' => ', "maxProperties": 1',
-            'propertyNames' => ', "propertyNames": {"pattern": "^kind$"}',
             'patternProperties' => ', "patternProperties": {"^note$": {"type": "string", "minLength": 3}}',
             'schema dependency of another property' => ', "dependencies": {"kind": {"maxProperties": 1}}',
         ];
@@ -61,19 +63,25 @@ class SetterObjectLevelValidationTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * A property declared only by a composition branch isn't declared by the schema itself: the additionalProperties
-     * constraint of the schema applies to it.
+     * constraint of the schema applies to it. As the schema denies the property, the property could never be provided
+     * and its setter would reject every value like the constructor does: the schema is rejected at generation time.
      */
     #[DataProvider('collectErrorsProvider')]
-    public function testSetterOfPropertyNotDeclaredByTheSchemaIsRejectedLikeTheConstructor(bool $collectErrors): void
+    public function testPropertyNotDeclaredByTheSchemaButDeniedByItIsRejectedAtGenerationTime(bool $collectErrors): void
     {
-        $this->addPopulatePostProcessor();
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote(
+                "Property 'note' declared at '#/anyOf/0/properties/note' can never be provided: it is denied as an"
+                    . " additional property by the schema at '#' in file ",
+                '/',
+            ) . '.+\.json at line 1, column 118$/',
+        );
 
-        $className = $this->generateClassFromFile(
+        $this->generateClassFromFile(
             'BranchPropertyNotDeclaredByRoot.json',
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
         );
-
-        $this->assertUpdatesAreRejectedLikeTheConstructor($className, 'setNote', 'note');
     }
 
     /**

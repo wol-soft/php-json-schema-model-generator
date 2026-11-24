@@ -438,10 +438,16 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
                 InvalidPropertyNamesException::class,
             ],
             // `c` is declared by the referencing schema only. The `additionalProperties` of the referenced schema
-            // does not know it, so by the spec it is an additional property there and has to be an integer.
+            // does not know it, so by the spec it is an additional property there and has to be an integer. `c` is
+            // declared without a type: a type conflicting with the integer (e.g. string) would leave no valid value
+            // for `c`, and such a schema is rejected at generation time.
             'property declared by the sibling is additional for the referenced schema' => [
                 ['c' => 'y', 'a' => 'x'],
                 InvalidAdditionalPropertiesException::class,
+            ],
+            'property declared by the sibling with a value satisfying the referenced schema' => [
+                ['c' => 5, 'a' => 'x'],
+                null,
             ],
         ];
     }

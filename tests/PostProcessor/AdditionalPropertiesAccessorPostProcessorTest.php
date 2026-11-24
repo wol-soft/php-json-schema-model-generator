@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
@@ -23,13 +24,21 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
-use Throwable;
 
 #[ApplicableDrafts]
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
+    private const BASE_LEVEL_REFERENCE_DECLARATION =
+        '"$defs": {"base": {"type": "object", "properties": {"foo": {"type": "string"}}}}, "$ref": "#/$defs/base"';
+
+    /**
+     * [phase, property name] entries appended by the setter hooks of the generated model
+     */
+    public static array $hookLog = [];
+
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator) use (
@@ -284,10 +293,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse($paramType->allowsNull());
     }
 
+    /**
+     * @param string $expectedMessageTemplate The expected message, '%s' is replaced with the class name
+     */
     #[DataProvider('invalidAdditionalPropertyDataProvider')]
     public function testInvalidAdditionalPropertyThrowsAnException(
         string $expectedException,
-        string $expectedExceptionMessage,
+        string $expectedMessageTemplate,
         string $action,
         array $items,
         string $expectedPointer,
@@ -302,18 +314,17 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
         $accessor = $object->additionalProperties();
 
-        try {
+        $exception = $this->catchException(static function () use ($accessor, $action, $items): void {
             foreach ($items as $property => $value) {
                 $action === 'remove'
                     ? $accessor->remove($value)
                     : $accessor->set($property, $value);
             }
-            $this->fail("Expected $expectedException");
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-            $this->assertStringContainsString($expectedExceptionMessage, $exception->getMessage());
-            $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
-        }
+        });
+
+        $this->assertInstanceOf($expectedException, $exception);
+        $this->assertSame(sprintf($expectedMessageTemplate, $className), $exception->getMessage());
+        $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
     }
 
     public static function invalidAdditionalPropertyDataProvider(): array
@@ -321,35 +332,43 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         return [
             'regular object property' => [
                 RegularPropertyAsAdditionalPropertyException::class,
-                "Could not add regular property 'name' as an additional property of object '",
+                "Could not add regular property 'name' as an additional property of object '%s'",
                 'add',
                 ['name' => 'Hannes'],
                 '/properties/name',
             ],
             'min properties violation' => [
                 MinPropertiesException::class,
-                'must not contain less than 2 properties',
+                "Provided object for '%s' must not contain less than 2 properties",
                 'remove',
                 ['property1'],
                 '/minProperties',
             ],
             'max properties violation' => [
                 MaxPropertiesException::class,
-                'must not contain more than 4 properties',
+                "Provided object for '%s' must not contain more than 4 properties",
                 'add',
                 ['property3' => 'Bye', 'property4' => 'Ciao', 'property5' => 'fails'],
                 '/maxProperties',
             ],
             'Invalid property name' => [
                 InvalidPropertyNamesException::class,
-                "contains properties with invalid names",
+                <<<'MSG'
+                Provided JSON for '%s' contains properties with invalid names
+                  - invalid property 'property name with spaces'
+                    * Value for 'property name' does not match pattern '^[a-z0-9]*$'
+                MSG,
                 'add',
                 ['property name with spaces' => 'should fail'],
                 '/propertyNames',
             ],
             'Invalid property value' => [
                 InvalidAdditionalPropertiesException::class,
-                "Value for 'additional property' must not be longer than 15",
+                <<<'MSG'
+                Provided JSON for '%s' contains invalid additional properties
+                  - invalid additional property 'property2'
+                    * Value for 'additional property' must not be longer than 15
+                MSG,
                 'add',
                 ['property2' => 'My much too long property value will fail the validation'],
                 '/additionalProperties',
@@ -377,12 +396,10 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         }
     }
 
-    public function testRegularPropertyMergedFromMultipleBranchesReportsFirstDeclaredPointer(): void
+    public function testNameDeclaredByMultipleBranchesIsSettableAndValidatedByEveryDeclaration(): void
     {
-        // 'name' is declared in two allOf branches (no root-level declaration) and merged into
-        // a single property carrying one #[JsonPointer] attribute per declaration site. The
-        // collision exception must report one of those real locations, not an arbitrary value
-        // derived from whichever JsonSchema instance the merged property happens to carry.
+        // 'name' is declared in two allOf branches (no root-level declaration) and merged into a single property. It
+        // is an additional property: the accessor sets it, and the validators of both declarations apply.
         $this->addPostProcessor(true);
 
         $className = $this->generateClassFromFile(
@@ -393,12 +410,55 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['name' => 'Hannes']);
         $accessor = $object->additionalProperties();
 
-        try {
-            $accessor->set('name', 'Other');
-            $this->fail('Expected RegularPropertyAsAdditionalPropertyException');
-        } catch (RegularPropertyAsAdditionalPropertyException $exception) {
-            $this->assertSame('/allOf/0/properties/name', $exception->getJsonPointer()->pointer);
-        }
+        $accessor->set('name', 'Other');
+        $this->assertSame('Other', $object->getName());
+        $this->assertSame(['name' => 'Other'], $accessor->getAll());
+
+        // violates the minLength of the second declaration only: rejected like the constructor rejects the data
+        $expectedException = $this->catchException(static fn() => new $className(['name' => '']));
+        $this->assertInstanceOf(AllOfException::class, $expectedException);
+
+        $exception = $this->catchException(static fn() => $accessor->set('name', ''));
+        $this->assertInstanceOf(AllOfException::class, $exception);
+        $this->assertSame($expectedException->getMessage(), $exception->getMessage());
+        $this->assertSame(
+            <<<MSG
+            Invalid value for '{$className}' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Value for 'name' must not be shorter than 1
+            MSG,
+            $exception->getMessage(),
+        );
+
+        $this->assertSame('Other', $object->getName());
+        $this->assertSame(['name' => 'Other'], $accessor->getAll());
+    }
+
+    /**
+     * A name declared by the root 'properties' keyword is not an additional property (the root additionalProperties
+     * keyword doesn't apply to it), the accessor keeps refusing it also if a branch declares the name as well. The
+     * exception reports the root declaration, not an arbitrary one of the merged property.
+     */
+    public function testRootPropertyAlsoDeclaredByABranchIsRefusedByTheAccessor(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateNonRootPropertyClass(
+            '"properties": {"name": {"type": "string"}}, "allOf": [{"properties": {"name": {"minLength": 1}}}]',
+        );
+
+        $object = new $className(['name' => 'Hannes']);
+        $exception = $this->catchException(static fn() => $object->additionalProperties()->set('name', 'Other'));
+
+        $this->assertInstanceOf(RegularPropertyAsAdditionalPropertyException::class, $exception);
+        $this->assertSame(
+            "Could not add regular property 'name' as an additional property of object '$className'",
+            $exception->getMessage(),
+        );
+        $this->assertSame('/properties/name', $exception->getJsonPointer()->pointer);
+        $this->assertSame('Hannes', $object->getName());
     }
 
     public function testMinPropertiesIsEnforcedWhenRemovingAPatternPropertyKey(): void
@@ -416,7 +476,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         // Removing the pattern-property key 'a1' would drop the count below minProperties=2 — must throw.
         $this->expectException(MinPropertiesException::class);
-        $this->expectExceptionMessage('must not contain less than 2 properties');
+        $this->expectExceptionMessage("Provided object for '{$className}' must not contain less than 2 properties");
 
         $accessor->remove('a1');
     }
@@ -519,6 +579,12 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());
 
         $this->expectException(AllOfException::class);
+        $this->expectExceptionMessage(
+            <<<MSG
+            Invalid value for '{$className}' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+            MSG,
+        );
         new $className(['kind' => 'a', 'extra' => 'not-an-integer']);
     }
 
@@ -571,6 +637,416 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['b' => 'y']);
         $this->assertTrue($object->additionalProperties()->remove('b'));
         $this->assertSame([], $object->meta()->rawInput());
+    }
+
+    /**
+     * Typed properties of the model which are not declared by the root 'properties' keyword. The root
+     * additionalProperties keyword applies to them, they are additional properties as well. Each entry: the schema
+     * keywords declaring 'foo', the data these keywords require besides 'foo', and the part of that data which is an
+     * additional property itself.
+     */
+    public static function optionalNonRootPropertyProvider(): array
+    {
+        return [
+            // declared by the only allOf branch
+            'allOf branch' => ['"allOf": [{"properties": {"foo": {"type": "string"}}}]', [], []],
+            // declared by the only anyOf branch
+            'anyOf branch' => ['"anyOf": [{"properties": {"foo": {"type": "string"}}}]', [], []],
+            // declared by the only oneOf branch
+            'oneOf branch' => ['"oneOf": [{"properties": {"foo": {"type": "string"}}}]', [], []],
+            // declared by the then branch; 'kind' is declared by the if branch only, so it is additional as well
+            'then branch' => [
+                '"if": {"properties": {"kind": {"const": "a"}}, "required": ["kind"]}, '
+                    . '"then": {"properties": {"foo": {"type": "string"}}}',
+                ['kind' => 'a'],
+                ['kind' => 'a'],
+            ],
+            // declared by the schema dependency of the root property 'a'
+            'schema dependency' => [
+                '"properties": {"a": {"type": "string"}}, '
+                    . '"dependencies": {"a": {"properties": {"foo": {"type": "string"}}}}',
+                ['a' => 'x'],
+                [],
+            ],
+        ];
+    }
+
+    /**
+     * Like optionalNonRootPropertyProvider, but 'foo' is listed in the root 'required' keyword.
+     */
+    public static function requiredNonRootPropertyProvider(): array
+    {
+        return [
+            // listed in 'required' without any declaration
+            'undeclared required name' => ['"required": ["foo"]', [], []],
+            // listed in the root 'required', declared by an allOf branch
+            'required name declared by an allOf branch' => [
+                '"required": ["foo"], "allOf": [{"properties": {"foo": {"type": "string"}}}]',
+                [],
+                [],
+            ],
+        ];
+    }
+
+    public static function typedSetterOfNonRootPropertyProvider(): array
+    {
+        return self::combineDataProvider(
+            array_merge(self::optionalNonRootPropertyProvider(), self::requiredNonRootPropertyProvider()),
+            [
+                // additional properties are stored without constraints
+                'additionalProperties true' => [true],
+                // additional properties are stored by the accessor post processor
+                'additionalProperties not defined' => [false],
+            ],
+        );
+    }
+
+    /**
+     * Without constraints for the additional properties the constructor stores the additional properties without
+     * validating them. The typed setter of a non-root property must update the stored additional property as well:
+     * the typed property and the stored additional property are two views of the same key.
+     */
+    #[DataProvider('typedSetterOfNonRootPropertyProvider')]
+    public function testTypedSetterOfNonRootPropertyUpdatesTheStoredAdditionalProperty(
+        string $declaration,
+        array $requiredData,
+        array $additionalRequiredData,
+        bool $additionalPropertiesTrue,
+    ): void {
+        $this->addPostProcessor(true);
+
+        $generatorConfiguration = (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false);
+        $className = $additionalPropertiesTrue
+            ? $this->generateClassFromFileTemplate(
+                'NonRootProperty.json',
+                [$declaration, 'true'],
+                $generatorConfiguration,
+                false,
+            )
+            : $this->generateClassFromFileTemplate(
+                'NonRootPropertyWithoutAdditionalProperties.json',
+                [$declaration],
+                $generatorConfiguration,
+                false,
+            );
+
+        $object = new $className($requiredData + ['foo' => 'ab']);
+        $this->assertSame($additionalRequiredData + ['foo' => 'ab'], $object->additionalProperties()->getAll());
+
+        $object->setFoo('xy');
+        $this->assertSame('xy', $object->getFoo());
+        $this->assertSame($additionalRequiredData + ['foo' => 'xy'], $object->additionalProperties()->getAll());
+    }
+
+    public static function nonRootPropertyProvider(): array
+    {
+        return array_merge(self::optionalNonRootPropertyProvider(), self::requiredNonRootPropertyProvider());
+    }
+
+    /**
+     * A non-root property is an additional property, the accessor sets it like any other additional property and the
+     * typed property reflects the new value.
+     *
+     * Refusing the accessor for every typed property (RegularPropertyAsAdditionalPropertyException) was rejected:
+     * the accessor lists the property as additional property, and the spec validates it as one.
+     */
+    #[DataProvider('nonRootPropertyProvider')]
+    public function testNonRootPropertyIsSettableThroughTheAdditionalPropertiesAccessor(
+        string $declaration,
+        array $requiredData,
+        array $additionalRequiredData,
+    ): void {
+        $this->assertNonRootPropertyIsSettable(
+            $this->generateNonRootPropertyClass($declaration),
+            $requiredData,
+            $additionalRequiredData,
+        );
+    }
+
+    /**
+     * A key removed through the accessor is no longer present in the model: the typed property doesn't keep the
+     * removed value.
+     */
+    #[DataProvider('optionalNonRootPropertyProvider')]
+    public function testRemovingAnOptionalNonRootPropertyThroughTheAdditionalPropertiesAccessorClearsTheProperty(
+        string $declaration,
+        array $requiredData,
+        array $additionalRequiredData,
+    ): void {
+        $this->assertNonRootPropertyIsRemovable(
+            $this->generateNonRootPropertyClass($declaration),
+            $requiredData,
+            $additionalRequiredData,
+        );
+    }
+
+    /**
+     * Removing a required key is rejected like the constructor rejects the remaining data, and leaves the model
+     * unchanged.
+     */
+    #[DataProvider('requiredNonRootPropertyProvider')]
+    public function testRemovingARequiredNonRootPropertyIsRejectedLikeTheConstructor(
+        string $declaration,
+        array $requiredData,
+        array $additionalRequiredData,
+    ): void {
+        $className = $this->generateNonRootPropertyClass($declaration);
+        $object = new $className($requiredData + ['foo' => 'ab']);
+
+        $expectedException = $this->catchException(static fn() => new $className($requiredData));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+        $this->assertSame("Missing required value for 'foo'", $expectedException->getMessage());
+
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('foo'));
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+
+        $this->assertSame('ab', $object->getFoo());
+        $this->assertSame($additionalRequiredData + ['foo' => 'ab'], $object->additionalProperties()->getAll());
+        $this->assertSame($requiredData + ['foo' => 'ab'], $object->meta()->rawInput());
+    }
+
+    /**
+     * The properties of a schema referenced on base level are evaluated by the referenced schema, not by the
+     * 'properties' keyword next to the root additionalProperties keyword. Draft 7 ignores the keywords next to a $ref.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyOfABaseLevelReferenceIsSettableThroughTheAdditionalPropertiesAccessor(): void
+    {
+        $this->assertNonRootPropertyIsSettable(
+            $this->generateNonRootPropertyClass(self::BASE_LEVEL_REFERENCE_DECLARATION),
+            [],
+            [],
+        );
+    }
+
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRemovingAPropertyOfABaseLevelReferenceThroughTheAccessorClearsTheProperty(): void
+    {
+        $this->assertNonRootPropertyIsRemovable(
+            $this->generateNonRootPropertyClass(self::BASE_LEVEL_REFERENCE_DECLARATION),
+            [],
+            [],
+        );
+    }
+
+    public static function nonRootPropertyWithDefaultProvider(): array
+    {
+        return [
+            // the composition applies the default of the allOf branch while it validates the remaining data
+            'allOf branch' => ['"allOf": [{"properties": {"foo": {"type": "string", "default": "df"}}}]', []],
+            'anyOf branch' => ['"anyOf": [{"properties": {"foo": {"type": "string", "default": "df"}}}]', []],
+            'schema dependency' => [
+                '"properties": {"a": {"type": "string"}}, '
+                    . '"dependencies": {"a": {"properties": {"foo": {"type": "string", "default": "df"}}}}',
+                ['a' => 'x'],
+            ],
+        ];
+    }
+
+    /**
+     * A removed key is absent like in a model constructed without it: the typed property holds its default, not null
+     * and not the removed value.
+     */
+    #[DataProvider('nonRootPropertyWithDefaultProvider')]
+    public function testRemovingANonRootPropertyWithADefaultResetsThePropertyToTheDefault(
+        string $declaration,
+        array $requiredData,
+    ): void {
+        $className = $this->generateNonRootPropertyClass($declaration);
+
+        $this->assertSame('df', (new $className($requiredData))->getFoo());
+
+        $object = new $className($requiredData + ['foo' => 'ab']);
+        $this->assertSame('ab', $object->getFoo());
+
+        $this->assertTrue($object->additionalProperties()->remove('foo'));
+        $this->assertSame('df', $object->getFoo());
+        $this->assertSame([], $object->additionalProperties()->getAll());
+        $this->assertSame($requiredData, $object->meta()->rawInput());
+    }
+
+    public static function readOnlyNonRootPropertyProvider(): array
+    {
+        return [
+            'allOf branch' => ['"allOf": [{"properties": {"foo": {"type": "string", "readOnly": true}}}]', []],
+            'schema dependency' => [
+                '"properties": {"a": {"type": "string"}}, '
+                    . '"dependencies": {"a": {"properties": {"foo": {"type": "string", "readOnly": true}}}}',
+                ['a' => 'x'],
+            ],
+        ];
+    }
+
+    /**
+     * A readOnly property has no setter. The accessor would bypass readOnly if it set or removed the property, so it
+     * refuses both and leaves the model unchanged.
+     */
+    #[DataProvider('readOnlyNonRootPropertyProvider')]
+    public function testReadOnlyNonRootPropertyIsRefusedByTheAccessor(string $declaration, array $requiredData): void
+    {
+        $className = $this->generateNonRootPropertyClass($declaration);
+        $object = new $className($requiredData + ['foo' => 'ab']);
+        $accessor = $object->additionalProperties();
+
+        $exception = $this->catchException(static fn() => $accessor->set('foo', 'zz'));
+        $this->assertInstanceOf(RegularPropertyAsAdditionalPropertyException::class, $exception);
+        $this->assertSame(
+            "Could not add regular property 'foo' as an additional property of object '$className'",
+            $exception->getMessage(),
+        );
+
+        $exception = $this->catchException(static fn() => $accessor->remove('foo'));
+        $this->assertInstanceOf(RegularPropertyAsAdditionalPropertyException::class, $exception);
+
+        $this->assertSame('ab', $object->getFoo());
+        $this->assertSame($requiredData + ['foo' => 'ab'], $object->meta()->rawInput());
+    }
+
+    /**
+     * The setter hooks of the typed property fire when the accessor sets the property (like populate() fires them
+     * for an updated property), the before hook also for a rejected update. Removing a key fires none, like removing
+     * any other additional property.
+     */
+    public function testSetterHooksOfANonRootPropertyFireWhenSettingThroughTheAccessor(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
+            $modelGenerator
+                ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true))
+                ->addPostProcessor(new class () extends PostProcessor {
+                    public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                    {
+                        $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
+                            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
+                            {
+                                return AdditionalPropertiesAccessorPostProcessorTest::hookLogCode(
+                                    'before',
+                                    $property,
+                                );
+                            }
+                        });
+                        $schema->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
+                            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
+                            {
+                                return AdditionalPropertiesAccessorPostProcessorTest::hookLogCode(
+                                    'after',
+                                    $property,
+                                );
+                            }
+                        });
+                    }
+                });
+        };
+
+        $className = $this->generateClassFromFileTemplate(
+            'NonRootProperty.json',
+            ['"allOf": [{"properties": {"foo": {"type": "string"}}}]', '{"maxLength": 3}'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $object = new $className(['foo' => 'ab']);
+        $accessor = $object->additionalProperties();
+        self::$hookLog = [];
+
+        $accessor->set('foo', 'zz');
+        $this->assertSame([['before', 'foo'], ['after', 'foo']], self::loggedHooksOf('foo'));
+
+        self::$hookLog = [];
+        $this->catchException(static fn() => $accessor->set('foo', 'abcd'));
+        $this->assertSame([['before', 'foo']], self::loggedHooksOf('foo'));
+
+        self::$hookLog = [];
+        $accessor->remove('foo');
+        $this->assertSame([], self::loggedHooksOf('foo'));
+    }
+
+    /**
+     * The code of a setter hook which appends [phase, property name] to the log of the test class
+     */
+    public static function hookLogCode(string $phase, PropertyInterface $property): string
+    {
+        return sprintf(
+            '%s::$hookLog[] = [%s, %s];',
+            '\\' . self::class,
+            var_export($phase, true),
+            var_export($property->getName(), true),
+        );
+    }
+
+    private static function loggedHooksOf(string $propertyName): array
+    {
+        return array_values(array_filter(
+            self::$hookLog,
+            static fn(array $entry): bool => $entry[1] === $propertyName,
+        ));
+    }
+
+    private function assertNonRootPropertyIsRemovable(
+        string $className,
+        array $requiredData,
+        array $additionalRequiredData,
+    ): void {
+        $object = new $className($requiredData + ['foo' => 'ab']);
+
+        $this->assertTrue($object->additionalProperties()->remove('foo'));
+        $this->assertNull($object->getFoo());
+        $this->assertSame($additionalRequiredData, $object->additionalProperties()->getAll());
+        $this->assertSame($requiredData, $object->meta()->rawInput());
+
+        // the model without the removed key is valid data for the constructor
+        $this->assertNull((new $className($object->meta()->rawInput()))->getFoo());
+    }
+
+    private function generateNonRootPropertyClass(string $declaration): string
+    {
+        $this->addPostProcessor(true);
+
+        return $this->generateClassFromFileTemplate(
+            'NonRootProperty.json',
+            [$declaration, '{"maxLength": 3}'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+    }
+
+    /**
+     * Sets 'foo' through the typed setter and through the accessor, the latter both valid and invalid
+     */
+    private function assertNonRootPropertyIsSettable(
+        string $className,
+        array $requiredData,
+        array $additionalRequiredData,
+    ): void {
+        $object = new $className($requiredData + ['foo' => 'ab']);
+        $accessor = $object->additionalProperties();
+
+        // the typed setter updates the stored additional property
+        $object->setFoo('xy');
+        $this->assertSame($additionalRequiredData + ['foo' => 'xy'], $accessor->getAll());
+
+        // the accessor updates the typed property
+        $accessor->set('foo', 'zz');
+        $this->assertSame('zz', $object->getFoo());
+        $this->assertSame($additionalRequiredData + ['foo' => 'zz'], $accessor->getAll());
+        $this->assertSame($requiredData + ['foo' => 'zz'], $object->meta()->rawInput());
+
+        // a value violating the additionalProperties keyword is rejected and leaves the model unchanged
+        $exception = $this->catchException(static fn() => $accessor->set('foo', 'abcd'));
+        $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $exception);
+        $this->assertSame(
+            <<<MSG
+            Provided JSON for '{$className}' contains invalid additional properties
+              - invalid additional property 'foo'
+                * Value for 'additional property' must not be longer than 3
+            MSG,
+            $exception->getMessage(),
+        );
+
+        $this->assertSame('zz', $object->getFoo());
+        $this->assertSame($additionalRequiredData + ['foo' => 'zz'], $accessor->getAll());
+        $this->assertSame($requiredData + ['foo' => 'zz'], $object->meta()->rawInput());
     }
 
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void

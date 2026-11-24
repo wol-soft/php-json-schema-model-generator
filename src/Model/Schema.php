@@ -66,6 +66,8 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    private const INTERNAL_PROPERTY_SLOT_PREFIX = "\0internal\0";
+
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
@@ -231,12 +233,14 @@ class Schema
         ?JsonSchema $rebuildFrom = null,
         ?SchemaProcessor $schemaProcessor = null,
     ): self {
-        if (!isset($this->properties[$property->getName()])) {
+        $slot = $this->getPropertySlot($property);
+
+        if (!isset($this->properties[$slot])) {
             // Register by name immediately — the name is always held locally on the property
             // or proxy, independent of whether the proxy's target is resolved yet.
-            $this->properties[$property->getName()] = $property;
+            $this->properties[$slot] = $property;
 
-            if ($compositionProcessor === null) {
+            if ($compositionProcessor === null && $slot === $property->getName()) {
                 $this->rootRegisteredPropertyNames[$property->getName()] = true;
             }
 
@@ -291,10 +295,10 @@ class Schema
 
         // The merge changes the registered property, other properties referencing the same definition must not be
         // affected.
-        $this->detachSharedProperty($property->getName());
+        $this->detachSharedProperty($slot);
 
         $replacesExisting = $this->propertyMerger->merge(
-            $this->properties[$property->getName()],
+            $this->properties[$slot],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
             $this->isRootRegistered($property->getName()),
@@ -309,6 +313,22 @@ class Schema
         }
 
         return $this;
+    }
+
+    /**
+     * The key of the property in the property list. An internal property (the runtime state of the model, e.g. the
+     * collected additional properties) is registered beside a property of the schema carrying the same name: the
+     * attributes differ (the internal attribute is prefixed), so both must be kept. Keying the internal properties by
+     * their plain name merged a property of the schema into the internal property (or the other way around).
+     *
+     * An unresolved property (a reference to a definition which is still being processed) can't be internal, its
+     * internal flag isn't available yet.
+     */
+    private function getPropertySlot(PropertyInterface $property): string
+    {
+        return $property->isResolved() && $property->isInternal()
+            ? self::INTERNAL_PROPERTY_SLOT_PREFIX . $property->getName()
+            : $property->getName();
     }
 
     /**
@@ -361,9 +381,10 @@ class Schema
      */
     private function replaceRegisteredProperty(PropertyInterface $property): void
     {
-        $wasResolved = $this->properties[$property->getName()]->isResolved();
+        $slot = $this->getPropertySlot($property);
+        $wasResolved = $this->properties[$slot]->isResolved();
 
-        $this->properties[$property->getName()] = $property;
+        $this->properties[$slot] = $property;
         $this->rootRegisteredPropertyNames[$property->getName()] = true;
 
         // The resolution counter counts the slot, not the property: a replaced property which was resolved already
