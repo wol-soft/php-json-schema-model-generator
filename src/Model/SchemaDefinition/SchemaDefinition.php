@@ -59,7 +59,6 @@ class SchemaDefinition
         string $propertyName,
         string $path,
         bool $required,
-        ?array $dependencies = null,
         bool $isArrayItem = false,
         bool $objectAsserted = false,
     ): PropertyInterface {
@@ -85,7 +84,6 @@ class SchemaDefinition
             $path,
             $required ? '1' : '0',
             $isArrayItem ? '1' : '0',
-            md5(json_encode($dependencies)),
             $objectAsserted ? '1' : '0',
         ]);
 

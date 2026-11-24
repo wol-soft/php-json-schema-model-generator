@@ -645,7 +645,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * Reports what the dependent subschemas of a schema evaluate through keywords the dependent contribution cannot
-     * credit (see PropertyDependencyTrait::recordDependentContributionShortfall()). Called once an
+     * credit (see DependenciesValidatorFactory::recordDependentContributionShortfall()). Called once an
      * unevaluatedProperties accumulator is known to consult the schema, and only where the draft knows the keyword:
      * on a draft which ignores it no validator exists and nothing can over-reject.
      *

@@ -10,7 +10,9 @@ use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -318,7 +320,10 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * A boolean value of `dependencies` is a boolean schema as well. It used to fail with the same TypeError. A `true`
-     * dependency imposes nothing, a `false` dependency forbids the property: the key must not be contained at all.
+     * dependency imposes nothing, a `false` dependency forbids the property: the key must not be contained at all. The
+     * denial is reported as the violated dependency, wrapping the denial of the property. Like every dependency it is
+     * validated after the declaration of the property, so a value which violates the declared type reports the type
+     * first.
      */
     public function testBooleanDependencyValues(): void
     {
@@ -327,12 +332,22 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('x', (new $className(['free' => 'x']))->getFree());
         $this->assertNull((new $className([]))->getForbidden());
 
-        foreach (['x', 5, null] as $value) {
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['forbidden' => 5],
+            InvalidTypeException::class,
+            "Invalid type for 'forbidden': requires 'string', got 'integer'",
+        );
+
+        foreach (['x', null] as $value) {
             $this->assertInstantiationFailsWithMessage(
                 $className,
                 ['forbidden' => $value],
-                DeniedPropertyException::class,
-                "Value for 'forbidden' is not allowed",
+                InvalidSchemaDependencyException::class,
+                <<<'ERROR'
+                Invalid schema which is dependant on 'forbidden':
+                  - Value for 'forbidden' is not allowed
+                ERROR,
             );
         }
     }

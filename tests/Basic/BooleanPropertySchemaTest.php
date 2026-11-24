@@ -29,12 +29,15 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
             // property denied by boolean false but also listed in required[]
             'required false property' => [
                 'RequiredFalseProperty.json',
-                "/^Property 'forbidden' is denied \(schema false\) but also listed as required in file/",
+                "/^Property 'forbidden' is denied \(schema false\) but also listed as required in file"
+                    . " .+\.json at line 1, column 1$/",
             ],
-            // property denied by boolean false but also has dependencies defined
+            // property denied by boolean false but also has dependencies; located at the dependency (the test
+            // writes the schema to a single line, column 105 is the start of the dependency value)
             'false property with dependency' => [
                 'FalsePropertyWithDependency.json',
-                "/^Property 'forbidden' is denied \(schema false\) but also has dependencies defined in file/",
+                "/^Property 'forbidden' is denied \(schema false\) but also has dependencies defined in file"
+                    . " .+\.json at line 1, column 105$/",
             ],
         ];
     }
@@ -117,7 +120,10 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectValidationError(
             $configuration,
-            "Missing required attributes which are dependants of 'anything'",
+            <<<ERROR
+            Missing required attributes which are dependants of 'anything':
+              - 'other'
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('TruePropertyWithDependency.json', $configuration);
