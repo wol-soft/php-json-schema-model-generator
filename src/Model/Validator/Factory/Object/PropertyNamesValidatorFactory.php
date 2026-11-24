@@ -29,11 +29,23 @@ class PropertyNamesValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        // the schema true accepts every name
+        if ($json[$this->key] === true) {
+            return;
+        }
+
+        // navigate() can't traverse into a boolean schema value: advance the pointer without descending into the
+        // JSON content (like the properties keyword does for a boolean property schema)
+        $propertyNamesSchema = is_bool($json[$this->key])
+            ? $propertySchema->withPointer($propertySchema->getPointer() . '/' . $this->key)->withJson([])
+            : $propertySchema->navigate($this->key);
+
         $schema->addBaseValidator(
             (new PropertyNamesValidator(
                 $schemaProcessor,
                 $schema,
-                $propertySchema->navigate($this->key),
+                $propertyNamesSchema,
+                $json[$this->key] === false,
             ))->withJsonPointer($propertySchema->getPointer() . '/' . $this->key),
         );
     }

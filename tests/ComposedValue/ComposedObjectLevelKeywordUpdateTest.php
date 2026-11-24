@@ -36,7 +36,15 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
             'maxProperties (collect errors)' => [', "maxProperties": 1', false, true, true],
             'additionalProperties' => [', "additionalProperties": false', false, false, true],
             'additionalProperties schema' => [', "additionalProperties": {"type": "integer"}', false, false, true],
-            'implicitly denied additionalProperties' => ['', true, false, true],
+            // The first branch declares 'note': if neither branch declared it the property could never be provided
+            // and the schema would be rejected at generation time.
+            'implicitly denied additionalProperties' => [
+                '',
+                true,
+                false,
+                true,
+                'BranchesWithImplicitlyDeniedAdditionalProperties.json',
+            ],
             'patternProperties' => [
                 ', "patternProperties": {"^(note|extra)$": {"type": "integer"}}',
                 false,
@@ -55,11 +63,12 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         bool $denyAdditionalProperties,
         bool $collectErrors,
         bool $additionalPropertyViolatesBranch,
+        string $schemaFile = 'BranchWithObjectLevelKeyword.json',
     ): void {
         $this->addUpdatePostProcessors();
 
         $className = $this->generateClassFromFileTemplate(
-            'BranchWithObjectLevelKeyword.json',
+            $schemaFile,
             [$branchKeyword],
             (new GeneratorConfiguration())
                 ->setImmutable(false)

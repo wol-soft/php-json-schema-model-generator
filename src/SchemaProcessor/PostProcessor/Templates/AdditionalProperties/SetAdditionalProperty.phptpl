@@ -1,6 +1,6 @@
 /**
  *{% if hasObjectProperties %} @throws RegularPropertyAsAdditionalPropertyException{% endif %}
- *{% if schema.getBaseValidators() or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if schema.getBaseValidators() or schema.getPostCompositionValidators() or typedProperties %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _setAdditionalProperty(
     string $key,
@@ -30,9 +30,10 @@ private function _setAdditionalProperty(
         the update is accepted - restore the model state if a later validator rejects the update. Hook code is only
         resolved for a validation property, which exists only with an AdditionalPropertiesValidator (a base
         validator), so the hook code is wrapped as well. The post-composition validators record the evaluated and
-        the unevaluated keys.
+        the unevaluated keys. The processing of a typed property assigns its attribute, which is restored as well if a
+        later validator rejects the update.
     #}
-    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() or typedProperties %}
         {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}
@@ -45,4 +46,12 @@ private function _setAdditionalProperty(
     {% endif %}
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
+
+    {% foreach typedProperties as typedProperty %}
+        {% if schemaHookResolver.resolveSetterAfterValidationHook(typedProperty) %}
+            if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+                {{ viewHelper.indent(schemaHookResolver.resolveSetterAfterValidationHook(typedProperty), 2) }}
+            }
+        {% endif %}
+    {% endforeach %}
 }

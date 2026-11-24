@@ -427,6 +427,39 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdd
 
     The validation of additional properties is independently from the `implicit null <../gettingStarted.html#implicit-null>`__ setting. If you require your additional properties to accept null define a `multi type <multiType.html>`__ with explicit null.
 
+Properties outside the properties keyword
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The *additionalProperties* keyword only exempts the properties declared by the *properties* (and matched by the *patternProperties*) of the same schema object. A property which is declared elsewhere — by a branch of a composition, by a schema dependency, by the target of a base level reference or only listed in *required* — is an additional property of the object as well: the *additionalProperties* keyword validates it, and it is part of the additional properties collection, although the generated class provides a getter and a setter for it.
+
+Contradictory property constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A schema which denies a property it requires or declares can't be used. Such a schema is rejected at generation time with a *SchemaException* instead of generating a model with a property which can never be provided:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false
+    }
+
+A property is denied by every schema which applies to the object unconditionally: the schema itself, the branches of an *allOf* (nested ones as well) and the target of a base level reference. The schema denies a property which it neither declares by its *properties* nor matches by one of its *patternProperties* if
+
+* *additionalProperties* is set to false (or isn't set while the `denyAdditionalProperties <../gettingStarted.html#deny-additional-properties>`__ option is active, which also applies to the branches of a composition),
+* the type of *additionalProperties* conflicts with the type declared for the property, or
+* the *propertyNames* schema rejects the name (the complete *propertyNames* schema is evaluated; keywords which can't be evaluated without an instance, like *format*, accept the name).
+
+An *anyOf* or *oneOf* denies a property only if every branch denies it. The conditional keywords (*if*, *then*, *else* and the schema form of *dependencies*) apply to some instances only and never deny a property for every instance.
+
+The following contradictions are detected:
+
+* a required property is denied: *Property 'name' is required but denied as an additional property by the schema at '#'*
+* a required property depends (via a property dependency) on a denied property
+* a declared property is denied: *Property 'name' declared at '#/allOf/0/properties/name' can never be provided: it is denied as an additional property by the schema at '#'*
+* more properties are required than *maxProperties* allows
+
 Unevaluated Properties
 ----------------------
 
@@ -698,6 +731,8 @@ With the keyword `propertyNames` rules can be defined which must be fulfilled by
     }
 
 Compare `strings <../types/string.html>`__ for information concerning possible property name validators.
+
+The boolean schemas are supported as well: ``"propertyNames": true`` accepts every property name, ``"propertyNames": false`` rejects every property name (only an object without properties is valid).
 
 Exceptions contain detailed information about the violations:
 

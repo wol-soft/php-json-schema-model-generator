@@ -11,6 +11,17 @@ if ($inAdditionalProperties) {
 }
 
 {#
+    The typed attribute of the removed key holds the state of an absent key: its default (null without a default). The
+    reset happens before the compositions are validated: a composition may apply the default of a branch to the
+    attribute, which a later reset would overwrite.
+#}
+{% foreach typedProperties as typedProperty %}
+    if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+        $this->{{ typedProperty.getAttribute(true) }} = {% if viewHelper.isNull(typedProperty.getDefaultValue()) %}null{% else %}{{ typedProperty.getDefaultValue() }}{% endif %};
+    }
+{% endforeach %}
+
+{#
     Validate the remaining data in the order of the constructor: the compositions are base validators, the
     dependencies are validators of the declared properties.
 #}
@@ -26,6 +37,18 @@ if ($inAdditionalProperties) {
         $this->_validateComposition_{{ compositionValidatorKey }}($updatedModelData);
     {% endforeach %}
 {% endif %}
+
+{#
+    The typed attribute of the removed key is validated like the constructor validates an absent key - a required
+    property rejects the removal. Resetting the attribute without validating it was rejected: the removal would bypass
+    the required keyword. Processing the attribute without the reset above was rejected as well: for an absent key the
+    processing keeps the current value of the attribute, which is the removed one.
+#}
+{% foreach typedProperties as typedProperty %}
+    if ($key === {{ viewHelper.varExportArray(typedProperty.getName()) }}) {
+        $this->_process{{ viewHelper.ucfirst(typedProperty.getAttribute()) }}($this->_rawModelDataInput);
+    }
+{% endforeach %}
 
 {% if dependencyValidators %}
     $this->_executeDependencyValidators($this->_rawModelDataInput);
@@ -48,7 +71,7 @@ if ($inAdditionalProperties) {
     $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues([], $this->_rawModelDataInput);
 {% endif %}
 
-{% if compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %}
+{% if compositionValidatorKeys or dependencyValidators or typedProperties or schema.getPostCompositionValidators() %}
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
             throw $this->_errorRegistry;

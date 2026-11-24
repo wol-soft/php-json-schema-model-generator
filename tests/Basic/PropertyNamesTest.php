@@ -100,20 +100,52 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        try {
-            new $className($properties);
-            $this->fail('Expected exception for invalid property names');
-        } catch (ErrorRegistryException | InvalidPropertyNamesException $exception) {
-            $this->assertStringContainsString($exceptionMessage, $exception->getMessage());
+        $exception = $this->catchException(static fn() => new $className($properties));
 
-            // collectErrors(true) wraps the property names exception in an ErrorRegistryException.
-            $innerException = $exception instanceof ErrorRegistryException
-                ? $exception->getErrors()[0]
-                : $exception;
+        $this->assertSame("Provided JSON for '$className' $exceptionMessage", $exception?->getMessage());
 
-            $this->assertInstanceOf(InvalidPropertyNamesException::class, $innerException);
-            $this->assertSame('/propertyNames', $innerException->getJsonPointer()->pointer);
-        }
+        // collectErrors(true) wraps the property names exception in an ErrorRegistryException.
+        $innerException = $exception instanceof ErrorRegistryException
+            ? $exception->getErrors()[0]
+            : $exception;
+
+        $this->assertInstanceOf(InvalidPropertyNamesException::class, $innerException);
+        $this->assertSame('/propertyNames', $innerException->getJsonPointer()->pointer);
+    }
+
+    public function testPropertyNamesTrueAcceptsAllProperties(): void
+    {
+        $className = $this->generateClassFromFileTemplate('PropertyNames.json', ['true'], escape: false);
+
+        $object = new $className(['myProperty1' => 1, '#' => 2]);
+
+        $this->assertSame(['myProperty1' => 1, '#' => 2], $object->meta()->rawInput());
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testPropertyNamesFalseAcceptsOnlyAnObjectWithoutProperties(
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $className = $this->generateClassFromFileTemplate(
+            'PropertyNames.json',
+            ['false'],
+            $generatorConfiguration,
+            false,
+        );
+
+        $object = new $className([]);
+        $this->assertSame([], $object->meta()->rawInput());
+
+        $exception = $this->catchException(static fn() => new $className(['myProperty1' => 1]));
+
+        $this->assertSame(
+            <<<ERROR
+            Provided JSON for '$className' contains properties with invalid names
+              - invalid property 'myProperty1'
+                * Value for 'property name' is not allowed
+            ERROR,
+            $exception?->getMessage(),
+        );
     }
 
     public static function invalidPropertyNamesDataProvider(): array
@@ -306,7 +338,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidConstPropertyNamesThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/Invalid const property name in file/');
+        $this->expectExceptionMessageMatches('/^Invalid const property name in file .+\.json at line 1, column 34$/');
 
         $this->generateClassFromFileTemplate('PropertyNames.json', ['{"const": false}'], escape: false);
     }
@@ -316,7 +348,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Invalid type '$type' for propertyNames schema in file/",
+            "/^Invalid type '$type' for propertyNames schema in file .+\.json at line 1, column 34$/",
         );
 
         $this->generateClassFromFileTemplate(

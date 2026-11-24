@@ -153,21 +153,18 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty,
     ): void {
-        $nonInternalProperties = array_filter(
-            $schema->getProperties(),
-            static fn(PropertyInterface $property): bool => !$property->isInternal(),
-        );
+        [$refusedProperties, $typedProperties] = $this->classifyProperties($schema);
 
         $objectProperties = array_map(
             static fn(PropertyInterface $property): string => $property->getName(),
-            $nonInternalProperties,
+            $refusedProperties,
         );
 
         $objectPropertyPointers = array_combine(
-            array_map(static fn(PropertyInterface $property): string => $property->getName(), $nonInternalProperties),
+            $objectProperties,
             array_map(
                 static fn(PropertyInterface $property): string => JsonSchemaUtil::resolvePrimaryJsonPointer($property),
-                $nonInternalProperties,
+                $refusedProperties,
             ),
         );
 
@@ -189,6 +186,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'hasObjectProperties' => $hasObjectProperties,
                     'objectProperties' => RenderHelper::varExportArray($objectProperties),
                     'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
+                    'typedProperties' => $typedProperties,
                     'schemaHookResolver' => $schemaHookResolver,
                     'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
                     // the update is rendered on its own to be wrapped into the model state rollback
@@ -198,12 +196,47 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                         'AdditionalProperties' . DIRECTORY_SEPARATOR . 'SetAdditionalPropertyUpdate.phptpl',
                         [
                             'validationProperty' => $validationProperty,
+                            'typedProperties' => $typedProperties,
                             'schemaHookResolver' => $schemaHookResolver,
                         ],
                     ),
                 ],
             )
         );
+    }
+
+    /**
+     * Splits the properties of the model into the properties the accessor refuses and the typed properties it keeps
+     * in sync. A property declared by the root properties keyword isn't an additional property (the root
+     * additionalProperties keyword doesn't apply to it); a readOnly property has no setter, which the accessor must
+     * not bypass. Every other property (declared by a composition branch, a dependency, a base level reference or
+     * only listed as required) is an additional property which is also represented by a typed attribute.
+     *
+     * @return array{0: PropertyInterface[], 1: PropertyInterface[]}
+     */
+    private function classifyProperties(Schema $schema): array
+    {
+        $rootProperties = array_map(
+            'strval',
+            array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),
+        );
+
+        $refusedProperties = [];
+        $typedProperties = [];
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            if ($property->isReadOnly() || in_array($property->getName(), $rootProperties, true)) {
+                $refusedProperties[] = $property;
+            } else {
+                $typedProperties[] = $property;
+            }
+        }
+
+        return [$refusedProperties, $typedProperties];
     }
 
     /**
@@ -225,6 +258,26 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 MinPropertiesException::class,
                 [$json['minProperties'], '&$updatedPropertiesCount'],
             ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
+        }
+
+        [$refusedProperties, $typedProperties] = $this->classifyProperties($schema);
+        $readOnlyProperties = array_filter(
+            $refusedProperties,
+            static fn(PropertyInterface $property): bool => $property->isReadOnly(),
+        );
+        $readOnlyPropertyNames = array_map(
+            static fn(PropertyInterface $property): string => $property->getName(),
+            $readOnlyProperties,
+        );
+        $readOnlyPropertyPointers = array_combine(
+            $readOnlyPropertyNames,
+            array_map(
+                static fn(PropertyInterface $property): string => JsonSchemaUtil::resolvePrimaryJsonPointer($property),
+                $readOnlyProperties,
+            ),
+        );
+        if ($readOnlyPropertyNames !== []) {
+            $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
         }
 
         // Every composition is validated again: a removed key may be required by any branch, also by a branch which
@@ -249,6 +302,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'minPropertyValidator' => $minPropertyValidator,
                     'compositionValidatorKeys' => $compositionValidatorKeys,
                     'dependencyValidators' => $dependencyValidators,
+                    'typedProperties' => $typedProperties,
+                    'hasReadOnlyProperties' => $readOnlyPropertyNames !== [],
+                    'readOnlyProperties' => RenderHelper::varExportArray($readOnlyPropertyNames),
+                    'readOnlyPropertyPointers' => RenderHelper::varExportArray($readOnlyPropertyPointers),
                     'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
                     // the update is rendered on its own to be wrapped into the model state rollback
                     'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
@@ -258,6 +315,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                         [
                             'compositionValidatorKeys' => $compositionValidatorKeys,
                             'dependencyValidators' => $dependencyValidators,
+                            'typedProperties' => $typedProperties,
                         ],
                     ),
                 ],
