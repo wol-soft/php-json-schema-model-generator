@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "type": "number",
-      "anyOf": [
+      "%1$s": [
         {
           "type": "integer"
         },
@@ -15,7 +15,7 @@
     "rangedProperty": {
       "type": "number",
       "minimum": 1,
-      "anyOf": [
+      "%1$s": [
         {
           "type": "integer",
           "maximum": 3
@@ -31,7 +31,7 @@
         "number",
         "string"
       ],
-      "anyOf": [
+      "%1$s": [
         {
           "type": "integer"
         },
@@ -42,7 +42,7 @@
     },
     "integerBranchesOnly": {
       "type": "number",
-      "anyOf": [
+      "%1$s": [
         {
           "type": "integer",
           "minimum": 5

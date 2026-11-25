@@ -812,35 +812,4 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ConditionalException::class);
         new $className(['property' => 3]);
     }
-
-    /**
-     * A `then` schema which is a `$ref` to a definition with a type disjoint from the declared type
-     * does not inherit the declared type: it would conflict with the referenced type in the drafts
-     * which apply the siblings of a `$ref`. The branch can never be satisfied, so every value
-     * which meets the condition is rejected.
-     */
-    public function testThenReferenceDisjointFromPropertyTypeRejectsValuesMeetingTheCondition(): void
-    {
-        $className = $this->generateClassFromFile(
-            'ThenReferenceDisjointFromPropertyType.json',
-            (new GeneratorConfiguration())->setCollectErrors(false),
-        );
-
-        $this->assertSame('a', (new $className(['property' => 'a']))->getProperty());
-
-        try {
-            new $className(['property' => 'ab']);
-            $this->fail('Expected a ConditionalException for the value ab');
-        } catch (ConditionalException $exception) {
-            $this->assertSame(
-                <<<ERROR
-                Invalid value for 'property' declined by conditional composition constraint
-                  - Condition: Valid
-                  - Conditional branch failed:
-                    * Invalid type for 'property': requires 'int', got 'string'
-                ERROR,
-                $exception->getMessage(),
-            );
-        }
-    }
 }

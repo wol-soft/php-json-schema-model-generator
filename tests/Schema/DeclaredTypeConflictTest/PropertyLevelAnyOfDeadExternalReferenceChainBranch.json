@@ -5,10 +5,10 @@
       "type": "string",
       "anyOf": [
         {
-          "type": "integer"
+          "$ref": "../DeclaredTypeConflictTest_external/IntegerAlias.json"
         },
         {
-          "type": "boolean"
+          "type": "string"
         }
       ]
     }

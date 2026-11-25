@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "type": "string",
-      "oneOf": [
+      "%1$s": [
         {
           "type": "string"
         },
@@ -14,7 +14,7 @@
     },
     "requiredProperty": {
       "type": "string",
-      "oneOf": [
+      "%1$s": [
         {
           "type": "string"
         },

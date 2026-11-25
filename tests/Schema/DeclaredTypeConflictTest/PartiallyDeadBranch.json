@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "type": "number",
-      "anyOf": [
+      "%1$s": [
         {
           "type": "integer"
         },
@@ -17,7 +17,7 @@
         "string",
         "boolean"
       ],
-      "anyOf": [
+      "%1$s": [
         {
           "type": [
             "integer",

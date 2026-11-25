@@ -3,12 +3,12 @@
   "properties": {
     "property": {
       "type": "string",
-      "anyOf": [
+      "%1$s": [
         {
-          "$ref": "../ComposedAnyOfTest_external/IntegerAlias.json"
+          "type": "integer"
         },
         {
-          "type": "string"
+          "type": "boolean"
         }
       ]
     }

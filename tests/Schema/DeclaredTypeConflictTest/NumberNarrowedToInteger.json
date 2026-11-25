@@ -3,7 +3,7 @@
   "properties": {
     "numberBranch": {
       "type": "integer",
-      "oneOf": [
+      "%1$s": [
         {
           "type": "number",
           "minimum": 10
@@ -19,7 +19,7 @@
         "string"
       ],
       "minimum": 10,
-      "oneOf": [
+      "%1$s": [
         {
           "type": "integer"
         },

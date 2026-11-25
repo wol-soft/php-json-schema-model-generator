@@ -450,37 +450,4 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
             ],
         ];
     }
-
-    /**
-     * A `not` schema which is a `$ref` to a definition with a type disjoint from the declared type
-     * does not inherit the declared type: it would conflict with the referenced type in the drafts
-     * which apply the siblings of a `$ref`. Such a `not` holds for every value of the declared
-     * type. A `$ref` to an untyped definition still inherits the declared type, so its string
-     * keywords apply.
-     */
-    public function testNotReferenceDisjointFromPropertyTypeAcceptsEveryValueOfTheDeclaredType(): void
-    {
-        $className = $this->generateClassFromFile(
-            'NotReferenceDisjointFromPropertyType.json',
-            (new GeneratorConfiguration())->setCollectErrors(false),
-        );
-
-        $object = new $className(['notInteger' => 'ab', 'notShort' => 'abcd']);
-        $this->assertSame('ab', $object->getNotInteger());
-        $this->assertSame('abcd', $object->getNotShort());
-
-        try {
-            new $className(['notInteger' => 'ab', 'notShort' => 'abc']);
-            $this->fail('Expected a NotException for the value abc');
-        } catch (NotException $exception) {
-            $this->assertSame(
-                <<<ERROR
-                Invalid value for 'notShort' declined by composition constraint
-                  Requires to match none composition element but matched 1 element
-                  - Composition element #1: Valid
-                ERROR,
-                $exception->getMessage(),
-            );
-        }
-    }
 }

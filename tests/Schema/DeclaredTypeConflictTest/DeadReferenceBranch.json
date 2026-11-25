@@ -15,7 +15,7 @@
   "properties": {
     "property": {
       "type": "string",
-      "anyOf": [
+      "%1$s": [
         {
           "$ref": "#/definitions/integerValue"
         },
@@ -26,7 +26,7 @@
     },
     "aliasProperty": {
       "type": "string",
-      "anyOf": [
+      "%1$s": [
         {
           "$ref": "#/definitions/integerAlias"
         },
@@ -37,7 +37,7 @@
     },
     "booleanReferenceProperty": {
       "type": "string",
-      "anyOf": [
+      "%1$s": [
         {
           "$ref": "#/definitions/anything"
         },

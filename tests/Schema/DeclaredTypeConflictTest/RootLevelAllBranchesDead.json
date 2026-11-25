@@ -5,7 +5,7 @@
       "type": "string"
     }
   },
-  "oneOf": [
+  "%1$s": [
     {
       "type": "string"
     },
