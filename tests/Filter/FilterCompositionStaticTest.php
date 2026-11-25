@@ -282,8 +282,9 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/Filter stringToInt on property filteredProperty.*can never be executed'
-                . '.*allOf type constraints \(int\) exclude all input types accepted by the filter \(string\)/',
+            "/^Filter 'stringToInt' on property 'filteredProperty' in file \\S+\\.json can never be executed:"
+                . " the allOf type constraints 'integer' exclude all input types accepted by the filter 'string'"
+                . ' at line \\d+, column \\d+$/',
         );
 
         // allOf requires integer values but stringToInt only accepts strings; no value
@@ -310,8 +311,9 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/Filter stringToInt on property filteredProperty.*can never be executed'
-                . '.*allOf type constraints \(int\) exclude all input types accepted by the filter \(string\)/',
+            "/^Filter 'stringToInt' on property 'filteredProperty' in file \\S+\\.json can never be executed:"
+                . " the allOf type constraints 'integer' exclude all input types accepted by the filter 'string'"
+                . ' at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile(
@@ -362,8 +364,9 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/Filter dateTime on property filteredProperty.*can never be executed'
-                . '.*allOf type constraints \(object\) exclude/',
+            "/^Filter 'dateTime' on property 'filteredProperty' in file \\S+\\.json can never be executed:"
+                . " the allOf type constraints 'object' exclude all input types accepted by the filter"
+                . " \\['string', 'integer', 'number', 'null'\\] at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFile('FilterCompositionAllOfObjectBranchOutput.json');

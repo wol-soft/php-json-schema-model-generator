@@ -8,6 +8,7 @@ use Exception;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\MessageFormatter;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -31,6 +32,7 @@ use PHPModelGenerator\Utils\NormalizedName;
 use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 /**
  * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
@@ -382,15 +384,12 @@ class EnumPostProcessor extends PostProcessor
         }
 
         if (!empty($removedValues)) {
-            $typeLabel   = implode('|', $declaredTypes);
-            $removedList = implode(', ', array_map(
-                static fn($value): string => var_export($value, true),
-                $removedValues,
-            ));
+            $typeLabel   = TypeNameFormatter::fromJsonTypes($json['type']);
+            $removedList = implode(', ', array_map(MessageFormatter::format(...), $removedValues));
 
             $generatorConfiguration->getLogger()->warning(
-                "Enum property '{property}' in file {file} declares type '{type}' but contains incompatible"
-                    . " values: {removedValues}. These values have been removed from the generated enum.",
+                "Enum property '{property}' in file {file} declares type {type} but contains the incompatible"
+                    . ' values {removedValues}, which have been removed from the generated enum',
                 [
                     'property' => $property->getName(),
                     'file' => $property->getJsonSchema()->getFile(),

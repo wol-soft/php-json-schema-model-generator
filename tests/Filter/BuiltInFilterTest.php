@@ -68,14 +68,12 @@ class BuiltInFilterTest extends AbstractFilterTestCase
     }
 
     #[DataProvider('invalidUsageOfBuiltInFilterDataProvider')]
-    public function testInvalidUsageOfBuiltInFilterThrowsAnException(
-        string $template,
-        string $jsonType,
-        string $phpType,
-    ): void {
+    public function testInvalidUsageOfBuiltInFilterThrowsAnException(string $template, string $jsonType): void
+    {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Filter trim is not compatible with property type $phpType for property property/",
+            "/^Filter 'trim' is not compatible with property type '$jsonType' for property 'property'"
+                . ' in file \\S+\\.json at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFileTemplate($template, ['"' . $jsonType . '"'], null, false);
@@ -86,11 +84,11 @@ class BuiltInFilterTest extends AbstractFilterTestCase
         return self::combineDataProvider(
             self::validTrimDataFormatProvider(),
             [
-                'boolean' => ['boolean', 'bool'],
-                'integer' => ['integer', 'int'],
-                'number'  => ['number', 'float'],
-                'array'   => ['array', 'array'],
-                'object'  => ['object', 'object'],
+                'boolean' => ['boolean'],
+                'integer' => ['integer'],
+                'number'  => ['number'],
+                'array'   => ['array'],
+                'object'  => ['object'],
             ],
         );
     }

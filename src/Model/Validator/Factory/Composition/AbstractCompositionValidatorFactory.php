@@ -8,7 +8,6 @@ use Closure;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
-use PHPModelGenerator\Exception\MessageFormatter;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\BaseProperty;
@@ -34,6 +33,7 @@ use PHPModelGenerator\Utils\BranchNameResolver;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
@@ -361,7 +361,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $branchLabel,
                     $property->getName(),
                     $propertySchema->getFile(),
-                    self::formatTypes($branchJson['type']),
+                    TypeNameFormatter::fromJsonTypes($branchJson['type']),
                 ),
                 $propertySchema->navigate("$this->key/$branchIndex"),
             );
@@ -373,7 +373,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             [
                 'branch' => $branchLabel,
                 'property' => $property->getName(),
-                'type' => self::formatTypes($branchJson['type']),
+                'type' => TypeNameFormatter::fromJsonTypes($branchJson['type']),
             ],
         );
     }
@@ -449,16 +449,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         };
     }
 
-    /**
-     * Render the 'type' of a branch for a message: 'object', or ['string', 'null'] for a type list
-     * (the same notation InvalidTypeException uses for its expected types).
-     *
-     * @param string|string[] $types
-     */
-    private static function formatTypes(string | array $types): string
-    {
-        return is_array($types) ? '[' . MessageFormatter::quotedList($types) . ']' : "'$types'";
-    }
 
     /**
      * Returns true when composition processing should be skipped for this property.
@@ -1095,7 +1085,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         // The messages name the types as the author wrote them (`number`, not the PHP type `float`),
         // formatted like the other composition diagnostics.
-        $declaredType = self::formatJsonTypes($property->getJsonSchema()->getJson()['type']);
+        $declaredType = TypeNameFormatter::fromJsonTypes($property->getJsonSchema()->getJson()['type']);
         $isFatal = !self::isInsideNonAllOfBranch($property->getJsonSchema()->getPointer());
 
         if ($isFatal && $keyword === 'allOf') {
@@ -1148,20 +1138,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
     private static function formatBranchType(CompositionPropertyDecorator $branch): string
     {
-        return self::formatJsonTypes($branch->getJsonSchema()->getJson()['type']);
-    }
-
-    /**
-     * Formats the value of a `type` keyword like formatTypes(). The internal 'base' type, which
-     * replaces the `type` of a schema which becomes a class, is shown as the 'object' it stands for.
-     *
-     * @param string|string[] $jsonType
-     */
-    private static function formatJsonTypes(string | array $jsonType): string
-    {
-        $replaceBase = static fn(string $typeName): string => $typeName === 'base' ? 'object' : $typeName;
-
-        return self::formatTypes(is_array($jsonType) ? array_map($replaceBase, $jsonType) : $replaceBase($jsonType));
+        return TypeNameFormatter::fromJsonTypes($branch->getJsonSchema()->getJson()['type']);
     }
 
     /**

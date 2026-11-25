@@ -16,14 +16,13 @@ use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 class FilterValidator extends PropertyTemplateValidator
 {
     private bool $executed = true;
 
     /**
-     * FilterValidator constructor.
-     *
      * @throws SchemaException
      * @throws ReflectionException
      */
@@ -272,9 +271,9 @@ class FilterValidator extends PropertyTemplateValidator
         if (!$hasOverlap) {
             throw new SchemaException(
                 sprintf(
-                    'Filter %s is not compatible with property type %s for property %s in file %s',
+                    "Filter '%s' is not compatible with property type %s for property '%s' in file %s",
                     $this->filter->getToken(),
-                    implode('|', array_merge($typeNames, $isNullable ? ['null'] : [])),
+                    TypeNameFormatter::fromPhpTypes(array_merge($typeNames, $isNullable ? ['null'] : [])),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 ),
@@ -307,9 +306,9 @@ class FilterValidator extends PropertyTemplateValidator
             if (!empty($filterAcceptedTypes)) {
                 throw new SchemaException(
                     sprintf(
-                        'Filter %s is not compatible with the unconstrained output of'
-                            . ' transforming filter %s for property %s in file %s'
-                            . ' (not all types are accepted)',
+                        "Filter '%s' is not compatible with the unconstrained output of"
+                            . " transforming filter '%s' for property '%s' in file %s:"
+                            . ' not all types are accepted',
                         $this->filter->getToken(),
                         $transformingFilter->getToken(),
                         $property->getName(),
@@ -337,15 +336,12 @@ class FilterValidator extends PropertyTemplateValidator
             $displayTypes = $returnNullable
                 ? array_merge(['null'], $returnTypeNames)
                 : $returnTypeNames;
-            $typeDisplay = count($displayTypes) > 1
-                ? '[' . implode(', ', $displayTypes) . ']'
-                : $displayTypes[0];
 
             throw new SchemaException(
                 sprintf(
-                    'Filter %s is not compatible with transformed property type %s for property %s in file %s',
+                    "Filter '%s' is not compatible with transformed property type %s for property '%s' in file %s",
                     $this->filter->getToken(),
-                    $typeDisplay,
+                    TypeNameFormatter::fromPhpTypes($displayTypes),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 ),
@@ -431,13 +427,13 @@ class FilterValidator extends PropertyTemplateValidator
 
         throw new SchemaException(
             sprintf(
-                'Filter %s on property %s in file %s can never be executed:'
-                    . ' allOf type constraints (%s) exclude all input types accepted by the filter (%s)',
+                "Filter '%s' on property '%s' in file %s can never be executed:"
+                    . ' the allOf type constraints %s exclude all input types accepted by the filter %s',
                 $this->filter->getToken(),
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
-                implode('|', $effectiveTypes),
-                implode('|', $acceptedTypes),
+                TypeNameFormatter::fromPhpTypes($effectiveTypes),
+                TypeNameFormatter::fromPhpTypes($acceptedTypes),
             ),
             $property->getJsonSchema(),
         );

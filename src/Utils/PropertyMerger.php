@@ -212,11 +212,11 @@ class PropertyMerger
 
             $this->generatorConfiguration?->getLogger()->warning(
                 "Composition branch defines property '{property}' with type {incomingType} which differs"
-                    . " from root type {rootType} — root definition takes precedence.",
+                    . ' from root type {rootType}: the root definition takes precedence',
                 [
                     'property' => $incoming->getName(),
-                    'incomingType' => implode('|', $incomingOutput->getNames()),
-                    'rootType' => implode('|', $existingOutput->getNames()),
+                    'incomingType' => TypeNameFormatter::fromPhpTypes($incomingOutput->getNames()),
+                    'rootType' => TypeNameFormatter::fromPhpTypes($existingOutput->getNames()),
                 ],
             );
         }

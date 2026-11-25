@@ -408,7 +408,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Filter trim is not compatible with property type base for property .* in file"
+            "/^Filter 'trim' is not compatible with property type 'object' for property '[^']+' in file"
                 . ' .*\\.json at line \\d+, column \\d+$/',
         );
 

@@ -43,6 +43,7 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 class PropertyFactory
 {
@@ -770,12 +771,12 @@ class PropertyFactory
 
         if (empty(TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames))) {
             throw new SchemaException(sprintf(
-                "Property '%s' in file %s: \$ref resolves to type '%s' but sibling 'type' "
-                    . "declares '%s'; the types are incompatible",
+                "Property '%s' in file %s: \$ref resolves to type %s but sibling 'type' "
+                    . 'declares %s; the types are incompatible',
                 $propertyName,
                 $siblingSchema->getFile(),
-                implode(' | ', $producedPhpTypeNames),
-                $siblingJson['type'],
+                TypeNameFormatter::fromPhpTypes($producedPhpTypeNames),
+                TypeNameFormatter::fromJsonTypes($siblingJson['type']),
             ));
         }
     }

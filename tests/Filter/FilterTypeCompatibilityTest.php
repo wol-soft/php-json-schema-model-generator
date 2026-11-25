@@ -208,7 +208,8 @@ class FilterTypeCompatibilityTest extends AbstractFilterTestCase
         // float has zero overlap with int — SchemaException at generation time.
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/Filter numberFilter is not compatible with property type int for property property/',
+            "/^Filter 'numberFilter' is not compatible with property type 'integer' for property 'property'"
+                . ' in file \\S+\\.json at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile(

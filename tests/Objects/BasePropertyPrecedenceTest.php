@@ -402,11 +402,11 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
         $this->assertCount(1, $warnings);
         $this->assertSame(
             "Composition branch defines property '{property}' with type {incomingType} which differs"
-                . " from root type {rootType} — root definition takes precedence.",
+                . ' from root type {rootType}: the root definition takes precedence',
             $warnings[0]['message'],
         );
         $this->assertSame(
-            ['property' => 'age', 'incomingType' => 'string', 'rootType' => 'int'],
+            ['property' => 'age', 'incomingType' => "'string'", 'rootType' => "'integer'"],
             $warnings[0]['context'],
         );
     }

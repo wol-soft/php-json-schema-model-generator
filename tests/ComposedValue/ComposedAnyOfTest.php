@@ -1136,7 +1136,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
      * followed only up to the other file: its own references would be resolved against the file
      * of the branch. The type of the definition is therefore not known, the declared type is
      * passed down into the branch and conflicts with the referenced integer in the drafts which
-     * apply the siblings of a `$ref` ("$ref resolves to type 'int' but sibling 'type' declares
+     * apply the siblings of a `$ref` ("$ref resolves to type 'integer' but sibling 'type' declares
      * 'string'"); in Draft 07 the dead branch is not reported.
      *
      * Known gap: the test turns green by itself as soon as the chain is followed across files.
