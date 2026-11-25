@@ -760,8 +760,8 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $deadBranches = [
-            ['property', 2, 'string', 'float'],
-            ['multiTypeProperty', 1, 'int | float', 'string | bool'],
+            ['property', 2, "'string'", "'number'"],
+            ['multiTypeProperty', 1, "['integer', 'number']", "['string', 'boolean']"],
         ];
 
         foreach ($deadBranches as [$propertyName, $branchNumber, $branchType, $declaredType]) {
@@ -769,8 +769,8 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
                 $this->hasLogEntry(
                     $recordingLogger->getEntries(),
                     'warning',
-                    "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                        . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                    "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                        . " which does not overlap the declared type {declaredType} and can never be satisfied",
                     [
                         'keyword' => 'anyOf',
                         'branch' => $branchNumber,
@@ -814,7 +814,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Property 'property' is declared with type 'string' which conflicts with the types 'int', 'bool'"
+            "/^Property 'property' is declared with type 'string' which conflicts with the types 'integer', 'boolean'"
                 . " of all anyOf branches \(file .+\): anyOf requires at least one branch to be satisfied,"
                 . " making this schema unsatisfiable at line \\d+, column \\d+$/",
         );
@@ -849,14 +849,14 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
                     $this->hasLogEntry(
                         $recordingLogger->getEntries(),
                         'warning',
-                        "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                            . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                        "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                            . " which does not overlap the declared type {declaredType} and can never be satisfied",
                         [
                             'keyword' => 'anyOf',
                             'branch' => 2,
                             'property' => $propertyName,
-                            'branchType' => 'null',
-                            'declaredType' => 'string',
+                            'branchType' => "'null'",
+                            'declaredType' => "'string'",
                         ],
                     ),
                     "Unexpected dead branch warning state for $propertyName with $label.",
@@ -1007,14 +1007,14 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                    . " which does not overlap the declared type {declaredType} and can never be satisfied",
                 [
                     'keyword' => 'anyOf',
                     'branch' => 1,
                     'property' => 'property',
-                    'branchType' => 'int',
-                    'declaredType' => 'string',
+                    'branchType' => "'integer'",
+                    'declaredType' => "'string'",
                 ],
             ),
             'Expected a warning for the dead anyOf reference branch.',
@@ -1025,14 +1025,14 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                    . " which does not overlap the declared type {declaredType} and can never be satisfied",
                 [
                     'keyword' => 'anyOf',
                     'branch' => 1,
                     'property' => 'aliasProperty',
-                    'branchType' => 'int',
-                    'declaredType' => 'string',
+                    'branchType' => "'integer'",
+                    'declaredType' => "'string'",
                 ],
             ),
             'Expected a warning for the dead anyOf branch referencing a reference.',
@@ -1074,7 +1074,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Property '[^']*' is declared with type 'object' which conflicts with the types 'string', 'int'"
+            "/^Property '[^']*' is declared with type 'object' which conflicts with the types 'string', 'integer'"
                 . " of all anyOf branches \\(file .+\\): anyOf requires at least one branch to be satisfied,"
                 . " making this schema unsatisfiable at line \\d+, column \\d+$/",
         );
@@ -1099,13 +1099,13 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                    . " which does not overlap the declared type {declaredType} and can never be satisfied",
                 [
                     'keyword' => 'anyOf',
                     'branch' => 2,
-                    'branchType' => 'string',
-                    'declaredType' => 'object',
+                    'branchType' => "'string'",
+                    'declaredType' => "'object'",
                 ],
             ),
             'Expected a warning for the dead scalar branch at the schema root.',
@@ -1157,9 +1157,9 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $deadBranchReported = $this->hasLogEntry(
             $recordingLogger->getEntries(),
             'warning',
-            "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
-            ['keyword' => 'anyOf', 'branch' => 1, 'property' => 'property', 'branchType' => 'int'],
+            "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                . " which does not overlap the declared type {declaredType} and can never be satisfied",
+            ['keyword' => 'anyOf', 'branch' => 1, 'property' => 'property', 'branchType' => "'integer'"],
         );
 
         if (!$deadBranchReported) {

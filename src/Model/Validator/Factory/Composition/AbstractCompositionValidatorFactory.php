@@ -1080,50 +1080,49 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             $effectiveTypeNames[] = 'null';
         }
 
-        $disjointBranchTypeNames = [];
+        $disjointBranches = [];
         foreach ($compositionProperties as $index => $compositionProperty) {
             $branchTypeNames = self::getBranchTypeNames($compositionProperty);
 
             if ($branchTypeNames !== null && TypeIntersection::compute($effectiveTypeNames, $branchTypeNames) === []) {
-                $disjointBranchTypeNames[$index] = $branchTypeNames;
+                $disjointBranches[$index] = $compositionProperty;
             }
         }
 
-        if ($disjointBranchTypeNames === []) {
+        if ($disjointBranches === []) {
             return;
         }
 
-        $declaredType = implode(' | ', $declaredTypeNames);
+        // The messages name the types as the author wrote them (`number`, not the PHP type `float`),
+        // formatted like the other composition diagnostics.
+        $declaredType = self::formatJsonTypes($property->getJsonSchema()->getJson()['type']);
         $isFatal = !self::isInsideNonAllOfBranch($property->getJsonSchema()->getPointer());
 
         if ($isFatal && $keyword === 'allOf') {
             throw new SchemaException(
                 sprintf(
-                    "Property '%s' is declared with type '%s' which conflicts with the type '%s' of allOf branch #%d"
+                    "Property '%s' is declared with type %s which conflicts with the type %s of allOf branch #%d"
                         . ' (file %s): allOf requires all constraints to hold simultaneously,'
                         . ' making this schema unsatisfiable',
                     $property->getName(),
                     $declaredType,
-                    implode(' | ', reset($disjointBranchTypeNames)),
-                    key($disjointBranchTypeNames) + 1,
+                    self::formatBranchType(reset($disjointBranches)),
+                    key($disjointBranches) + 1,
                     $property->getJsonSchema()->getFile(),
                 ),
                 $property->getJsonSchema(),
             );
         }
 
-        if ($isFatal && count($disjointBranchTypeNames) === count($compositionProperties)) {
+        if ($isFatal && count($disjointBranches) === count($compositionProperties)) {
             throw new SchemaException(
                 sprintf(
-                    "Property '%s' is declared with type '%s' which conflicts with the types %s of all %s branches"
+                    "Property '%s' is declared with type %s which conflicts with the types %s of all %s branches"
                         . ' (file %s): %s requires at least one branch to be satisfied,'
                         . ' making this schema unsatisfiable',
                     $property->getName(),
                     $declaredType,
-                    implode(', ', array_map(
-                        static fn(array $branchTypeNames): string => "'" . implode(' | ', $branchTypeNames) . "'",
-                        $disjointBranchTypeNames,
-                    )),
+                    implode(', ', array_map(self::formatBranchType(...), $disjointBranches)),
                     $keyword,
                     $property->getJsonSchema()->getFile(),
                     $keyword,
@@ -1132,19 +1131,37 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             );
         }
 
-        foreach ($disjointBranchTypeNames as $index => $branchTypeNames) {
+        foreach ($disjointBranches as $index => $disjointBranch) {
             $generatorConfiguration->getLogger()->warning(
-                "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                    . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                    . ' which does not overlap the declared type {declaredType} and can never be satisfied',
                 [
                     'keyword' => $keyword,
                     'branch' => $index + 1,
                     'property' => $property->getName(),
-                    'branchType' => implode(' | ', $branchTypeNames),
+                    'branchType' => self::formatBranchType($disjointBranch),
                     'declaredType' => $declaredType,
                 ],
             );
         }
+    }
+
+    private static function formatBranchType(CompositionPropertyDecorator $branch): string
+    {
+        return self::formatJsonTypes($branch->getJsonSchema()->getJson()['type']);
+    }
+
+    /**
+     * Formats the value of a `type` keyword like formatTypes(). The internal 'base' type, which
+     * replaces the `type` of a schema which becomes a class, is shown as the 'object' it stands for.
+     *
+     * @param string|string[] $jsonType
+     */
+    private static function formatJsonTypes(string | array $jsonType): string
+    {
+        $replaceBase = static fn(string $typeName): string => $typeName === 'base' ? 'object' : $typeName;
+
+        return self::formatTypes(is_array($jsonType) ? array_map($replaceBase, $jsonType) : $replaceBase($jsonType));
     }
 
     /**

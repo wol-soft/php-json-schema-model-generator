@@ -170,7 +170,7 @@ No value can satisfy both the type of the property and the branch, so the genera
 
 .. code-block:: text
 
-    Property 'property' is declared with type 'string' which conflicts with the type 'int' of allOf branch #1 (file ...): allOf requires all constraints to hold simultaneously, making this schema unsatisfiable
+    Property 'property' is declared with type 'string' which conflicts with the type 'integer' of allOf branch #1 (file ...): allOf requires all constraints to hold simultaneously, making this schema unsatisfiable
 
 The check follows these rules:
 

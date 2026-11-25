@@ -813,11 +813,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $expectedWarnings = [
-            ['allOf', 1, 'inheritedTypeInAnyOfBranch', 'int'],
-            ['allOf', 1, 'authoredTypeInOneOfBranch', 'int'],
-            ['allOf', 1, 'allOfInNot', 'int'],
-            ['anyOf', 1, 'deadAnyOfInAnyOfBranch', 'int'],
-            ['anyOf', 2, 'deadAnyOfInAnyOfBranch', 'bool'],
+            ['allOf', 1, 'inheritedTypeInAnyOfBranch', "'integer'"],
+            ['allOf', 1, 'authoredTypeInOneOfBranch', "'integer'"],
+            ['allOf', 1, 'allOfInNot', "'integer'"],
+            ['anyOf', 1, 'deadAnyOfInAnyOfBranch', "'integer'"],
+            ['anyOf', 2, 'deadAnyOfInAnyOfBranch', "'boolean'"],
         ];
 
         foreach ($expectedWarnings as [$keyword, $branchNumber, $propertyName, $branchType]) {
@@ -825,14 +825,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 $this->hasLogEntry(
                     $recordingLogger->getEntries(),
                     'warning',
-                    "{keyword} branch #{branch} for property '{property}' declares the type '{branchType}'"
-                        . " which does not overlap the declared type '{declaredType}' and can never be satisfied",
+                    "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                        . " which does not overlap the declared type {declaredType} and can never be satisfied",
                     [
                         'keyword' => $keyword,
                         'branch' => $branchNumber,
                         'property' => $propertyName,
                         'branchType' => $branchType,
-                        'declaredType' => 'string',
+                        'declaredType' => "'string'",
                     ],
                 ),
                 "Expected a warning for $keyword branch #$branchNumber of $propertyName.",
@@ -886,8 +886,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'scalar branch on a scalar property' => [
                 'PropertyLevelAllOfBranchContradictsPropertyType.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
@@ -898,16 +898,16 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'scalar branch on a filtered property' => [
                 'PropertyLevelAllOfBranchTypeConflictsWithFilteredPropertyType.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
             'object branch on a string property' => [
                 'PropertyLevelAllOfObjectBranchConflictsWithStringProperty.json',
                 "'property'",
-                'string',
-                'object',
+                "'string'",
+                "'object'",
                 1,
                 true,
             ],
@@ -915,8 +915,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 'PropertyLevelAllOfScalarBranchConflictsWithObjectProperty.json',
                 // An object property is named after the class generated for it.
                 "'[^']*'",
-                'object',
-                'string',
+                "'object'",
+                "'string'",
                 1,
                 true,
             ],
@@ -924,8 +924,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'null branch without implicit null' => [
                 'PropertyLevelAllOfNullBranchOptionalProperty.json',
                 "'property'",
-                'string',
-                'null',
+                "'string'",
+                "'null'",
                 1,
                 false,
             ],
@@ -935,8 +935,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'null branch on a required property with implicit null' => [
                 'PropertyLevelAllOfNullBranchRequiredProperty.json',
                 "'property'",
-                'string',
-                'null',
+                "'string'",
+                "'null'",
                 1,
                 true,
             ],
@@ -945,8 +945,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'scalar branch at the schema root' => [
                 'RootLevelAllOfBranchTypeConflictsWithRootType.json',
                 "'[^']*'",
-                'object',
-                'int',
+                "'object'",
+                "'integer'",
                 1,
                 true,
             ],
@@ -955,16 +955,16 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'reference branch' => [
                 'PropertyLevelAllOfReferenceBranchConflictsWithPropertyType.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
             'reference branch referencing a reference' => [
                 'PropertyLevelAllOfChainedReferenceBranchConflictsWithPropertyType.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
@@ -973,8 +973,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'multi-type branch on a multi-type property' => [
                 'PropertyLevelAllOfMultiTypeBranchConflictsWithMultiTypeProperty.json',
                 "'property'",
-                'string | bool',
-                'int | float',
+                "['string', 'boolean']",
+                "['integer', 'number']",
                 2,
                 true,
             ],
@@ -982,16 +982,16 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'allOf inside an allOf branch' => [
                 'DeclaredTypeConflictInsideAllOfBranch.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
             'property defined by a reference' => [
                 'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
                 "'property'",
-                'string',
-                'int',
+                "'string'",
+                "'integer'",
                 1,
                 true,
             ],
@@ -1373,8 +1373,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         int $branchNumber,
     ): string {
         return '/^Property ' . $quotedPropertyNamePattern
-            . " is declared with type '" . preg_quote($declaredType, '/') . "' which conflicts with the type '"
-            . preg_quote($branchType, '/') . "' of allOf branch #$branchNumber \(file .+\): allOf requires all"
+            . ' is declared with type ' . preg_quote($declaredType, '/') . ' which conflicts with the type '
+            . preg_quote($branchType, '/') . " of allOf branch #$branchNumber \(file .+\): allOf requires all"
             . ' constraints to hold simultaneously, making this schema unsatisfiable at line \d+, column \d+$/';
     }
 
