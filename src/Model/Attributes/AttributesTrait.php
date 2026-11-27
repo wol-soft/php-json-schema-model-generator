@@ -8,8 +8,8 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 
 trait AttributesTrait
 {
-    /** @var PhpAttribute[] */
-    private array $phpAttributes = [];
+    /** @var PhpAttribute[] Protected so PropertyProxy::getAttributes() can merge it with the underlying property */
+    protected array $phpAttributes = [];
 
     public function filterAttributes(callable $filter): static
     {
