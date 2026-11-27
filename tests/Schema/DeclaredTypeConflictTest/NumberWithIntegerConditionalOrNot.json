@@ -81,6 +81,16 @@
       "not": {
         "type": "integer"
       }
+    },
+    "defaultWithIntegerThen": {
+      "type": "number",
+      "default": 5,
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "type": "integer"
+      }
     }
   }
 }

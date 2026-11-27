@@ -1,6 +1,29 @@
 {
   "type": "object",
   "properties": {
+    "numberBranchFirst": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "inheritedNumberBranch": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "integer",
+          "maximum": 3
+        },
+        {
+          "minimum": 10
+        }
+      ]
+    },
     "enumProperty": {
       "type": "number",
       "enum": [

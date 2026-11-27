@@ -12,11 +12,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class DefaultValueTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -126,7 +121,9 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         mixed $defaultValue,
     ): void {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Invalid type for default value of property property');
+        $this->expectExceptionMessageMatches(
+            "/^Invalid type for default value of property 'property' in file \\S+\\.json at line \\d+, column \\d+$/",
+        );
 
         $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',

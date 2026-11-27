@@ -191,10 +191,12 @@ The check follows these rules:
   ``exclusiveMinimum``, ``exclusiveMaximum`` and ``multipleOf`` keep validating the ``int`` value. The same
   applies to a ``number`` within a multi-type declaration such as ``["number", "null"]``.
 * ``anyOf`` / ``oneOf`` narrow every branch to the declared type on its own. A ``number`` property with an
-  ``integer`` and a ``number`` branch generates an ``int | float`` property: the ``int`` is not cast to ``float``
-  before the branches are validated, so the ``integer`` branch sees it, and the property stores the value of the
-  first branch which matches. ``{"type": "number", "oneOf": [{"type": "integer"}, {"type": "number"}]}`` therefore
-  rejects ``5`` (it matches both branches) and accepts ``5.5``.
+  ``integer`` and a ``number`` branch generates an ``int | float`` property: neither the property nor its
+  ``number`` branches cast an ``int`` to ``float``, so the ``integer`` branch sees the ``int``, and an ``int`` is
+  stored as an ``int`` and a ``float`` as a ``float``, whichever branch matches and in whichever order the branches
+  are written. An integer ``default`` stays an ``int`` as well.
+  ``{"type": "number", "oneOf": [{"type": "integer"}, {"type": "number"}]}`` therefore rejects ``5`` (it matches
+  both branches) and accepts ``5.5``.
 * The same applies to a ``number`` property whose ``if``, ``then``, ``else`` or ``not`` schema declares
   ``"type": "integer"``: the property is typed ``int | float`` and the ``int`` reaches the schema uncast.
   ``{"type": "number", "if": {"minimum": 0}, "then": {"type": "integer"}}`` accepts ``5`` (stored as an ``int``)

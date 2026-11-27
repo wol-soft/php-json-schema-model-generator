@@ -77,6 +77,15 @@
           "minimum": 10
         }
       ]
+    },
+    "narrowedWithDefault": {
+      "type": "number",
+      "default": 5,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
     }
   }
 }

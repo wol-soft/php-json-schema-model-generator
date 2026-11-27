@@ -409,6 +409,9 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             'fractionalMultipleOfBranch' => -6,
             'multiTypeBranch' => 15,
         ]);
+        // An integer default stays the int the schema declares (it was rendered as the float 5.0,
+        // which the int check of the narrowed property rejected).
+        $this->assertSame(5, (new $className([]))->getNarrowedWithDefault());
         $this->assertSame(12, $object->getNarrowedProperty());
         $this->assertSame(15, $object->getNarrowedBranch());
         $this->assertSame(42, $object->getNullableNumber());
@@ -783,7 +786,11 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
      * matching branch. The range keywords of the property apply to an int as well. When every
      * branch is an integer branch (integerBranchesOnly) the narrowed type is int only. An enum
      * of the property compares the uncast int (enumProperty): `enum: [1, 2.5]` used to reject 1,
-     * as it compared the cast 1.0.
+     * as it compared the cast 1.0. The number branches are typed int | float as well, so an int
+     * stays an int whichever branch matches and in whichever order the branches are written
+     * (numberBranchFirst), also for a branch which only inherits the number type
+     * (inheritedNumberBranch). Keeping their cast was rejected: the stored value depended on the
+     * order of the branches (`[number, integer]` stored 5.0, `[integer, number]` stored 5).
      */
     #[DataProvider('integerAndNumberBranchesDataProvider')]
     public function testIntegerAndNumberBranchesTypeNumberPropertyAsIntOrFloat(
@@ -804,10 +811,13 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
         $this->assertSame(2.5, (new $className(['enumProperty' => 2.5]))->getEnumProperty());
+        $this->assertSame(12, (new $className(['inheritedNumberBranch' => 12]))->getInheritedNumberBranch());
+        $this->assertSame(12.5, (new $className(['inheritedNumberBranch' => 12.5]))->getInheritedNumberBranch());
+        $this->assertSame(5.5, (new $className(['numberBranchFirst' => 5.5]))->getNumberBranchFirst());
         $this->assertSame(5.5, (new $className(['multiTypeProperty' => 5.5]))->getMultiTypeProperty());
         $this->assertNull((new $className(['property' => null]))->getProperty());
         $this->assertSame(2, (new $className(['rangedProperty' => 2]))->getRangedProperty());
-        $this->assertSame(12.0, (new $className(['rangedProperty' => 12]))->getRangedProperty());
+        $this->assertSame(12, (new $className(['rangedProperty' => 12]))->getRangedProperty());
         $this->assertSame(12.5, (new $className(['rangedProperty' => 12.5]))->getRangedProperty());
 
         $this->assertEqualsCanonicalizing(
@@ -837,14 +847,32 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             ],
             // Implicit null lets an optional enum property accept null as well.
             [['enumProperty' => 2], "Value for 'enumProperty' must be one of [1,2.5,null], got 2"],
+            [
+                ['inheritedNumberBranch' => 5],
+                <<<ERROR
+                Invalid value for 'inheritedNumberBranch' declined by composition constraint
+                  $failureHeader
+                  - Composition element #1: Failed
+                    * Value for 'inheritedNumberBranch' must not be larger than 3
+                  - Composition element #2: Failed
+                    * Value for 'inheritedNumberBranch' must not be smaller than 10
+                ERROR,
+            ],
         ];
 
         if ($integerMatchingBothBranchesHeader === null) {
             $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
             $this->assertSame(5, (new $className(['multiTypeProperty' => 5]))->getMultiTypeProperty());
             $this->assertSame(1, (new $className(['enumProperty' => 1]))->getEnumProperty());
+            $this->assertSame(5, (new $className(['numberBranchFirst' => 5]))->getNumberBranchFirst());
         } else {
-            foreach (['property' => 5, 'multiTypeProperty' => 5, 'enumProperty' => 1] as $propertyName => $integer) {
+            $integersMatchingBothBranches = [
+                'property' => 5,
+                'multiTypeProperty' => 5,
+                'enumProperty' => 1,
+                'numberBranchFirst' => 5,
+            ];
+            foreach ($integersMatchingBothBranches as $propertyName => $integer) {
                 $invalidInputs[] = [
                     [$propertyName => $integer],
                     <<<ERROR
@@ -1171,12 +1199,17 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             'thenInteger' => 5,
             'rangedThenInteger' => 3,
             'elseInteger' => -3,
+            'ifInteger' => 3,
             'multiTypeThenInteger' => 5,
             'plainConditional' => 5,
         ]);
         $this->assertSame(5, $object->getThenInteger());
         $this->assertSame(3, $object->getRangedThenInteger());
         $this->assertSame(-3, $object->getElseInteger());
+        // The schemas which only inherit the number type don't cast the int either.
+        $this->assertSame(3, $object->getIfInteger());
+        $this->assertSame(5, (new $className([...$requiredInput, 'elseInteger' => 5]))->getElseInteger());
+        $this->assertSame(5, $object->getDefaultWithIntegerThen());
         $this->assertSame(5, $object->getMultiTypeThenInteger());
         $this->assertSame(5.5, $object->getNotInteger());
         $this->assertSame(5.5, $object->getAnyOfAndNotInteger());

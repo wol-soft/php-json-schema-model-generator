@@ -1297,9 +1297,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *   keywords would stop applying just like the property's.
      * - Narrowed to `int | float` (anyOf / oneOf with an integer and a number branch): the float
      *   check becomes an int | float check and the `number` range keywords stay next to the
-     *   `integer` ones, so both an int and a float are checked. Only the property is changed: every
-     *   anyOf / oneOf branch validates its own copy of the value, so a number branch may keep
-     *   casting it, and the property stores the value of the first branch which matched.
+     *   `integer` ones, so both an int and a float are checked. The number branches (declared or
+     *   inherited) are retyped the same way: the property stores the value of the branch which
+     *   matched, so a number branch which kept its cast would store 5.0 for the input 5, and the
+     *   stored type would depend on the order of the branches (`[number, integer]` gave 5.0,
+     *   `[integer, number]` gave 5). Without any cast an int stays an int, a float a float.
+     *
+     * An integer `default` of the retyped property is kept as the int the schema declares: the
+     * number type renders it as a float, which an int property rejects and an int | float property
+     * would hand out inconsistently with an int input.
      *
      * Rejected alternatives:
      * - Dropping the type check without a replacement: an anyOf narrowed to int by an `integer` and
@@ -1338,7 +1344,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $keepFloat = in_array('float', $typeNames, true);
 
-        foreach ($keepFloat ? [$property] : [$property, ...$compositionProperties] as $candidate) {
+        foreach ([$property, ...$compositionProperties] as $candidate) {
             $numberVariantTransfers = array_filter(
                 $candidate->getDecorators(),
                 static fn(PropertyDecoratorInterface $decorator): bool =>
@@ -1400,8 +1406,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
     /**
      * Types a `number` property as int | float when one of its `if`, `then`, `else` or `not`
-     * schemas declares `integer`, and retypes it like an anyOf / oneOf with an integer and a
-     * number branch (see retypeNumberPropertiesForNarrowedType()). These keywords don't narrow the
+     * schemas declares `integer`, and retypes it and its schemas like an anyOf / oneOf with an
+     * integer and a number branch (see retypeNumberPropertiesForNarrowedType()). These keywords don't narrow the
      * type of the property, but they validate the same value: casting an int to float before them
      * made a `{"type": "integer"}` schema reject every int (`then`) or accept it (`not`), as the
      * generated integer type check accepts an int only. Not casting gives the int to the schema;
@@ -1451,7 +1457,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             new PropertyType($typeNames, $type->isNullable()),
         );
 
-        self::retypeNumberPropertiesForNarrowedType($schemaProcessor, $schema, $property, []);
+        self::retypeNumberPropertiesForNarrowedType($schemaProcessor, $schema, $property, $compositionProperties);
     }
 
     private static function carriesIntToFloatCast(PropertyInterface $property): bool
@@ -1497,6 +1503,20 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         self::applyIntegerTypeModifiers($schemaProcessor, $schema, $candidate);
+        self::keepAuthoredIntegerDefault($candidate);
+    }
+
+    /**
+     * Re-applies an integer `default` of $property as the int the schema declares, replacing the
+     * float the number type rendered it as.
+     */
+    private static function keepAuthoredIntegerDefault(PropertyInterface $property): void
+    {
+        $default = $property->getJsonSchema()->getJson()['default'] ?? null;
+
+        if (is_int($default) && $property->getDefaultValue() !== null) {
+            $property->setDefaultValue($default);
+        }
     }
 
     /**
@@ -1551,6 +1571,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         self::applyIntegerTypeModifiers($schemaProcessor, $schema, $multiTypeProperty);
+        self::keepAuthoredIntegerDefault($multiTypeProperty);
     }
 
     /**
