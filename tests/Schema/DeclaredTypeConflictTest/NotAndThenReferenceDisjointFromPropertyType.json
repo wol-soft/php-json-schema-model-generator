@@ -20,6 +20,15 @@
       "not": {
         "$ref": "#/definitions/shortValue"
       }
+    },
+    "conditional": {
+      "type": "string",
+      "if": {
+        "minLength": 2
+      },
+      "then": {
+        "$ref": "#/definitions/integerValue"
+      }
     }
   },
   "required": [

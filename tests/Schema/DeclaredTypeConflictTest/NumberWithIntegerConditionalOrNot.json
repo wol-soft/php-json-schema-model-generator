@@ -34,6 +34,53 @@
       "then": {
         "maximum": 10
       }
+    },
+    "elseInteger": {
+      "type": "number",
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "maximum": 10
+      },
+      "else": {
+        "type": "integer"
+      }
+    },
+    "ifInteger": {
+      "type": "number",
+      "if": {
+        "type": "integer"
+      },
+      "then": {
+        "minimum": 0
+      }
+    },
+    "multiTypeThenInteger": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "type": "integer"
+      }
+    },
+    "anyOfAndNotInteger": {
+      "type": "number",
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "not": {
+        "type": "integer"
+      }
     }
   }
 }

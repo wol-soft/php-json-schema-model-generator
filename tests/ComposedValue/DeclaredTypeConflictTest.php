@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
-use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -164,6 +162,15 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
                 1,
                 true,
             ],
+            // The pointer `/properties/anyOf` names a property, not a composition branch.
+            'property named like a composition keyword' => [
+                'PropertyNamedLikeCompositionKeywordConflictsWithAllOfBranch.json',
+                "'anyOf'",
+                "'string'",
+                "'integer'",
+                1,
+                true,
+            ],
             'property defined by a reference' => [
                 'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
                 "'property'",
@@ -198,7 +205,8 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
      * branch dead (or the not always hold), the schema stays satisfiable: a declared-type conflict
      * there is reported with a warning instead of failing the generation, whether the type of the
      * branch was written by the author or passed down. Failing the generation was rejected:
-     * `{"type": "string", "not": {"allOf": [{"type": "integer"}]}}` accepts every string.
+     * `{"type": "string", "not": {"allOf": [{"type": "integer"}]}}` accepts every string. A dead
+     * `then` / `else` only rejects the values which select it (allOfInThen, allOfInElse).
      */
     public function testDeclaredTypeConflictInsideACompositionBranchIsReported(): void
     {
@@ -206,7 +214,7 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
 
         $className = $this->generateClassFromFile(
             'DeclaredTypeConflictInsideCompositionBranch.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setLogger($recordingLogger),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setLogger($recordingLogger),
         );
 
         $expectedWarnings = [
@@ -215,6 +223,8 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             ['allOf', 1, 'allOfInNot', "'integer'"],
             ['anyOf', 1, 'deadAnyOfInAnyOfBranch', "'integer'"],
             ['anyOf', 2, 'deadAnyOfInAnyOfBranch', "'boolean'"],
+            ['allOf', 1, 'allOfInThen', "'integer'"],
+            ['allOf', 1, 'allOfInElse', "'integer'"],
         ];
 
         foreach ($expectedWarnings as [$keyword, $branchNumber, $propertyName, $branchType]) {
@@ -240,11 +250,55 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             'authoredTypeInOneOfBranch' => 'text',
             'allOfInNot' => 'text',
             'deadAnyOfInAnyOfBranch' => 'text',
+            // A string shorter than 2 characters doesn't select the dead then branch, a longer
+            // one doesn't select the dead else branch.
+            'allOfInThen' => 'x',
+            'allOfInElse' => 'text',
         ]);
         $this->assertSame('text', $object->getInheritedTypeInAnyOfBranch());
         $this->assertSame('text', $object->getAuthoredTypeInOneOfBranch());
         $this->assertSame('text', $object->getAllOfInNot());
         $this->assertSame('text', $object->getDeadAnyOfInAnyOfBranch());
+        $this->assertSame('x', $object->getAllOfInThen());
+        $this->assertSame('text', $object->getAllOfInElse());
+
+        $rejectedInputs = [
+            [
+                ['allOfInThen' => 'text'],
+                <<<ERROR
+                Invalid value for 'allOfInThen' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid value for 'allOfInThen' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid type for 'allOfInThen': requires 'int', got 'string'
+                ERROR,
+            ],
+            [
+                ['allOfInElse' => 'x'],
+                <<<ERROR
+                Invalid value for 'allOfInElse' declined by conditional composition constraint
+                  - Condition: Failed
+                    * Value for 'allOfInElse' must not be shorter than 2
+                  - Conditional branch failed:
+                    * Invalid value for 'allOfInElse' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Invalid type for 'allOfInElse': requires 'int', got 'string'
+                ERROR,
+            ],
+        ];
+
+        foreach ($rejectedInputs as [$input, $expectedMessage]) {
+            try {
+                // A `not` marks its property as required, so allOfInNot is always provided.
+                new $className(['allOfInNot' => 'text', ...$input]);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
     }
 
     /**
@@ -618,21 +672,46 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    public static function allBranchesDisjointDataProvider(): array
+    {
+        $locations = [
+            'property' => ['AllBranchesDead.json', "'property'", "'string'", "'integer', 'boolean'"],
+            // The schema root is an object, as every schema which becomes a class, and is named
+            // after its class.
+            'schema root' => ['RootLevelAllBranchesDead.json', "'[^']*'", "'object'", "'string', 'integer'"],
+        ];
+
+        $dataSets = [];
+        foreach (['anyOf', 'oneOf'] as $keyword) {
+            foreach ($locations as $location => $locationData) {
+                $dataSets["$keyword, $location"] = [$keyword, ...$locationData];
+            }
+        }
+
+        return $dataSets;
+    }
+
     /**
      * When no branch can match the declared type, no value can be valid: the schema is rejected at
-     * generation time, like contradicting allOf branches are.
+     * generation time, like contradicting allOf branches are. At the schema root this replaces an
+     * unrelated "No nested schema" error which the scalar branches caused later.
      */
-    #[DataProvider('compositionKeywordDataProvider')]
-    public function testAllBranchesDisjointFromPropertyTypeThrowSchemaException(string $keyword): void
-    {
+    #[DataProvider('allBranchesDisjointDataProvider')]
+    public function testAllBranchesDisjointFromDeclaredTypeThrowSchemaException(
+        string $keyword,
+        string $schemaFile,
+        string $quotedPropertyNamePattern,
+        string $declaredType,
+        string $branchTypes,
+    ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Property 'property' is declared with type 'string' which conflicts with the types 'integer', 'boolean'"
-                . " of all $keyword branches \\(file .+\\): $keyword requires at least one branch to be satisfied,"
-                . ' making this schema unsatisfiable at line \d+, column \d+$/',
+            "/^Property $quotedPropertyNamePattern is declared with type $declaredType which conflicts with the types"
+                . " $branchTypes of all $keyword branches \\(file .+\\): $keyword requires at least one branch to be"
+                . ' satisfied, making this schema unsatisfiable at line \d+, column \d+$/',
         );
 
-        $this->generateClassFromFileTemplate('AllBranchesDead.json', [$keyword], escape: false);
+        $this->generateClassFromFileTemplate($schemaFile, [$keyword], escape: false);
     }
 
     /**
@@ -702,7 +781,9 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
      * (`{"type": "number", "anyOf": [{"type": "integer", "maximum": 3}, ...]}` rejected 2) and
      * oneOf accept an int which matches both branches. The stored value is the one of the first
      * matching branch. The range keywords of the property apply to an int as well. When every
-     * branch is an integer branch (integerBranchesOnly) the narrowed type is int only.
+     * branch is an integer branch (integerBranchesOnly) the narrowed type is int only. An enum
+     * of the property compares the uncast int (enumProperty): `enum: [1, 2.5]` used to reject 1,
+     * as it compared the cast 1.0.
      */
     #[DataProvider('integerAndNumberBranchesDataProvider')]
     public function testIntegerAndNumberBranchesTypeNumberPropertyAsIntOrFloat(
@@ -722,6 +803,7 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertSame(5.5, (new $className(['property' => 5.5]))->getProperty());
+        $this->assertSame(2.5, (new $className(['enumProperty' => 2.5]))->getEnumProperty());
         $this->assertSame(5.5, (new $className(['multiTypeProperty' => 5.5]))->getMultiTypeProperty());
         $this->assertNull((new $className(['property' => null]))->getProperty());
         $this->assertSame(2, (new $className(['rangedProperty' => 2]))->getRangedProperty());
@@ -753,15 +835,18 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
                 ['integerBranchesOnly' => 4.5],
                 "Invalid type for 'integerBranchesOnly': requires 'int', got 'double'",
             ],
+            // Implicit null lets an optional enum property accept null as well.
+            [['enumProperty' => 2], "Value for 'enumProperty' must be one of [1,2.5,null], got 2"],
         ];
 
         if ($integerMatchingBothBranchesHeader === null) {
             $this->assertSame(5, (new $className(['property' => 5]))->getProperty());
             $this->assertSame(5, (new $className(['multiTypeProperty' => 5]))->getMultiTypeProperty());
+            $this->assertSame(1, (new $className(['enumProperty' => 1]))->getEnumProperty());
         } else {
-            foreach (['property', 'multiTypeProperty'] as $propertyName) {
+            foreach (['property' => 5, 'multiTypeProperty' => 5, 'enumProperty' => 1] as $propertyName => $integer) {
                 $invalidInputs[] = [
-                    [$propertyName => 5],
+                    [$propertyName => $integer],
                     <<<ERROR
                     Invalid value for '$propertyName' declined by composition constraint
                       $integerMatchingBothBranchesHeader
@@ -902,24 +987,6 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * At the schema root the declared type is object, as for every schema which becomes a class.
-     * When every branch is a scalar branch no object can be valid, and the schema is rejected
-     * instead of failing later with an unrelated "No nested schema" error.
-     */
-    #[DataProvider('compositionKeywordDataProvider')]
-    public function testRootLevelBranchesDisjointFromObjectThrowSchemaException(string $keyword): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Property '[^']*' is declared with type 'object' which conflicts with the types 'string', 'integer'"
-                . " of all $keyword branches \\(file .+\\): $keyword requires at least one branch to be satisfied,"
-                . ' making this schema unsatisfiable at line \d+, column \d+$/',
-        );
-
-        $this->generateClassFromFileTemplate('RootLevelAllBranchesDead.json', [$keyword], escape: false);
-    }
-
-    /**
      * A scalar branch next to an object branch at the schema root can never match an object: it is
      * reported, and the object branch alone decides whether the object is valid.
      */
@@ -1003,66 +1070,55 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A `not` schema which is a `$ref` to a definition with a type disjoint from the declared type
-     * does not inherit the declared type: it would conflict with the referenced type in the drafts
-     * which apply the siblings of a `$ref`. Such a `not` holds for every value of the declared
-     * type. A `$ref` to an untyped definition still inherits the declared type, so its string
-     * keywords apply.
+     * A `not` or `then` schema which is a `$ref` to a definition with a type disjoint from the
+     * declared type does not inherit the declared type: it would conflict with the referenced type
+     * in the drafts which apply the siblings of a `$ref`. Such a `not` holds for every value of the
+     * declared type (notInteger), such a `then` rejects every value which meets the condition
+     * (conditional). A `$ref` to an untyped definition still inherits the declared type, so its
+     * string keywords apply (notShort).
      */
-    public function testNotReferenceDisjointFromPropertyTypeAcceptsEveryValueOfTheDeclaredType(): void
+    public function testNotAndThenReferenceDisjointFromPropertyTypeIsNotPassedTheDeclaredType(): void
     {
         $className = $this->generateClassFromFile(
-            'NotReferenceDisjointFromPropertyType.json',
+            'NotAndThenReferenceDisjointFromPropertyType.json',
             (new GeneratorConfiguration())->setCollectErrors(false),
         );
 
-        $object = new $className(['notInteger' => 'ab', 'notShort' => 'abcd']);
+        // The properties with a `not` are always provided: a `not` marks its property as required.
+        $requiredInput = ['notInteger' => 'ab', 'notShort' => 'abcd'];
+
+        $object = new $className([...$requiredInput, 'conditional' => 'a']);
         $this->assertSame('ab', $object->getNotInteger());
         $this->assertSame('abcd', $object->getNotShort());
+        $this->assertSame('a', $object->getConditional());
 
-        try {
-            new $className(['notInteger' => 'ab', 'notShort' => 'abc']);
-            $this->fail('Expected a NotException for the value abc');
-        } catch (NotException $exception) {
-            $this->assertSame(
+        $invalidInputs = [
+            [
+                ['notShort' => 'abc'],
                 <<<ERROR
                 Invalid value for 'notShort' declined by composition constraint
                   Requires to match none composition element but matched 1 element
                   - Composition element #1: Valid
                 ERROR,
-                $exception->getMessage(),
-            );
-        }
-    }
-
-    /**
-     * A `then` schema which is a `$ref` to a definition with a type disjoint from the declared type
-     * does not inherit the declared type: it would conflict with the referenced type in the drafts
-     * which apply the siblings of a `$ref`. The branch can never be satisfied, so every value
-     * which meets the condition is rejected.
-     */
-    public function testThenReferenceDisjointFromPropertyTypeRejectsValuesMeetingTheCondition(): void
-    {
-        $className = $this->generateClassFromFile(
-            'ThenReferenceDisjointFromPropertyType.json',
-            (new GeneratorConfiguration())->setCollectErrors(false),
-        );
-
-        $this->assertSame('a', (new $className(['property' => 'a']))->getProperty());
-
-        try {
-            new $className(['property' => 'ab']);
-            $this->fail('Expected a ConditionalException for the value ab');
-        } catch (ConditionalException $exception) {
-            $this->assertSame(
+            ],
+            [
+                ['conditional' => 'ab'],
                 <<<ERROR
-                Invalid value for 'property' declined by conditional composition constraint
+                Invalid value for 'conditional' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Invalid type for 'property': requires 'int', got 'string'
+                    * Invalid type for 'conditional': requires 'int', got 'string'
                 ERROR,
-                $exception->getMessage(),
-            );
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className([...$requiredInput, ...$input]);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
         }
     }
 
@@ -1071,8 +1127,11 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
      * int | float and doesn't cast an int to float before the conditional runs, like a number with
      * an integer and a number anyOf branch: the generated `integer` type check accepts an int only,
      * so after the cast `{"then": {"type": "integer"}}` rejected 5 and `{"not": {"type": "integer"}}`
-     * accepted it. The range keywords of the property apply to an int as well. A conditional which
-     * only inherits the number type (plainConditional) keeps the float property.
+     * accepted it. This holds for an integer `if` (ifInteger), `then` (thenInteger), `else`
+     * (elseInteger) and `not` (notInteger), for a multi-type number (multiTypeThenInteger), and
+     * next to an anyOf which narrows to int | float itself (anyOfAndNotInteger). The range keywords
+     * of the property apply to an int as well. A conditional which only inherits the number type
+     * (plainConditional) keeps the float property.
      */
     public function testNumberPropertyWithIntegerConditionalOrNotIsTypedIntOrFloat(): void
     {
@@ -1081,39 +1140,61 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
-        foreach (['getThenInteger', 'getRangedThenInteger'] as $getter) {
+        $intOrFloatGetters = [
+            'getThenInteger',
+            'getRangedThenInteger',
+            'getElseInteger',
+            'getIfInteger',
+            'getMultiTypeThenInteger',
+        ];
+        foreach ($intOrFloatGetters as $getter) {
             $this->assertEqualsCanonicalizing(['int', 'float', 'null'], $this->getReturnTypeNames($className, $getter));
         }
         // Only int and float: whether the getter of a property with a `not` is nullable is
         // pinned by ComposedNotTest::testNotProvidedOptionalTypedPropertyWithNotIsValid.
-        $this->assertEqualsCanonicalizing(
-            ['int', 'float'],
-            array_values(array_diff($this->getReturnTypeNames($className, 'getNotInteger'), ['null'])),
-        );
+        foreach (['getNotInteger', 'getAnyOfAndNotInteger'] as $getter) {
+            $this->assertEqualsCanonicalizing(
+                ['int', 'float'],
+                array_values(array_diff($this->getReturnTypeNames($className, $getter), ['null'])),
+            );
+        }
         $this->assertEqualsCanonicalizing(
             ['float', 'null'],
             $this->getReturnTypeNames($className, 'getPlainConditional'),
         );
 
-        // The not property is always provided: a `not` marks its property as required.
+        // The properties with a `not` are always provided: a `not` marks its property as required.
+        $requiredInput = ['notInteger' => 5.5, 'anyOfAndNotInteger' => 5.5];
+
         $object = new $className([
+            ...$requiredInput,
             'thenInteger' => 5,
             'rangedThenInteger' => 3,
-            'notInteger' => 5.5,
+            'elseInteger' => -3,
+            'multiTypeThenInteger' => 5,
             'plainConditional' => 5,
         ]);
         $this->assertSame(5, $object->getThenInteger());
         $this->assertSame(3, $object->getRangedThenInteger());
+        $this->assertSame(-3, $object->getElseInteger());
+        $this->assertSame(5, $object->getMultiTypeThenInteger());
         $this->assertSame(5.5, $object->getNotInteger());
+        $this->assertSame(5.5, $object->getAnyOfAndNotInteger());
         $this->assertSame(5.0, $object->getPlainConditional());
-        $this->assertSame(
-            -1.5,
-            (new $className(['thenInteger' => -1.5, 'notInteger' => 5.5]))->getThenInteger(),
-        );
+
+        $object = new $className([
+            ...$requiredInput,
+            'thenInteger' => -1.5,
+            'ifInteger' => -1.5,
+            'multiTypeThenInteger' => -1.5,
+        ]);
+        $this->assertSame(-1.5, $object->getThenInteger());
+        $this->assertSame(-1.5, $object->getIfInteger());
+        $this->assertSame(-1.5, $object->getMultiTypeThenInteger());
 
         $invalidInputs = [
             [
-                ['thenInteger' => 5.5, 'notInteger' => 5.5],
+                ['thenInteger' => 5.5],
                 <<<ERROR
                 Invalid value for 'thenInteger' declined by conditional composition constraint
                   - Condition: Valid
@@ -1122,13 +1203,35 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
             [
-                ['rangedThenInteger' => 0, 'notInteger' => 5.5],
-                "Value for 'rangedThenInteger' must not be smaller than 1",
+                ['elseInteger' => -3.5],
+                <<<ERROR
+                Invalid value for 'elseInteger' declined by conditional composition constraint
+                  - Condition: Failed
+                    * Value for 'elseInteger' must not be smaller than 0
+                  - Conditional branch failed:
+                    * Invalid type for 'elseInteger': requires 'int', got 'double'
+                ERROR,
             ],
             [
-                ['rangedThenInteger' => 0.5, 'notInteger' => 5.5],
-                "Value for 'rangedThenInteger' must not be smaller than 1",
+                ['ifInteger' => -1],
+                <<<ERROR
+                Invalid value for 'ifInteger' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Value for 'ifInteger' must not be smaller than 0
+                ERROR,
             ],
+            [
+                ['multiTypeThenInteger' => 5.5],
+                <<<ERROR
+                Invalid value for 'multiTypeThenInteger' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid type for 'multiTypeThenInteger': requires 'int', got 'double'
+                ERROR,
+            ],
+            [['rangedThenInteger' => 0], "Value for 'rangedThenInteger' must not be smaller than 1"],
+            [['rangedThenInteger' => 0.5], "Value for 'rangedThenInteger' must not be smaller than 1"],
             [
                 ['notInteger' => 5],
                 <<<ERROR
@@ -1137,11 +1240,19 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
                   - Composition element #1: Valid
                 ERROR,
             ],
+            [
+                ['anyOfAndNotInteger' => 5],
+                <<<ERROR
+                Invalid value for 'anyOfAndNotInteger' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
+                  - Composition element #1: Valid
+                ERROR,
+            ],
         ];
 
         foreach ($invalidInputs as [$input, $expectedMessage]) {
             try {
-                new $className($input);
+                new $className([...$requiredInput, ...$input]);
                 $this->fail('Expected a ValidationException for ' . json_encode($input));
             } catch (ValidationException $exception) {
                 $this->assertSame($expectedMessage, $exception->getMessage());

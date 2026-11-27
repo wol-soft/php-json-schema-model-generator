@@ -1,6 +1,21 @@
 {
   "type": "object",
   "properties": {
+    "enumProperty": {
+      "type": "number",
+      "enum": [
+        1,
+        2.5
+      ],
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
     "property": {
       "type": "number",
       "%1$s": [
