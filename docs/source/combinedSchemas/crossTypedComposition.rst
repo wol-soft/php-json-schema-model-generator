@@ -214,6 +214,11 @@ The check follows these rules:
 * A filter does not change the check. A branch ``type`` is validated against the raw input, so a
   ``{"type": "integer"}`` branch conflicts with a declared ``"type": "string"`` even if a filter
   transforms the string into another type.
+* A definition is checked on its own, wherever it is referenced. A definition whose declared type conflicts
+  with its own ``allOf`` branch, like ``{"type": "string", "allOf": [{"type": "integer"}]}``, is rejected even
+  if it is only referenced inside an ``anyOf`` / ``oneOf`` / ``not`` / ``if`` branch, where it would merely make
+  that branch dead. A definition contradicting itself is almost always an authoring error, and the same holds
+  for an ``allOf`` whose branches contradict each other.
 
 Root-level property precedence
 --------------------------------
