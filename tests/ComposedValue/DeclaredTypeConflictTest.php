@@ -171,6 +171,18 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
                 1,
                 true,
             ],
+            // A definition is checked on its own: it is rejected even if it is only referenced
+            // inside an anyOf branch, which it would merely make dead. Judging it by its reference
+            // sites was rejected: the context would have to be part of the cache of resolved
+            // definitions, building a definition referenced in both contexts twice.
+            'definition referenced inside an anyOf branch' => [
+                'DefinitionConflictReferencedInsideAnyOfBranch.json',
+                "'property'",
+                "'string'",
+                "'integer'",
+                1,
+                true,
+            ],
             'property defined by a reference' => [
                 'ReferencedPropertyAllOfBranchConflictsWithPropertyType.json',
                 "'property'",
