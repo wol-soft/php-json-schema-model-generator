@@ -1,0 +1,8 @@
+{
+  "$ref": "#/definitions/integerValue",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    }
+  }
+}

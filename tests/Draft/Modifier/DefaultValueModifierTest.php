@@ -66,7 +66,9 @@ class DefaultValueModifierTest extends TestCase
     public function testThrowsForInvalidDefaultType(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Invalid type for default value of property name');
+        $this->expectExceptionMessageMatches(
+            "/^Invalid type for default value of property 'name' in file test\\.json$/",
+        );
 
         $jsonSchema = new JsonSchema('test.json', ['type' => 'string', 'default' => 42]);
         $property = new Property('name', new PropertyType('string'), $jsonSchema);
@@ -153,7 +155,7 @@ class DefaultValueModifierTest extends TestCase
                 [
                     'level' => 'warning',
                     'message' => "Property '{property}' declares a default value inside a composition branch in"
-                        . " file '{file}'. Scalar branch defaults are unreachable and will be ignored.",
+                        . " file '{file}': scalar branch defaults are unreachable and are ignored",
                     'context' => ['property' => 'flag', 'file' => 'test.json'],
                 ],
             ],

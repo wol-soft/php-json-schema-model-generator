@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "numberBranch": {
+      "type": "integer",
+      "%1$s": [
+        {
+          "type": "number",
+          "minimum": 10
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "multiTypeProperty": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "minimum": 10,
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string",
+          "minLength": 2
+        }
+      ]
+    }
+  }
+}

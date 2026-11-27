@@ -11,12 +11,8 @@ use PHPModelGenerator\Exception\SchemaException;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Override;
 
-/**
- * Class IntPropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class IntegerPropertyTest extends AbstractNumericPropertyTestCase
 {
@@ -89,13 +85,13 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     protected function getMultipleOfFile(): string
     {
         return 'IntegerPropertyMultipleOf.json';
     }
 
-    #[\Override]
+    #[Override]
     public static function validMultipleOfDataProvider(): iterable
     {
         return [
@@ -105,10 +101,12 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
             '-8 is multiple of -4' => [-4, -8],
             '0 is multiple of 0' => [0, 0],
             'Null is multiple of 2' => [2, null],
+            '3 is multiple of 0.5' => [0.5, 3],
+            '-6 is multiple of 1.5' => [1.5, -6],
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidMultipleOfDataProvider(): iterable
     {
         return [
@@ -118,16 +116,18 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
             '-8 is multiple of -3' => [-3, -8],
             '1 is multiple of 0' => [0, 1],
             '-1 is multiple of 0' => [0, -1],
+            '3 is multiple of 0.4' => [0.4, 3],
+            '4 is multiple of 1.5' => [1.5, 4],
         ];
     }
 
-    #[\Override]
+    #[Override]
     protected function getRangeFile(bool $exclusive): string
     {
         return $exclusive ? 'IntegerPropertyRangeExclusive.json' : 'IntegerPropertyRange.json';
     }
 
-    #[\Override]
+    #[Override]
     public static function validRangeDataProvider(): iterable
     {
         return [
@@ -138,7 +138,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidRangeDataProvider(): iterable
     {
         return [
@@ -147,7 +147,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function validExclusiveRangeDataProvider(): iterable
     {
         return [
@@ -156,7 +156,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function invalidExclusiveRangeDataProvider(): iterable
     {
         return [

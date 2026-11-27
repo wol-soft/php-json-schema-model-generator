@@ -128,9 +128,9 @@ class FilterChainTest extends AbstractFilterTestCase
     public function testInvalidFilterChainWithTransformingFilterThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Filter trim is not compatible with transformed property type ' .
-            '[null, DateTime] for property filteredProperty',
+        $this->expectExceptionMessageMatches(
+            "/^Filter 'trim' is not compatible with transformed property type \\['null', 'DateTime'\\]"
+                . " for property 'filteredProperty' in file \\S+\\.json at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFileTemplate('FilterChain.json', ['["dateTime", "trim"]'], null, false);
@@ -230,9 +230,9 @@ class FilterChainTest extends AbstractFilterTestCase
     public function testFilterChainWithIncompatibleFilterAfterTransformingFilterOnMultiTypeProperty(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Filter stripTime is not compatible with transformed ' .
-            'property type [null, DateTime] for property filteredProperty',
+        $this->expectExceptionMessageMatches(
+            "/^Filter 'stripTime' is not compatible with transformed property type \\['null', 'DateTime'\\]"
+                . " for property 'filteredProperty' in file \\S+\\.json at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFile(
@@ -341,9 +341,10 @@ class FilterChainTest extends AbstractFilterTestCase
     public function testMixedReturnTransformingFilterFollowedByTypedFilterThrowsException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Filter trim is not compatible with the unconstrained output of'
-            . ' transforming filter mixedReturnFilter for property filteredProperty',
+        $this->expectExceptionMessageMatches(
+            "/^Filter 'trim' is not compatible with the unconstrained output of transforming filter"
+                . " 'mixedReturnFilter' for property 'filteredProperty' in file \\S+\\.json: not all types are"
+                . ' accepted at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFileTemplate(
@@ -410,9 +411,9 @@ class FilterChainTest extends AbstractFilterTestCase
     public function testNonNullableReturnTransformingFilterWithIncompatibleNextFilterThrowsException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Filter trim is not compatible with transformed property type int'
-            . ' for property filteredProperty',
+        $this->expectExceptionMessageMatches(
+            "/^Filter 'trim' is not compatible with transformed property type 'integer' for property"
+                . " 'filteredProperty' in file \\S+\\.json at line \\d+, column \\d+$/",
         );
 
         $this->generateClassFromFileTemplate(

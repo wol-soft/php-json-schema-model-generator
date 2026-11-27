@@ -1,0 +1,65 @@
+{
+  "type": "object",
+  "definitions": {
+    "number": {
+      "type": "number",
+      "minimum": 1
+    },
+    "nullableNumber": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "numberAlias": {
+      "$ref": "#/definitions/number"
+    }
+  },
+  "properties": {
+    "narrowed": {
+      "type": "integer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/number"
+        }
+      ]
+    },
+    "narrowedMultiType": {
+      "type": "integer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/nullableNumber"
+        }
+      ]
+    },
+    "plain": {
+      "$ref": "#/definitions/number"
+    },
+    "plainMultiType": {
+      "$ref": "#/definitions/nullableNumber"
+    },
+    "otherComposition": {
+      "type": "number",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/number"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "plainAlias": {
+      "$ref": "#/definitions/numberAlias"
+    },
+    "narrowedAlias": {
+      "type": "integer",
+      "allOf": [
+        {
+          "$ref": "#/definitions/numberAlias"
+        }
+      ]
+    }
+  }
+}

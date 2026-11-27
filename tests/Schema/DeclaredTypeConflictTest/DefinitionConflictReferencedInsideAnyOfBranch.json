@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "definitions": {
+    "contradictingString": {
+      "type": "string",
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "property": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/contradictingString"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

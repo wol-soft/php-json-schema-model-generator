@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
+use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -59,6 +60,32 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
+    }
+
+    /**
+     * An optional property which declares a type and carries a `not` is valid when it is absent:
+     * an absent property is not validated, and its getter returns null. The generator marks a
+     * property with a `not` as required: without implicit null the type check of the property
+     * rejects the absent value ("Invalid type for 'property': requires 'string', got 'NULL'"),
+     * with implicit null the getter is typed `string` and throws a TypeError on read.
+     *
+     * Known gap: the test turns green by itself as soon as the absent property is accepted and
+     * read as null.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testNotProvidedOptionalTypedPropertyWithNotIsValid(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('NotOnOptionalTypedProperty.json', implicitNull: $implicitNull);
+
+        try {
+            $propertyValue = (new $className([]))->getProperty();
+        } catch (ValidationException | TypeError) {
+            $this->markTestIncomplete(
+                'Known gap: an absent optional property with a type and a not is rejected or typed as required.',
+            );
+        }
+
+        $this->assertNull($propertyValue);
     }
 
     /**

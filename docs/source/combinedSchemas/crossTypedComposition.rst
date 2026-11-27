@@ -143,6 +143,83 @@ apply when ``then`` and ``else`` define the same property with different types.
 
 See `If <if.html>`__ for examples and further details.
 
+Declared type and branch types
+------------------------------
+
+A property which declares a ``type`` and carries a composition validates its own type independently
+of the branches. The branch types are therefore checked against the declared type:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "property": {
+                "type": "string",
+                "allOf": [
+                    {
+                        "type": "integer"
+                    }
+                ]
+            }
+        }
+    }
+
+No value can satisfy both the type of the property and the branch, so the generation fails with a
+``SchemaException``:
+
+.. code-block:: text
+
+    Property 'property' is declared with type 'string' which conflicts with the type 'integer' of allOf branch #1 (file ...): allOf requires all constraints to hold simultaneously, making this schema unsatisfiable
+
+The check follows these rules:
+
+* ``allOf``: every branch type which does not overlap the declared type is rejected.
+* ``anyOf`` / ``oneOf``: a branch type which does not overlap the declared type is reported with a
+  generation-time warning (the branch can never match, but another branch still may). When no branch
+  overlaps the declared type the schema is rejected with a ``SchemaException``. The type of the property
+  is narrowed to the overlap of the declared type and the branch types instead of being replaced by the
+  branch types.
+* A composition inside a branch of an ``anyOf``, ``oneOf``, ``not``, ``if``, ``then`` or ``else`` only
+  makes that branch dead (or the ``not`` always hold), the schema stays satisfiable: its conflicts with the
+  declared type are reported with a warning instead of a ``SchemaException``. For example
+  ``{"type": "string", "not": {"allOf": [{"type": "integer"}]}}`` accepts every string. An ``allOf`` inside an
+  ``allOf`` branch is rejected like the outer one.
+* ``integer`` is a subtype of ``number``: ``{"type": "number", "allOf": [{"type": "integer"}]}`` is valid
+  and generates an ``int`` property. The ``number`` keywords of the property and of its branches are then
+  applied as ``integer`` keywords: the ``int`` to ``float`` cast is dropped, and ``minimum``, ``maximum``,
+  ``exclusiveMinimum``, ``exclusiveMaximum`` and ``multipleOf`` keep validating the ``int`` value. The same
+  applies to a ``number`` within a multi-type declaration such as ``["number", "null"]``.
+* ``anyOf`` / ``oneOf`` narrow every branch to the declared type on its own. A ``number`` property with an
+  ``integer`` and a ``number`` branch generates an ``int | float`` property: neither the property nor its
+  ``number`` branches cast an ``int`` to ``float``, so the ``integer`` branch sees the ``int``, and an ``int`` is
+  stored as an ``int`` and a ``float`` as a ``float``, whichever branch matches and in whichever order the branches
+  are written. An integer ``default`` stays an ``int`` as well.
+  ``{"type": "number", "oneOf": [{"type": "integer"}, {"type": "number"}]}`` therefore rejects ``5`` (it matches
+  both branches) and accepts ``5.5``.
+* The same applies to a ``number`` property whose ``if``, ``then``, ``else`` or ``not`` schema declares
+  ``"type": "integer"``: the property is typed ``int | float`` and the ``int`` reaches the schema uncast.
+  ``{"type": "number", "if": {"minimum": 0}, "then": {"type": "integer"}}`` accepts ``5`` (stored as an ``int``)
+  and ``-1.5``, and rejects ``5.5``. A schema which only inherits ``number`` keeps the ``float`` property.
+* ``null`` is a type like any other: a declared ``string`` and a ``null`` branch do not overlap. With
+  `implicit null <../gettingStarted.html#implicit-null>`__ enabled an optional property additionally accepts
+  ``null``, so a ``null`` branch overlaps its declared type. A required property is not widened.
+* A branch without a ``type`` keyword, and the boolean ``true`` branch, constrain no type and never
+  conflict.
+* A ``$ref`` branch is checked with the ``type`` of the referenced definition. A branch which declares no
+  ``type`` usually inherits the declared type, but not a ``$ref`` branch whose definition declares a type
+  which does not overlap it: such a branch is reported like an inline branch with that type. A reference to
+  a reference is followed to the definition at its end, as long as the chain stays within one file. This also
+  applies to the ``not``, ``if``, ``then`` and ``else`` schemas.
+* A filter does not change the check. A branch ``type`` is validated against the raw input, so a
+  ``{"type": "integer"}`` branch conflicts with a declared ``"type": "string"`` even if a filter
+  transforms the string into another type.
+* A definition is checked on its own, wherever it is referenced. A definition whose declared type conflicts
+  with its own ``allOf`` branch, like ``{"type": "string", "allOf": [{"type": "integer"}]}``, is rejected even
+  if it is only referenced inside an ``anyOf`` / ``oneOf`` / ``not`` / ``if`` branch, where it would merely make
+  that branch dead. A definition contradicting itself is almost always an authoring error, and the same holds
+  for an ``allOf`` whose branches contradict each other.
+
 Root-level property precedence
 --------------------------------
 

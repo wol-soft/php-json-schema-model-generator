@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      ]
+    }
+  }
+}

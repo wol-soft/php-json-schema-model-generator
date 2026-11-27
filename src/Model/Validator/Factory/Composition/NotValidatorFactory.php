@@ -54,6 +54,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         // so it must run before we wrap it in an array for iteration.
         [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
             $schemaProcessor,
+            $schema,
             $property,
             $propertySchema,
         );
@@ -90,6 +91,17 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
                 $compositionProperty,
                 $property,
                 "a 'not' composition branch",
+            );
+        }
+
+        foreach ($compositionProperties as $compositionProperty) {
+            $compositionProperty->onResolve(
+                static fn() => self::retypeNumberPropertyForIntegerSchemas(
+                    $schemaProcessor,
+                    $schema,
+                    $property,
+                    $compositionProperties,
+                ),
             );
         }
 

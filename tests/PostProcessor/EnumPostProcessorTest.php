@@ -661,6 +661,35 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNotNull($object->getState());
     }
 
+    /**
+     * Enum branches of a composition on a property which declares `type: string` are converted to
+     * enum classes, and the type of the property is derived from the branches again afterwards.
+     * The property returns an enum object, so the type hint has to name the enum classes next to
+     * the string. Narrowing the branch types to the declared string would drop the classes and
+     * leave a getter which returns an enum under a `?string` type hint (a TypeError on read).
+     */
+    public function testEnumBranchesUnderDeclaredStringTypeKeepTheEnumClassesInTheTypeHint(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile(
+            'EnumAnyOfBranchesUnderDeclaredStringType.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertGeneratedEnums(2);
+
+        $returnTypeNames = $this->getReturnTypeNames($className, 'getState');
+        $this->assertCount(4, $returnTypeNames);
+        $this->assertContains('string', $returnTypeNames);
+        $this->assertContains('null', $returnTypeNames);
+        $this->assertCount(2, preg_grep('/State(_1)?$/', $returnTypeNames));
+
+        foreach (['active', 'inactive', 'pending'] as $state) {
+            $this->assertNotNull((new $className(['state' => $state]))->getState());
+        }
+    }
+
     private function draftAwareEnumConfig(): array
     {
         $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());

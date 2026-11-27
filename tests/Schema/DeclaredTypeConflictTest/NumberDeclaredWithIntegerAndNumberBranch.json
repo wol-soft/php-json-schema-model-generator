@@ -1,0 +1,95 @@
+{
+  "type": "object",
+  "properties": {
+    "numberBranchFirst": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "inheritedNumberBranch": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "integer",
+          "maximum": 3
+        },
+        {
+          "minimum": 10
+        }
+      ]
+    },
+    "enumProperty": {
+      "type": "number",
+      "enum": [
+        1,
+        2.5
+      ],
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "property": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "rangedProperty": {
+      "type": "number",
+      "minimum": 1,
+      "%1$s": [
+        {
+          "type": "integer",
+          "maximum": 3
+        },
+        {
+          "type": "number",
+          "minimum": 10
+        }
+      ]
+    },
+    "multiTypeProperty": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "integerBranchesOnly": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "integer",
+          "minimum": 5
+        },
+        {
+          "type": "integer",
+          "maximum": 3
+        }
+      ]
+    }
+  }
+}

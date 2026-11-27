@@ -43,6 +43,7 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 class PropertyFactory
 {
@@ -770,12 +771,12 @@ class PropertyFactory
 
         if (empty(TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames))) {
             throw new SchemaException(sprintf(
-                "Property '%s' in file %s: \$ref resolves to type '%s' but sibling 'type' "
-                    . "declares '%s'; the types are incompatible",
+                "Property '%s' in file %s: \$ref resolves to type %s but sibling 'type' "
+                    . 'declares %s; the types are incompatible',
                 $propertyName,
                 $siblingSchema->getFile(),
-                implode(' | ', $producedPhpTypeNames),
-                $siblingJson['type'],
+                TypeNameFormatter::fromPhpTypes($producedPhpTypeNames),
+                TypeNameFormatter::fromJsonTypes($siblingJson['type']),
             ));
         }
     }
@@ -1449,6 +1450,23 @@ class PropertyFactory
         );
 
         (new ObjectModifier())->modify($schemaProcessor, $schema, $property, $propertySchema);
+    }
+
+    /**
+     * Run only the type-specific Draft modifiers of the type $propertySchema declares (not the
+     * 'any' entry), tagging the validators they add with their keyword like every other modifier
+     * run. Used to rebuild the type-dependent validators of a property whose type was narrowed
+     * after it had been processed.
+     *
+     * @throws SchemaException
+     */
+    public function applyTypeModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, typeOnly: true);
     }
 
     /**

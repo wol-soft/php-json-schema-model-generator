@@ -16,19 +16,12 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
 
-/**
- * Class PropertyProxy
- *
- * @package PHPModelGenerator\Model
- */
 class PropertyProxy extends AbstractProperty
 {
     private ?JsonSchema $overrideJsonSchema = null;
     private ?PhpAttribute $overrideJsonPointer = null;
 
     /**
-     * PropertyProxy constructor.
-     *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
      * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
@@ -50,15 +43,19 @@ class PropertyProxy extends AbstractProperty
      * the composition, or merged with a branch declaration) must not change the definition. A plain clone would keep
      * delegating every change to the shared property.
      *
-     * Only a resolved proxy can be detached, an unresolved one is returned as a plain clone.
+     * Only a resolved proxy can be detached, an unresolved one is returned as a plain clone. A proxy referencing
+     * another proxy (a reference to a reference) is detached down to the property at the end of the chain: a plain
+     * clone of the inner proxy would keep delegating every change to the shared property as well.
      */
     public function detach(): static
     {
         $copy = clone $this;
 
         if ($this->isResolved()) {
+            $property = $this->getProperty();
+
             $copy->definitionsCollection = new ResolvedDefinitionsCollection(
-                [$this->key => clone $this->getProperty()],
+                [$this->key => $property instanceof self ? $property->detach() : clone $property],
             );
         }
 

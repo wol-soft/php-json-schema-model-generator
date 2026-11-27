@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "definitions": {
+    "positiveNumber": {
+      "type": "number",
+      "minimum": 1
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "number",
+      "allOf": [
+        {
+          "$ref": "#/definitions/positiveNumber"
+        }
+      ]
+    },
+    "referenceWithType": {
+      "$ref": "#/definitions/positiveNumber",
+      "type": "number"
+    }
+  }
+}

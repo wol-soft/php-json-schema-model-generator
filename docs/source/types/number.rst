@@ -103,7 +103,7 @@ To add a multiple of validation to the property use the `multipleOf` keyword.
 
 .. warning::
 
-    If using multipleOf with `number` properties the php core function fmod() will be used for validation following the IEEE-754 standard.
+    If using multipleOf with `number` properties, or with a fractional value (e.g. ``0.5``) on `integer` properties, the php core function fmod() will be used for validation following the IEEE-754 standard.
 
 .. code-block:: json
 
@@ -126,7 +126,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Number\\MultipleOf
 
 .. code-block:: php
 
-    // returns the multipleOd constraint
+    // returns the multipleOf constraint
     public function getMultipleOf()
     // get the name of the property which failed
     public function getPropertyName(): string

@@ -473,7 +473,7 @@ Let's have a look how the generated model behaves:
 
 If trim is applied to a property whose type has zero overlap with string or null (e.g. a pure boolean property), a ``SchemaException`` is raised at generation time:
 
-* Filter trim is not compatible with property type __TYPE__ for property __PROPERTY_NAME__
+* Filter 'trim' is not compatible with property type '__TYPE__' for property '__PROPERTY_NAME__' in file __FILE__
 
 notEmpty
 ^^^^^^^^

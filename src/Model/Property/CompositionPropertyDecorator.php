@@ -60,6 +60,27 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
+     * Gives the branch its own copy of the property it wraps, so a change to the branch itself -
+     * e.g. retyping a number branch to integer once the composition narrowed its type - stays with
+     * the branch. In the drafts which ignore the siblings of a `$ref`, a `$ref` branch wraps the
+     * property of the referenced definition, which every other reference to the definition shares:
+     * the first reference gets the property itself, every later one a proxy of it. As the branch
+     * can't tell whether it holds a shared property, it always copies: a proxy is detached, any
+     * other property is cloned. Copying only proxies was rejected: the first reference to a
+     * definition would still change the definition for all others.
+     */
+    public function detachWrappedProperty(): void
+    {
+        $wrappedProperty = $this->getProperty();
+
+        $this->definitionsCollection = new ResolvedDefinitionsCollection(
+            [self::PROPERTY_KEY => $wrappedProperty instanceof PropertyProxy
+                ? $wrappedProperty->detach()
+                : clone $wrappedProperty],
+        );
+    }
+
+    /**
      * Append an object property which is affected by the composition validator
      */
     public function appendAffectedObjectProperty(PropertyInterface $property): void

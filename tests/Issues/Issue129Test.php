@@ -125,12 +125,12 @@ class Issue129Test extends AbstractPHPModelGeneratorTestCase
 
         $this->assertCount(1, $warnings);
         $this->assertSame(
-            "Enum property '{property}' in file {file} declares type '{type}' but contains incompatible"
-                . " values: {removedValues}. These values have been removed from the generated enum.",
+            "Enum property '{property}' in file {file} declares type {type} but contains the incompatible"
+                . ' values {removedValues}, which have been removed from the generated enum',
             $warnings[0]['message'],
         );
         $this->assertSame('property', $warnings[0]['context']['property']);
-        $this->assertSame('string', $warnings[0]['context']['type']);
+        $this->assertSame("'string'", $warnings[0]['context']['type']);
         $this->assertSame('1234', $warnings[0]['context']['removedValues']);
 
         // Only string cases must exist; 1234 must be absent

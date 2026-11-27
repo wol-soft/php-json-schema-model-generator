@@ -8,23 +8,32 @@ use Closure;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
-use PHPModelGenerator\Exception\MessageFormatter;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\BranchNameResolver;
+use PHPModelGenerator\Utils\TypeCheck;
+use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
@@ -352,7 +361,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $branchLabel,
                     $property->getName(),
                     $propertySchema->getFile(),
-                    self::formatTypes($branchJson['type']),
+                    TypeNameFormatter::fromJsonTypes($branchJson['type']),
                 ),
                 $propertySchema->navigate("$this->key/$branchIndex"),
             );
@@ -364,7 +373,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             [
                 'branch' => $branchLabel,
                 'property' => $property->getName(),
-                'type' => self::formatTypes($branchJson['type']),
+                'type' => TypeNameFormatter::fromJsonTypes($branchJson['type']),
             ],
         );
     }
@@ -440,16 +449,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         };
     }
 
-    /**
-     * Render the 'type' of a branch for a message: 'object', or ['string', 'null'] for a type list
-     * (the same notation InvalidTypeException uses for its expected types).
-     *
-     * @param string|string[] $types
-     */
-    private static function formatTypes(string | array $types): string
-    {
-        return is_array($types) ? '[' . MessageFormatter::quotedList($types) . ']' : "'$types'";
-    }
 
     /**
      * Returns true when composition processing should be skipped for this property.
@@ -763,6 +762,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      */
     protected function inheritPropertyType(
         SchemaProcessor $schemaProcessor,
+        Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): array {
@@ -776,7 +776,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         switch ($this->key) {
             case 'not':
-                if (!isset($json[$this->key]['type'])) {
+                if (
+                    !isset($json[$this->key]['type'])
+                    && $this->canInheritPropertyType($schemaProcessor, $schema, $propertySchema, $this->key)
+                ) {
                     $json[$this->key]['type'] = $json['type'];
                     $injectedTypeBranchIndices[0] = true;
 
@@ -791,12 +794,26 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 break;
             case 'if':
                 return [
-                    $this->inheritIfPropertyType($schemaProcessor, $property, $propertySchema->withJson($json)),
+                    $this->inheritIfPropertyType(
+                        $schemaProcessor,
+                        $schema,
+                        $property,
+                        $propertySchema->withJson($json),
+                    ),
                     $injectedTypeBranchIndices,
                 ];
             default:
                 foreach ($json[$this->key] as $index => &$composedElement) {
-                    if (!is_bool($composedElement) && !isset($composedElement['type'])) {
+                    if (
+                        !is_bool($composedElement)
+                        && !isset($composedElement['type'])
+                        && $this->canInheritPropertyType(
+                            $schemaProcessor,
+                            $schema,
+                            $propertySchema,
+                            "$this->key/$index",
+                        )
+                    ) {
                         $composedElement['type'] = $json['type'];
                         $injectedTypeBranchIndices[$index] = true;
 
@@ -820,6 +837,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      */
     protected function inheritIfPropertyType(
         SchemaProcessor $schemaProcessor,
+        Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): JsonSchema {
@@ -830,7 +848,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 continue;
             }
 
-            if (!isset($json[$keyword]['type'])) {
+            if (
+                !isset($json[$keyword]['type'])
+                && $this->canInheritPropertyType($schemaProcessor, $schema, $propertySchema, $keyword)
+            ) {
                 $json[$keyword]['type'] = $json['type'];
 
                 $this->reportBranchWhichCannotSatisfyInheritedType(
@@ -847,16 +868,78 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
+     * Whether the declared type of $propertySchema may be passed down into the untyped branch at
+     * $branchPointer. It may not for a `$ref` branch whose referenced definition declares a type
+     * disjoint from the declared one: in the drafts which apply the siblings of a `$ref` the
+     * passed down type would be merged with the referenced type and fail the generation with a
+     * conflict between the reference and a sibling `type` the author never wrote. Left as
+     * authored, the branch is dead and reported by assertBranchTypesAreSatisfiable() like an
+     * inline branch with a disjoint type (a warning for anyOf / oneOf, a conflict for allOf).
+     *
+     * Not passing the declared type into any `$ref` branch was rejected: a reference to an untyped
+     * definition with type-specific keywords (e.g. `maxLength`) relies on the inherited type for
+     * them to apply. A reference to a reference is followed down to the first definition which
+     * declares a type, as the merge of the siblings conflicts with that type just the same. Each
+     * reference is resolved against the base of the branch, which is only right as long as the
+     * chain stays in the document of the branch: after a reference into another document the chain
+     * is not followed further. Such a chain, a reference which cannot be resolved yet
+     * (peekReference() returns null) and a cyclic chain keep the inherited type, as before.
+     */
+    private function canInheritPropertyType(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        JsonSchema $propertySchema,
+        string $branchPointer,
+    ): bool {
+        $branchSchema = $propertySchema->navigate($branchPointer);
+        $target = $branchSchema->getJson();
+        $visitedReferences = [];
+
+        while (!isset($target['type']) && is_string($target['$ref'] ?? null)) {
+            $leftTheDocument = $visitedReferences !== [] && !str_starts_with(array_key_last($visitedReferences), '#');
+
+            if ($leftTheDocument || isset($visitedReferences[$target['$ref']])) {
+                return true;
+            }
+
+            $visitedReferences[$target['$ref']] = true;
+            $target = $schema->getSchemaDictionary()->peekReference(
+                $target['$ref'],
+                $schemaProcessor,
+                $branchSchema->getBaseId(),
+            );
+
+            if (!is_array($target)) {
+                return true;
+            }
+        }
+
+        if ($visitedReferences === [] || !isset($target['type'])) {
+            return true;
+        }
+
+        return TypeIntersection::compute(
+            self::normalizeTypeNames($target['type']),
+            self::normalizeTypeNames($propertySchema->getJson()['type']),
+        ) !== [];
+    }
+
+    /**
      * After all composition branches resolve, derive the parent property's type from the
      * branch types and apply it. Skips when any branch has a nested schema (object merging
-     * is handled elsewhere) - see assertNoAllOfConflict() for the allOf conflict check, which
-     * is asserted up front and unconditionally, independently of whether type transfer itself
-     * proceeds or is skipped for this reason.
+     * is handled elsewhere).
+     *
+     * Conflicting branch types are not detected here: assertBranchTypesAreSatisfiable() owns
+     * every generation-time type conflict of a composition and runs before this method, whether
+     * the type transfer proceeds or is skipped. Asserting the allOf conflict from here as well was
+     * rejected: the question "are these branches in conflict" would be answered from two places,
+     * and a post processor recomputing the type (EnumPostProcessor) has nothing to assert, as the
+     * schema was checked when it was processed.
      *
      * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
      * are valid, so the PHP type is the intersection. Branches with no declared type impose no
      * constraint and are excluded from the intersection. An empty intersection (contradictory
-     * branch types) throws SchemaException because no value can ever be valid.
+     * branch types) was already rejected by assertBranchTypesAreSatisfiable().
      *
      * anyOf / oneOf: union of all typed branch types — at least one branch must pass, so the PHP
      * type is the union. An untyped branch accepts every value, making the composition satisfied
@@ -870,26 +953,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
-     *
-     * @throws SchemaException when allOf branches declare conflicting types, including an
-     *                          object-shaped branch conflicting with a scalar-typed branch.
      */
     public static function transferPropertyType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $isAllOf,
     ): void {
-        // Conflict detection is a single topic regardless of branch shape, so it is asserted
-        // once, up front, from this one call site - see assertNoAllOfConflict(). This is
-        // deliberately unconditional with respect to the nested-schema early return just below:
-        // that early return is about type TRANSFER (there is nothing to compute a PHP type from
-        // when object merging owns the branch), not about conflict detection, and keeping the two
-        // concerns apart is what lets one method own the entire "are these allOf branches in
-        // conflict" question instead of it being reachable from two different places.
-        if ($isAllOf) {
-            self::assertNoAllOfConflict($property, $compositionProperties);
-        }
-
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
                 return;
@@ -927,6 +996,625 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         self::transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+    }
+
+    /**
+     * The single entry point for the generation-time type conflicts of a composition, called once
+     * every branch is resolved and before transferPropertyType(). For allOf, the branches are
+     * checked against each other first (see assertNoAllOfConflict()). Then the `type` of every
+     * branch is checked against the `type` declared on the property the composition belongs to.
+     * The property validates its own declared type independently of the composition, so a branch
+     * type which does not overlap it can never match:
+     *
+     * - allOf: every branch must hold, so one disjoint branch makes the schema unsatisfiable and
+     *   is rejected.
+     * - anyOf / oneOf: a disjoint branch is dead but another branch may still match, so it is
+     *   reported with a warning. Only when every branch is dead no value can be valid and the
+     *   schema is rejected. Rejecting every dead branch was considered and dropped: a partly
+     *   irrelevant branch is valid JSON Schema.
+     *
+     * The declared type is read from the `type` keyword of the property schema, not from
+     * PropertyInterface::getType(): the latter may already have been replaced by a filter's output
+     * type or by an earlier composition, while a branch `type` always validates the raw input.
+     * Comparing against the output type of a filter was rejected - a `{type: integer}` branch under
+     * a string-to-int filter must validate the raw input, so matching it against the output type
+     * would let the string '50' pass a `type: integer` check after the transformation.
+     *
+     * Implicit null widens the declared type to "T | null" for exactly the properties it applies
+     * to: implicit null enabled and the property not required. For any other property a `null`
+     * branch stays a contradiction.
+     *
+     * Branches without a `type` keyword (and always-true branches) constrain no type and never
+     * conflict. A branch which inherited the property type (see inheritPropertyType()) overlaps
+     * the declared type by construction.
+     *
+     * A composition which belongs to a branch of an anyOf, oneOf, not, if, then or else only makes
+     * that branch dead (or the not always hold) while the schema stays satisfiable, so its
+     * conflicts are reported with a warning for each disjoint branch instead of failing the
+     * generation - see isInsideNonAllOfBranch(). Failing the generation there was rejected:
+     * `{"type": "string", "not": {"allOf": [{"type": "integer"}]}}` accepts every string. The
+     * conflict of allOf branches with each other keeps failing the generation in every position.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException when an allOf branch is disjoint from the declared type, or when no
+     *                         anyOf / oneOf branch overlaps it, unless the composition belongs to
+     *                         a branch of another composition.
+     */
+    protected static function assertBranchTypesAreSatisfiable(
+        GeneratorConfiguration $generatorConfiguration,
+        PropertyInterface $property,
+        array $compositionProperties,
+        string $keyword,
+    ): void {
+        // Branches contradicting each other is the more specific diagnostic and has to win over a
+        // conflict with the declared type: the declared type of a schema which becomes a class is
+        // the internal object marker, so e.g. an object branch next to a string branch conflicts
+        // with the declared type as well, but the cause is the two branches.
+        if ($keyword === 'allOf') {
+            self::assertNoAllOfConflict($property, $compositionProperties);
+        }
+
+        $declaredTypeNames = self::getDeclaredTypeNames($property);
+
+        if ($declaredTypeNames === null) {
+            return;
+        }
+
+        $effectiveTypeNames = $declaredTypeNames;
+        if (
+            !($property instanceof BaseProperty)
+            && !$property->isRequired()
+            && $generatorConfiguration->isImplicitNullAllowed()
+        ) {
+            $effectiveTypeNames[] = 'null';
+        }
+
+        $disjointBranches = [];
+        foreach ($compositionProperties as $index => $compositionProperty) {
+            $branchTypeNames = self::getBranchTypeNames($compositionProperty);
+
+            if ($branchTypeNames !== null && TypeIntersection::compute($effectiveTypeNames, $branchTypeNames) === []) {
+                $disjointBranches[$index] = $compositionProperty;
+            }
+        }
+
+        if ($disjointBranches === []) {
+            return;
+        }
+
+        // The messages name the types as the author wrote them (`number`, not the PHP type `float`),
+        // formatted like the other composition diagnostics.
+        $declaredType = TypeNameFormatter::fromJsonTypes($property->getJsonSchema()->getJson()['type']);
+        $isFatal = !self::isInsideNonAllOfBranch($property->getJsonSchema()->getPointer());
+
+        if ($isFatal && $keyword === 'allOf') {
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is declared with type %s which conflicts with the type %s of allOf branch #%d"
+                        . ' (file %s): allOf requires all constraints to hold simultaneously,'
+                        . ' making this schema unsatisfiable',
+                    $property->getName(),
+                    $declaredType,
+                    self::formatBranchType(reset($disjointBranches)),
+                    key($disjointBranches) + 1,
+                    $property->getJsonSchema()->getFile(),
+                ),
+                $property->getJsonSchema(),
+            );
+        }
+
+        if ($isFatal && count($disjointBranches) === count($compositionProperties)) {
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is declared with type %s which conflicts with the types %s of all %s branches"
+                        . ' (file %s): %s requires at least one branch to be satisfied,'
+                        . ' making this schema unsatisfiable',
+                    $property->getName(),
+                    $declaredType,
+                    implode(', ', array_map(self::formatBranchType(...), $disjointBranches)),
+                    $keyword,
+                    $property->getJsonSchema()->getFile(),
+                    $keyword,
+                ),
+                $property->getJsonSchema(),
+            );
+        }
+
+        foreach ($disjointBranches as $index => $disjointBranch) {
+            $generatorConfiguration->getLogger()->warning(
+                "{keyword} branch #{branch} for property '{property}' declares the type {branchType}"
+                    . ' which does not overlap the declared type {declaredType} and can never be satisfied',
+                [
+                    'keyword' => $keyword,
+                    'branch' => $index + 1,
+                    'property' => $property->getName(),
+                    'branchType' => self::formatBranchType($disjointBranch),
+                    'declaredType' => $declaredType,
+                ],
+            );
+        }
+    }
+
+    private static function formatBranchType(CompositionPropertyDecorator $branch): string
+    {
+        return TypeNameFormatter::fromJsonTypes($branch->getJsonSchema()->getJson()['type']);
+    }
+
+    /**
+     * Whether the schema at $pointer is a branch of an anyOf, oneOf, not, if, then or else, directly
+     * or through allOf branches, below the nearest property or definition. A value which fails such
+     * a branch can still be valid. The pointer is walked from the start and the keyword slots are
+     * consumed pairwise, like BranchNameResolver does, so a property named like a composition
+     * keyword (`/properties/anyOf/allOf/0`) is not mistaken for the keyword. An allOf branch alone
+     * doesn't count: whatever can't satisfy an allOf branch can't satisfy the allOf either.
+     */
+    private static function isInsideNonAllOfBranch(string $pointer): bool
+    {
+        $segments = array_values(array_filter(explode('/', $pointer), 'strlen'));
+        $segmentCount = count($segments);
+        $insideNonAllOfBranch = false;
+
+        for ($index = 0; $index < $segmentCount; $index++) {
+            $segment = $segments[$index];
+
+            if (in_array($segment, ['allOf', 'anyOf', 'oneOf', 'not', 'if', 'then', 'else'], true)) {
+                $insideNonAllOfBranch = $insideNonAllOfBranch || $segment !== 'allOf';
+
+                if ($index + 1 < $segmentCount && is_numeric($segments[$index + 1])) {
+                    $index++;
+                }
+
+                continue;
+            }
+
+            // Any other keyword leads to another value (a property, an item, a definition, ...);
+            // the keywords followed by a user chosen key consume that key as well.
+            $insideNonAllOfBranch = false;
+
+            $keyedKeywords = [
+                'properties',
+                'definitions',
+                '$defs',
+                'patternProperties',
+                'dependencies',
+                'dependentSchemas',
+            ];
+
+            if (in_array($segment, $keyedKeywords, true)) {
+                $index++;
+            }
+        }
+
+        return $insideNonAllOfBranch;
+    }
+
+    /**
+     * The generator-internal type names of the `type` keyword of the property schema, or null when
+     * the property declares no type.
+     *
+     * The internal 'base' dispatch type replaces the `type` of every schema which becomes a
+     * generated class (the schema root and every nested object schema), erasing what the author
+     * declared. Such a schema always describes an object, so it is read as 'object'. Skipping the
+     * check for these schemas was rejected: the schema root is exactly where a contradicting branch
+     * used to surface as an unrelated "No nested schema for composed property" failure.
+     *
+     * @return string[]|null
+     */
+    private static function getDeclaredTypeNames(PropertyInterface $property): ?array
+    {
+        return self::normalizeTypeNames($property->getJsonSchema()->getJson()['type'] ?? null);
+    }
+
+    /**
+     * The generator-internal type names a branch declares in its own `type` keyword, or null for a
+     * branch without one (including an always-true branch). The type is read from the JSON like
+     * branchPermitsObjectValues() does, because PropertyInterface::getType() is null for an
+     * explicit `{type: null}` branch, which would make it indistinguishable from an untyped one.
+     *
+     * Only the resolved schema is consulted: it is the branch schema itself for an inline branch
+     * and the target for a `$ref` branch. Reading the branch schema first was rejected: keywords
+     * next to a `$ref` are ignored by the drafts which suppress a reference's siblings, so a
+     * `{"$ref": ..., "type": "string"}` branch would be read as a string branch although it is the
+     * referenced object.
+     *
+     * @return string[]|null
+     */
+    private static function getBranchTypeNames(CompositionPropertyDecorator $branch): ?array
+    {
+        return self::normalizeTypeNames($branch->getJsonSchema()->getJson()['type'] ?? null);
+    }
+
+    /**
+     * @param string|string[]|null $jsonType the value of a `type` keyword
+     *
+     * @return string[]|null
+     */
+    private static function normalizeTypeNames(string|array|null $jsonType): ?array
+    {
+        if ($jsonType === null) {
+            return null;
+        }
+
+        return array_values(array_unique(array_map(
+            static fn(string $typeName): string => $typeName === 'base'
+                ? 'object'
+                : TypeConverter::jsonSchemaToPHP($typeName),
+            (array) $jsonType,
+        )));
+    }
+
+    /**
+     * Narrows the primitive non-null type names derived from the branches to the non-null names the
+     * property declares itself, so the declared type takes part in the type hint instead of being
+     * replaced by the branch types.
+     *
+     * Class names are passed through untouched. They are produced from the declared type, not
+     * declared by it: the enum post processor rewrites the branches of a `type: string` property to
+     * enum classes, and the property then returns such an enum object. Intersecting the class names
+     * with the declared `string` would drop them, leaving a `?string` type hint on a getter which
+     * returns an enum and throws a TypeError.
+     *
+     * @param string[] $nonNullNames
+     *
+     * @return string[]
+     */
+    private static function narrowToDeclaredType(PropertyInterface $property, array $nonNullNames): array
+    {
+        $declaredNonNullNames = array_values(array_filter(
+            self::getDeclaredTypeNames($property) ?? [],
+            static fn(string $typeName): bool => $typeName !== 'null',
+        ));
+
+        if ($declaredNonNullNames === []) {
+            return $nonNullNames;
+        }
+
+        $primitiveNames = array_values(array_filter($nonNullNames, TypeCheck::isPrimitive(...)));
+        $classNames = array_values(array_diff($nonNullNames, $primitiveNames));
+
+        return array_merge(TypeIntersection::compute($primitiveNames, $declaredNonNullNames), $classNames);
+    }
+
+    /**
+     * Retypes the `number` properties among $property and its composition branches once the
+     * composition narrowed the type of $property to include `int`.
+     *
+     * A `number` property casts an int input to float and checks for a float before any other
+     * validation runs, and the draft registers its range keywords (minimum, multipleOf, ...) behind
+     * an `is_float` guard. Under a type which accepts `int` all of it is wrong: a `{type: integer}`
+     * branch would see 42.0 and reject the value 42 which the narrowed type accepts, the float
+     * check would reject the int that is left once the cast is gone, and the `is_float` guard never
+     * holds for an int, so the range keywords would silently stop applying. The cast is therefore
+     * removed and the draft's `integer` type modifiers are run, which build the type check and the
+     * range keywords for an int, like PropertyMerger does when it narrows float to int:
+     *
+     * - Narrowed to `int` only (allOf with an integer branch, or anyOf / oneOf whose branches all
+     *   admit int only): everything the draft's `number` type added is removed, the property
+     *   becomes an integer property. The branches are retyped together with the property: a
+     *   `number` branch hands its cast value on as the value of the property, so leaving its cast
+     *   in place would store a float in a property whose type hint says `int`, and its range
+     *   keywords would stop applying just like the property's.
+     * - Narrowed to `int | float` (anyOf / oneOf with an integer and a number branch): the float
+     *   check becomes an int | float check and the `number` range keywords stay next to the
+     *   `integer` ones, so both an int and a float are checked. The number branches (declared or
+     *   inherited) are retyped the same way: the property stores the value of the branch which
+     *   matched, so a number branch which kept its cast would store 5.0 for the input 5, and the
+     *   stored type would depend on the order of the branches (`[number, integer]` gave 5.0,
+     *   `[integer, number]` gave 5). Without any cast an int stays an int, a float a float.
+     *
+     * An integer `default` of the retyped property is kept as the int the schema declares: the
+     * number type renders it as a float, which an int property rejects and an int | float property
+     * would hand out inconsistently with an int input.
+     *
+     * Rejected alternatives:
+     * - Dropping the type check without a replacement: an anyOf narrowed to int by an `integer` and
+     *   a `string` branch would then accept strings, since the string branch no longer meets a
+     *   declared-type check.
+     * - Swapping only the cast and the type check: leaves the range keywords behind their
+     *   `is_float` guard, so `{type: number, minimum: 10, allOf: [{type: integer}]}` accepts 5.
+     * - Widening the number guards of the draft to `is_int || is_float`: changes the generated code
+     *   of every number property, and a custom draft would still carry the float-only guards.
+     * - Hard-coding the range keywords: duplicates the draft registration and misses the keywords a
+     *   custom draft registers for `number`.
+     * - Keeping the cast of an `int | float` property and casting after the composition instead:
+     *   needs a post-validation step the model template doesn't have, and the range keywords of the
+     *   property would still have to be rebuilt for the raw int.
+     *
+     * Only a property which carries the cast is changed: a plain `number` property or branch, or a
+     * multi-type property or branch whose `number` variant carries it (see
+     * retypeMultiTypeNumberVariant()). The narrowed type is read from $property, so this runs
+     * after transferPropertyType().
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException
+     */
+    protected static function retypeNumberPropertiesForNarrowedType(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        $typeNames = $property->getType()?->getNames() ?? [];
+
+        if (!in_array('int', $typeNames, true)) {
+            return;
+        }
+
+        $keepFloat = in_array('float', $typeNames, true);
+
+        foreach ([$property, ...$compositionProperties] as $candidate) {
+            $numberVariantTransfers = array_filter(
+                $candidate->getDecorators(),
+                static fn(PropertyDecoratorInterface $decorator): bool =>
+                    $decorator instanceof PropertyTransferDecorator
+                    && self::carriesIntToFloatCast($decorator->getProperty()),
+            );
+
+            if (!self::carriesIntToFloatCast($candidate) && $numberVariantTransfers === []) {
+                continue;
+            }
+
+            // A branch is retyped on its own copy: a `$ref` branch is the shared property of the
+            // referenced definition, retyping it in place would retype every other reference to it.
+            if ($candidate instanceof CompositionPropertyDecorator) {
+                $candidate->detachWrappedProperty();
+            }
+
+            if (self::carriesIntToFloatCast($candidate)) {
+                self::retypeNumberProperty($schemaProcessor, $schema, $candidate, $keepFloat);
+                continue;
+            }
+
+            foreach (self::detachNumberVariants($candidate) as $numberVariant) {
+                self::retypeMultiTypeNumberVariant($schemaProcessor, $schema, $candidate, $numberVariant, $keepFloat);
+            }
+        }
+    }
+
+    /**
+     * Replaces the transfer of every number variant of the multi-type $property by a transfer of a
+     * copy of the variant, keeping the order of the decorators. The variant is shared with every
+     * copy of the multi-type property (e.g. the definition a detached `$ref` branch was copied from),
+     * so removing its cast in place would remove it there as well.
+     *
+     * @return PropertyInterface[] the copied number variants
+     */
+    private static function detachNumberVariants(PropertyInterface $property): array
+    {
+        $decorators = $property->getDecorators();
+        $numberVariants = [];
+
+        $property->filterDecorators(static fn(): bool => false);
+
+        foreach ($decorators as $decorator) {
+            if (
+                $decorator instanceof PropertyTransferDecorator
+                && self::carriesIntToFloatCast($decorator->getProperty())
+            ) {
+                $numberVariant = clone $decorator->getProperty();
+                $numberVariants[] = $numberVariant;
+                $decorator = new PropertyTransferDecorator($numberVariant);
+            }
+
+            $property->addDecorator($decorator);
+        }
+
+        return $numberVariants;
+    }
+
+    /**
+     * Types a `number` property as int | float when one of its `if`, `then`, `else` or `not`
+     * schemas declares `integer`, and retypes it and its schemas like an anyOf / oneOf with an
+     * integer and a number branch (see retypeNumberPropertiesForNarrowedType()). These keywords don't narrow the
+     * type of the property, but they validate the same value: casting an int to float before them
+     * made a `{"type": "integer"}` schema reject every int (`then`) or accept it (`not`), as the
+     * generated integer type check accepts an int only. Not casting gives the int to the schema;
+     * the property is typed int | float as it stores the int it got.
+     *
+     * Only a `type` the schema declares itself counts: a schema which inherits the `number` of the
+     * property keeps the float property. Accepting a float without a fractional part in the
+     * integer type check instead (JSON Schema counts 1.0 as an integer) was rejected here: it
+     * changes every integer property, and an int property would then have to store the float as
+     * an int.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException
+     */
+    protected static function retypeNumberPropertyForIntegerSchemas(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        $declaredTypeNames = self::getDeclaredTypeNames($property) ?? [];
+        $type = $property->getType();
+
+        if (
+            !in_array('float', $declaredTypeNames, true)
+            || in_array('int', $declaredTypeNames, true)
+            || $type === null
+            || $type->getNames() !== ($property->getType(true)?->getNames() ?? [])
+        ) {
+            return;
+        }
+
+        $hasIntegerSchema = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $branch): bool =>
+                in_array('int', self::getBranchTypeNames($branch) ?? [], true),
+        ) !== [];
+
+        if (!$hasIntegerSchema) {
+            return;
+        }
+
+        $typeNames = array_merge(['int'], $type->getNames());
+        $property->setType(
+            new PropertyType($typeNames, $type->isNullable()),
+            new PropertyType($typeNames, $type->isNullable()),
+        );
+
+        self::retypeNumberPropertiesForNarrowedType($schemaProcessor, $schema, $property, $compositionProperties);
+    }
+
+    private static function carriesIntToFloatCast(PropertyInterface $property): bool
+    {
+        return array_filter(
+            $property->getDecorators(),
+            static fn(PropertyDecoratorInterface $decorator): bool => $decorator instanceof IntToFloatCastDecorator,
+        ) !== [];
+    }
+
+    /**
+     * @param bool $keepFloat true to retype to `int | float`, false to retype to `int`
+     *
+     * @throws SchemaException
+     */
+    private static function retypeNumberProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $candidate,
+        bool $keepFloat,
+    ): void {
+        $numberKeywords = $keepFloat ? [] : self::getNumberKeywords($schemaProcessor, $candidate);
+
+        self::removeIntToFloatCast($candidate);
+        $candidate->filterValidators(
+            static fn(Validator $validator): bool =>
+                !($validator->getValidator() instanceof TypeCheckInterface)
+                && !in_array($validator->getSourceKey(), $numberKeywords, true),
+        );
+
+        if ($keepFloat) {
+            // The integer type check modifier skips a property whose type check already accepts
+            // an int, so it adds nothing next to this one.
+            $candidate->addValidator(
+                (new MultiTypeCheckValidator(
+                    ['int', 'float'],
+                    $candidate,
+                    $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
+                        && !$candidate->isRequired(),
+                ))->withJsonPointer($candidate->getJsonSchema()->getPointer() . '/type'),
+                2,
+            );
+        }
+
+        self::applyIntegerTypeModifiers($schemaProcessor, $schema, $candidate);
+        self::keepAuthoredIntegerDefault($candidate);
+    }
+
+    /**
+     * Re-applies an integer `default` of $property as the int the schema declares, replacing the
+     * float the number type rendered it as.
+     */
+    private static function keepAuthoredIntegerDefault(PropertyInterface $property): void
+    {
+        $default = $property->getJsonSchema()->getJson()['default'] ?? null;
+
+        if (is_int($default) && $property->getDefaultValue() !== null) {
+            $property->setDefaultValue($default);
+        }
+    }
+
+    /**
+     * A multi-type property (`"type": ["number", ...]`) carries no cast itself: the cast sits on
+     * its number variant, which the multi-type property reaches through a
+     * PropertyTransferDecorator, while the validators of every variant were copied onto the
+     * multi-type property, and one MultiTypeCheckValidator checks all declared types. The cast is
+     * removed from the variant, and the type check is rebuilt with `int` in place of `float` (or
+     * next to it, for `int | float`), keeping the other declared types. For `int` only, the copied
+     * number validators are removed from the multi-type property as well. Replacing the check with
+     * an int-only check was rejected: `["number", "string"]` narrowed by an `integer` and a
+     * `string` branch has to keep accepting strings. The integer type modifiers then build the
+     * range keywords for an int; their type check modifier adds nothing, as the rebuilt check
+     * already accepts `int`.
+     *
+     * @param bool $keepFloat true to retype the variant to `int | float`, false to retype it to `int`
+     *
+     * @throws SchemaException
+     */
+    private static function retypeMultiTypeNumberVariant(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $multiTypeProperty,
+        PropertyInterface $numberVariant,
+        bool $keepFloat,
+    ): void {
+        $numberKeywords = $keepFloat ? [] : self::getNumberKeywords($schemaProcessor, $multiTypeProperty);
+        $replacementTypeNames = $keepFloat ? ['int', 'float'] : ['int'];
+        $multiTypeChecks = [];
+
+        foreach ($multiTypeProperty->getValidators() as $validator) {
+            if ($validator->getValidator() instanceof MultiTypeCheckValidator) {
+                $multiTypeChecks[] = $validator;
+            }
+        }
+
+        self::removeIntToFloatCast($numberVariant);
+        $multiTypeProperty->filterValidators(
+            static fn(Validator $validator): bool =>
+                !($validator->getValidator() instanceof MultiTypeCheckValidator)
+                && !in_array($validator->getSourceKey(), $numberKeywords, true),
+        );
+
+        foreach ($multiTypeChecks as $multiTypeCheck) {
+            $multiTypeProperty->addValidator(
+                $multiTypeCheck->getValidator()->withTypes(array_values(array_unique(array_merge(...array_map(
+                    static fn(string $typeName): array => $typeName === 'float' ? $replacementTypeNames : [$typeName],
+                    $multiTypeCheck->getValidator()->getTypes(),
+                ))))),
+                $multiTypeCheck->getPriority(),
+            );
+        }
+
+        self::applyIntegerTypeModifiers($schemaProcessor, $schema, $multiTypeProperty);
+        self::keepAuthoredIntegerDefault($multiTypeProperty);
+    }
+
+    /**
+     * The keywords the draft registers validators for on the `number` type
+     *
+     * @return string[]
+     */
+    private static function getNumberKeywords(SchemaProcessor $schemaProcessor, PropertyInterface $property): array
+    {
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($property->getJsonSchema());
+
+        foreach ($builtDraft->getCoveredTypes('number') as $coveredType) {
+            if ($coveredType->getType() === 'number') {
+                return array_values(array_filter(array_keys($coveredType->getModifiers()), is_string(...)));
+            }
+        }
+
+        return [];
+    }
+
+    private static function removeIntToFloatCast(PropertyInterface $property): void
+    {
+        $property->filterDecorators(
+            static fn(PropertyDecoratorInterface $decorator): bool => !($decorator instanceof IntToFloatCastDecorator),
+        );
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private static function applyIntegerTypeModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+    ): void {
+        $propertySchema = $property->getJsonSchema();
+
+        (new PropertyFactory())->applyTypeModifiers(
+            $schemaProcessor,
+            $schema,
+            $property,
+            $propertySchema->withJson(array_merge($propertySchema->getJson(), ['type' => 'integer'])),
+        );
     }
 
     /**
@@ -1066,8 +1754,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         throw new SchemaException(
             sprintf(
                 "Property '%s' is defined with conflicting types in allOf composition branches"
-                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
-                    . ' making this schema unsatisfiable.',
+                    . ' (file %s): allOf requires all constraints to hold simultaneously,'
+                    . ' making this schema unsatisfiable',
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
             ),
@@ -1164,9 +1852,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * ALL typed branches allow it.
      *
      * Does not throw: an empty non-null intersection is already rejected by
-     * assertNoAllOfConflict(), called unconditionally before transferPropertyType() ever reaches
-     * this method, so by the time we get here an empty intersection can only mean "every branch
-     * allows null" rather than a genuine conflict.
+     * assertBranchTypesAreSatisfiable(), called unconditionally before transferPropertyType(), so
+     * by the time we get here an empty intersection can only mean "every branch allows null"
+     * rather than a genuine conflict.
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      */
@@ -1186,6 +1874,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         if (empty($nonNullNames)) {
             // Only null survives the intersection; the null-processor path handles pure-null types.
+            return;
+        }
+
+        $nonNullNames = self::narrowToDeclaredType($property, $nonNullNames);
+
+        if (!$nonNullNames) {
+            // The branches don't overlap the declared type: the allOf can never be satisfied. It is
+            // only accepted inside a branch of another composition (see
+            // assertBranchTypesAreSatisfiable()), where the property keeps its declared type.
             return;
         }
 
@@ -1248,10 +1945,22 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         ));
 
         $hasNull = $hasExplicitNullBranch || in_array('null', $allNames, true);
-        $nonNullNames = array_values(array_filter(
-            array_unique($allNames),
-            static fn(string $typeName): bool => $typeName !== 'null',
-        ));
+
+        // Every branch is narrowed to the declared type on its own before the union is built.
+        // Building the union first and narrowing it afterwards was rejected: an integer and a
+        // number branch under a declared number would give [int, float] ∩ [float] = [float],
+        // dropping the int the integer branch accepts (int is a subtype of float only within a
+        // single intersection). Union of the narrowed branches is [int] ∪ [float] = [int, float].
+        $nonNullNames = array_values(array_unique(array_merge(...array_map(
+            static fn(CompositionPropertyDecorator $branch): array => self::narrowToDeclaredType(
+                $property,
+                array_values(array_filter(
+                    $branch->getType()->getNames(),
+                    static fn(string $typeName): bool => $typeName !== 'null',
+                )),
+            ),
+            $typedBranches,
+        ))));
 
         if (!$nonNullNames) {
             return;

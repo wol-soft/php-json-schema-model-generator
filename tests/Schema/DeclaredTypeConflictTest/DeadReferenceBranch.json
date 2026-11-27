@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    },
+    "shortValue": {
+      "maxLength": 3
+    },
+    "integerAlias": {
+      "$ref": "#/definitions/integerValue"
+    },
+    "anything": true
+  },
+  "properties": {
+    "property": {
+      "type": "string",
+      "%1$s": [
+        {
+          "$ref": "#/definitions/integerValue"
+        },
+        {
+          "$ref": "#/definitions/shortValue"
+        }
+      ]
+    },
+    "aliasProperty": {
+      "type": "string",
+      "%1$s": [
+        {
+          "$ref": "#/definitions/integerAlias"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "booleanReferenceProperty": {
+      "type": "string",
+      "%1$s": [
+        {
+          "$ref": "#/definitions/anything"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

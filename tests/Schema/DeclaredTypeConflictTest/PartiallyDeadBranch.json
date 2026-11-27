@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "number",
+      "%1$s": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "multiTypeProperty": {
+      "type": [
+        "string",
+        "boolean"
+      ],
+      "%1$s": [
+        {
+          "type": [
+            "integer",
+            "number"
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

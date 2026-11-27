@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
+use PHPModelGenerator\Utils\TypeNameFormatter;
 
 class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostProcessor
 {
@@ -238,12 +239,12 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     $property,
                     $patternType,
                     sprintf(
-                        "Property '%s' has type %s but the matching patternProperties pattern '%s' requires type %s." .
-                        " These constraints are contradictory, making this schema unsatisfiable.",
+                        "Property '%s' has type %s but the matching patternProperties pattern '%s' requires type %s:"
+                            . ' these constraints are contradictory, making this schema unsatisfiable',
                         $property->getName(),
-                        implode('|', $property->getType(true)->getNames()),
+                        TypeNameFormatter::fromPhpTypes($property->getType(true)->getNames()),
                         $patternPropertiesValidator->getPattern(),
-                        implode('|', $patternType->getNames()),
+                        TypeNameFormatter::fromPhpTypes($patternType->getNames()),
                     ),
                 );
             }

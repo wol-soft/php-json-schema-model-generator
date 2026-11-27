@@ -32,7 +32,7 @@ class DefaultValueModifier implements ModifierInterface
         if ($this->isScalarInsideCompositionBranch($propertySchema)) {
             $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
                 "Property '{property}' declares a default value inside a composition branch in file"
-                    . " '{file}'. Scalar branch defaults are unreachable and will be ignored.",
+                    . " '{file}': scalar branch defaults are unreachable and are ignored",
                 ['property' => $property->getName(), 'file' => $propertySchema->getFile()],
             );
 
@@ -50,8 +50,16 @@ class DefaultValueModifier implements ModifierInterface
         foreach ($types as $jsonType) {
             $phpType = TypeConverter::jsonSchemaToPHP($jsonType);
 
-            // Allow integer literals as defaults for 'number' (float) properties
+            // Allow integer literals as defaults for 'number' (float) properties. A number which a
+            // composition already typed to accept an int (int | float, or int when narrowed) keeps
+            // the int the schema declares: the float would be rejected by an int property, and an
+            // int | float property would hand out 5.0 for a default but 5 for the same input.
             if ($phpType === 'float' && is_int($default)) {
+                if (in_array('int', $property->getType()?->getNames() ?? [], true)) {
+                    $property->setDefaultValue($default);
+                    return;
+                }
+
                 $default = (float) $default;
             }
 
@@ -72,7 +80,7 @@ class DefaultValueModifier implements ModifierInterface
 
         throw new SchemaException(
             sprintf(
-                'Invalid type for default value of property %s in file %s',
+                "Invalid type for default value of property '%s' in file %s",
                 $property->getName(),
                 $propertySchema->getFile(),
             ),
@@ -88,7 +96,7 @@ class DefaultValueModifier implements ModifierInterface
      *
      * - A *named property inside an object-typed branch* (e.g. `sandbox` in
      *   `oneOf/1/properties/sandbox`) — its pointer ends with `/properties/<name>`.
-     *   This is the object-level branch default handled by Phase 2; it must not be dropped.
+     *   This is an object-level branch default, applied per branch at runtime; it must not be dropped.
      *
      * - A *branch schema that is itself scalar* (e.g. `oneOf/0` → `{type:string, default:"x"}`
      *   where the property value IS the discriminant) — its pointer ends with a branch-index

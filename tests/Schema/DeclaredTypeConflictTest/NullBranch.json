@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "%1$s": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requiredProperty": {
+      "type": "string",
+      "%1$s": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "requiredProperty"
+  ]
+}

@@ -16,11 +16,6 @@ use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PatternPropertiesTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -186,7 +181,9 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'alpha' has type string but the matching patternProperties pattern '\\^a' requires type int/",
+            "/^Property 'alpha' has type 'string' but the matching patternProperties pattern '\\^a' requires type"
+                . " 'integer': these constraints are contradictory, making this schema unsatisfiable"
+                . ' at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('DeclaredPropertyConflictsWithPattern.json');
@@ -231,8 +228,9 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'alpha' has type int\|string but the matching patternProperties pattern"
-                . " '\\^a' requires type bool/",
+            "/^Property 'alpha' has type \\['integer', 'string'\\] but the matching patternProperties pattern"
+                . " '\\^a' requires type 'boolean': these constraints are contradictory, making this schema"
+                . ' unsatisfiable at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('CompositionPropertyConflictsWithPattern.json');

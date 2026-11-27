@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "%1$s": [
+    {
+      "type": "string"
+    },
+    {
+      "type": "integer"
+    }
+  ]
+}

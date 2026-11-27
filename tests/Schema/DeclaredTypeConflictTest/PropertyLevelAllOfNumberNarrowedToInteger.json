@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "properties": {
+    "narrowedProperty": {
+      "type": "number",
+      "minimum": 10,
+      "maximum": 20,
+      "multipleOf": 2,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "narrowedBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": "number",
+          "minimum": 10,
+          "exclusiveMaximum": 20
+        }
+      ]
+    },
+    "nullableNumber": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 10,
+      "allOf": [
+        {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      ]
+    },
+    "numberOrString": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "fractionalMultipleOfProperty": {
+      "type": "number",
+      "multipleOf": 1.5,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "fractionalMultipleOfBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": "number",
+          "multipleOf": 1.5
+        }
+      ]
+    },
+    "multiTypeBranch": {
+      "type": "integer",
+      "allOf": [
+        {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 10
+        }
+      ]
+    },
+    "narrowedWithDefault": {
+      "type": "number",
+      "default": 5,
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

@@ -22,8 +22,8 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
     public function __construct(
         protected array $types,
         PropertyInterface $property,
-        bool $allowImplicitNull,
-        bool $treatObjectAsUninstantiatedShape = false,
+        private readonly bool $allowImplicitNull,
+        private readonly bool $treatObjectAsUninstantiatedShape = false,
     ) {
         // if null is explicitly allowed we don't need an implicit null pass through
         if (in_array('null', $this->types)) {
@@ -47,6 +47,17 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
             InvalidTypeException::class,
             [$this->types],
         );
+    }
+
+    /**
+     * A copy of this check for the same property and JSON pointer which accepts $types instead
+     *
+     * @param string[] $types
+     */
+    public function withTypes(array $types): self
+    {
+        return (new self($types, $this->property, $this->allowImplicitNull, $this->treatObjectAsUninstantiatedShape))
+            ->withJsonPointer($this->jsonPointer);
     }
 
     /**

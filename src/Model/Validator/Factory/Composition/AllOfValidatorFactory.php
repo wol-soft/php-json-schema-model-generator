@@ -40,6 +40,7 @@ class AllOfValidatorFactory
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
             $schemaProcessor,
+            $schema,
             $property,
             $propertySchema,
         );
@@ -74,7 +75,19 @@ class AllOfValidatorFactory
                     $schema,
                 ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
+                        self::assertBranchTypesAreSatisfiable(
+                            $schemaProcessor->getGeneratorConfiguration(),
+                            $property,
+                            $compositionProperties,
+                            $this->key,
+                        );
                         self::transferPropertyType($property, $compositionProperties, true);
+                        self::retypeNumberPropertiesForNarrowedType(
+                            $schemaProcessor,
+                            $schema,
+                            $property,
+                            $compositionProperties,
+                        );
 
                         $mergedProperty = !($property instanceof BaseProperty)
                             ? $schemaProcessor->createMergedProperty(

@@ -41,6 +41,7 @@ class OneOfValidatorFactory
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
             $schemaProcessor,
+            $schema,
             $property,
             $propertySchema,
         );
@@ -68,9 +69,27 @@ class OneOfValidatorFactory
         $resolvedCompositions = 0;
         foreach ($compositionProperties as $compositionProperty) {
             $compositionProperty->onResolve(
-                function () use (&$resolvedCompositions, $property, $compositionProperties): void {
+                function () use (
+                    &$resolvedCompositions,
+                    $property,
+                    $compositionProperties,
+                    $schemaProcessor,
+                    $schema,
+                ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
+                        self::assertBranchTypesAreSatisfiable(
+                            $schemaProcessor->getGeneratorConfiguration(),
+                            $property,
+                            $compositionProperties,
+                            $this->key,
+                        );
                         self::transferPropertyType($property, $compositionProperties, false);
+                        self::retypeNumberPropertiesForNarrowedType(
+                            $schemaProcessor,
+                            $schema,
+                            $property,
+                            $compositionProperties,
+                        );
                     }
                 },
             );

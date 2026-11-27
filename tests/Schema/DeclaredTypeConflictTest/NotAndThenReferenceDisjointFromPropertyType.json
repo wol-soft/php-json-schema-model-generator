@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "definitions": {
+    "integerValue": {
+      "type": "integer"
+    },
+    "shortValue": {
+      "maxLength": 3
+    }
+  },
+  "properties": {
+    "notInteger": {
+      "type": "string",
+      "not": {
+        "$ref": "#/definitions/integerValue"
+      }
+    },
+    "notShort": {
+      "type": "string",
+      "not": {
+        "$ref": "#/definitions/shortValue"
+      }
+    },
+    "conditional": {
+      "type": "string",
+      "if": {
+        "minLength": 2
+      },
+      "then": {
+        "$ref": "#/definitions/integerValue"
+      }
+    }
+  },
+  "required": [
+    "notInteger",
+    "notShort"
+  ]
+}

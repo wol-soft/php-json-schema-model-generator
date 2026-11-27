@@ -15,11 +15,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use ReflectionMethod;
 
-/**
- * Class ComposedAnyOfTest
- *
- * @package PHPModelGenerator\Tests\ComposedValue
- */
 #[ApplicableDrafts]
 class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 {

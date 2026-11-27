@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "../DeclaredTypeConflictTest_external/IntegerAlias.json"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}
