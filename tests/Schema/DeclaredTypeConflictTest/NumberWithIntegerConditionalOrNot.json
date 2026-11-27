@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "properties": {
+    "thenInteger": {
+      "type": "number",
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "type": "integer"
+      }
+    },
+    "rangedThenInteger": {
+      "type": "number",
+      "minimum": 1,
+      "if": {
+        "maximum": 5
+      },
+      "then": {
+        "type": "integer"
+      }
+    },
+    "notInteger": {
+      "type": "number",
+      "not": {
+        "type": "integer"
+      }
+    },
+    "plainConditional": {
+      "type": "number",
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "maximum": 10
+      }
+    }
+  }
+}

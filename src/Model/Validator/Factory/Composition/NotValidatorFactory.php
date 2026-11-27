@@ -94,6 +94,17 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
             );
         }
 
+        foreach ($compositionProperties as $compositionProperty) {
+            $compositionProperty->onResolve(
+                static fn() => self::retypeNumberPropertyForIntegerSchemas(
+                    $schemaProcessor,
+                    $schema,
+                    $property,
+                    $compositionProperties,
+                ),
+            );
+        }
+
         $availableAmount = count($compositionProperties);
 
         $property->addValidator(

@@ -195,6 +195,10 @@ The check follows these rules:
   before the branches are validated, so the ``integer`` branch sees it, and the property stores the value of the
   first branch which matches. ``{"type": "number", "oneOf": [{"type": "integer"}, {"type": "number"}]}`` therefore
   rejects ``5`` (it matches both branches) and accepts ``5.5``.
+* The same applies to a ``number`` property whose ``if``, ``then``, ``else`` or ``not`` schema declares
+  ``"type": "integer"``: the property is typed ``int | float`` and the ``int`` reaches the schema uncast.
+  ``{"type": "number", "if": {"minimum": 0}, "then": {"type": "integer"}}`` accepts ``5`` (stored as an ``int``)
+  and ``-1.5``, and rejects ``5.5``. A schema which only inherits ``number`` keeps the ``float`` property.
 * ``null`` is a type like any other: a declared ``string`` and a ``null`` branch do not overlap. With
   `implicit null <../gettingStarted.html#implicit-null>`__ enabled an optional property additionally accepts
   ``null``, so a ``null`` branch overlaps its declared type. A required property is not widened.

@@ -1398,6 +1398,62 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         return $numberVariants;
     }
 
+    /**
+     * Types a `number` property as int | float when one of its `if`, `then`, `else` or `not`
+     * schemas declares `integer`, and retypes it like an anyOf / oneOf with an integer and a
+     * number branch (see retypeNumberPropertiesForNarrowedType()). These keywords don't narrow the
+     * type of the property, but they validate the same value: casting an int to float before them
+     * made a `{"type": "integer"}` schema reject every int (`then`) or accept it (`not`), as the
+     * generated integer type check accepts an int only. Not casting gives the int to the schema;
+     * the property is typed int | float as it stores the int it got.
+     *
+     * Only a `type` the schema declares itself counts: a schema which inherits the `number` of the
+     * property keeps the float property. Accepting a float without a fractional part in the
+     * integer type check instead (JSON Schema counts 1.0 as an integer) was rejected here: it
+     * changes every integer property, and an int property would then have to store the float as
+     * an int.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException
+     */
+    protected static function retypeNumberPropertyForIntegerSchemas(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        $declaredTypeNames = self::getDeclaredTypeNames($property) ?? [];
+        $type = $property->getType();
+
+        if (
+            !in_array('float', $declaredTypeNames, true)
+            || in_array('int', $declaredTypeNames, true)
+            || $type === null
+            || $type->getNames() !== ($property->getType(true)?->getNames() ?? [])
+        ) {
+            return;
+        }
+
+        $hasIntegerSchema = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $branch): bool =>
+                in_array('int', self::getBranchTypeNames($branch) ?? [], true),
+        ) !== [];
+
+        if (!$hasIntegerSchema) {
+            return;
+        }
+
+        $typeNames = array_merge(['int'], $type->getNames());
+        $property->setType(
+            new PropertyType($typeNames, $type->isNullable()),
+            new PropertyType($typeNames, $type->isNullable()),
+        );
+
+        self::retypeNumberPropertiesForNarrowedType($schemaProcessor, $schema, $property, []);
+    }
+
     private static function carriesIntToFloatCast(PropertyInterface $property): bool
     {
         return array_filter(

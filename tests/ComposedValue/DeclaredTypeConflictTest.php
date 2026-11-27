@@ -1065,4 +1065,87 @@ class DeclaredTypeConflictTest extends AbstractPHPModelGeneratorTestCase
             );
         }
     }
+
+    /**
+     * A number property whose `if`, `then`, `else` or `not` schema declares `integer` is typed
+     * int | float and doesn't cast an int to float before the conditional runs, like a number with
+     * an integer and a number anyOf branch: the generated `integer` type check accepts an int only,
+     * so after the cast `{"then": {"type": "integer"}}` rejected 5 and `{"not": {"type": "integer"}}`
+     * accepted it. The range keywords of the property apply to an int as well. A conditional which
+     * only inherits the number type (plainConditional) keeps the float property.
+     */
+    public function testNumberPropertyWithIntegerConditionalOrNotIsTypedIntOrFloat(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NumberWithIntegerConditionalOrNot.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        foreach (['getThenInteger', 'getRangedThenInteger'] as $getter) {
+            $this->assertEqualsCanonicalizing(['int', 'float', 'null'], $this->getReturnTypeNames($className, $getter));
+        }
+        // Only int and float: whether the getter of a property with a `not` is nullable is
+        // pinned by ComposedNotTest::testNotProvidedOptionalTypedPropertyWithNotIsValid.
+        $this->assertEqualsCanonicalizing(
+            ['int', 'float'],
+            array_values(array_diff($this->getReturnTypeNames($className, 'getNotInteger'), ['null'])),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'null'],
+            $this->getReturnTypeNames($className, 'getPlainConditional'),
+        );
+
+        // The not property is always provided: a `not` marks its property as required.
+        $object = new $className([
+            'thenInteger' => 5,
+            'rangedThenInteger' => 3,
+            'notInteger' => 5.5,
+            'plainConditional' => 5,
+        ]);
+        $this->assertSame(5, $object->getThenInteger());
+        $this->assertSame(3, $object->getRangedThenInteger());
+        $this->assertSame(5.5, $object->getNotInteger());
+        $this->assertSame(5.0, $object->getPlainConditional());
+        $this->assertSame(
+            -1.5,
+            (new $className(['thenInteger' => -1.5, 'notInteger' => 5.5]))->getThenInteger(),
+        );
+
+        $invalidInputs = [
+            [
+                ['thenInteger' => 5.5, 'notInteger' => 5.5],
+                <<<ERROR
+                Invalid value for 'thenInteger' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid type for 'thenInteger': requires 'int', got 'double'
+                ERROR,
+            ],
+            [
+                ['rangedThenInteger' => 0, 'notInteger' => 5.5],
+                "Value for 'rangedThenInteger' must not be smaller than 1",
+            ],
+            [
+                ['rangedThenInteger' => 0.5, 'notInteger' => 5.5],
+                "Value for 'rangedThenInteger' must not be smaller than 1",
+            ],
+            [
+                ['notInteger' => 5],
+                <<<ERROR
+                Invalid value for 'notInteger' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
+                  - Composition element #1: Valid
+                ERROR,
+            ],
+        ];
+
+        foreach ($invalidInputs as [$input, $expectedMessage]) {
+            try {
+                new $className($input);
+                $this->fail('Expected a ValidationException for ' . json_encode($input));
+            } catch (ValidationException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+        }
+    }
 }

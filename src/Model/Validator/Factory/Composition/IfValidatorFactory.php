@@ -161,6 +161,27 @@ class IfValidatorFactory
 
         $this->applyIfThenElseTypeSemantics($property, $properties);
 
+        $conditionalSchemas = array_values(array_filter($properties));
+        $resolvedConditionalSchemas = 0;
+        foreach ($conditionalSchemas as $conditionalSchema) {
+            $conditionalSchema->onResolve(function () use (
+                &$resolvedConditionalSchemas,
+                $conditionalSchemas,
+                $schemaProcessor,
+                $schema,
+                $property,
+            ): void {
+                if (++$resolvedConditionalSchemas === count($conditionalSchemas)) {
+                    self::retypeNumberPropertyForIntegerSchemas(
+                        $schemaProcessor,
+                        $schema,
+                        $property,
+                        $conditionalSchemas,
+                    );
+                }
+            });
+        }
+
         $property->addValidator(
             (new ConditionalPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
@@ -337,15 +358,15 @@ class IfValidatorFactory
      *
      * When both then and else branches are present, a coordinated callback fires after both
      * resolve to:
-     * - Detect unsatisfiable schemas: if the parent property has a declared type that is
-     *   incompatible (empty intersection) with BOTH then and else types, throw SchemaException.
+     * - Detect contradicting branches: if the parent property has a declared type that is
+     *   incompatible (empty intersection) with the then or the else type, throw SchemaException
+     *   (see detectIfThenElseConflict()).
      * - Widen the property type: when the parent property has no declared type, compute the
      *   union of then and else types (anyOf-like semantics) and apply it to the parent property.
      *
      * If else is absent, the absent branch accepts any value when `if` evaluates to false, so
      * the composition cannot constrain the type further; widening is skipped (property stays
-     * mixed). Conflict detection also requires both branches to be present — a single conflicting
-     * branch does not make the schema unsatisfiable.
+     * mixed). Conflict detection also requires both branches to be present.
      *
      * The parent type is captured at call time (before branch resolution) to avoid reading a
      * value that may have been mutated by concurrent onResolve side-effects.
@@ -412,12 +433,12 @@ class IfValidatorFactory
 
     /**
      * Throw a SchemaException when the parent property's declared type is incompatible with
-     * BOTH the then and the else branch types (empty intersection on both sides).
+     * the then or the else branch type (empty intersection on either side).
      *
-     * A schema is unsatisfiable under this condition: no value can simultaneously satisfy the
-     * parent type constraint and whichever composition branch fires. The schema is NOT
-     * unsatisfiable when only one branch conflicts (values that satisfy the compatible branch
-     * are still valid).
+     * This is stricter than unsatisfiability: with only one conflicting branch the values which
+     * select the other branch are still valid, but the conflicting branch can never be satisfied,
+     * so the schema is rejected as contradictory all the same (pinned by
+     * ComposedIfTest::testIfThenElseDeadThenBranchWithNonNullTypeConflictThrowsSchemaException).
      *
      * @throws SchemaException
      */
@@ -448,8 +469,7 @@ class IfValidatorFactory
             throw new SchemaException(
                 sprintf(
                     "Property '%s' has an if/then/else composition branch with a type incompatible"
-                        . " with the property's declared type (file %s)."
-                        . ' No value can satisfy both constraints.',
+                        . " with the property's declared type (file %s): no value can satisfy both constraints",
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 ),
